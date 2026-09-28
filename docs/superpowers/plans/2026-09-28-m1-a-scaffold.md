@@ -24,7 +24,7 @@ copy what spiflash does and change only the names.
 - Modify: `.gitignore` (add `src/uspiflash/_version.py`, `docs/_build/`,
   `docs/_generated/`, `docs/_autosummary/`)
 - Modify: `docs/superpowers/specs/2026-09-28-uspiflash-design.md` (append
-  "Amendments (M1 plan)", the six decisions from the M1 index, verbatim)
+  "Amendments (M1 plan)", the numbered decisions from the M1 index, verbatim)
 
 **Interfaces:**
 - Produces:
@@ -65,7 +65,9 @@ classifiers = [
     "Topic :: Software Development :: Code Generators",
 ]
 # The one runtime dependency: the database. Everything else is optional.
-dependencies = ["spiflash"]
+# 0.0.post38 added datasheets (Flash.datasheets, the `datasheet:` line and
+# the JSON `datasheets` list), which the generator and its oracle rely on.
+dependencies = ["spiflash>=0.0.post38"]
 
 [project.urls]
 Homepage = "https://github.com/mithro/uspiflash"
@@ -430,7 +432,7 @@ Then smoke-test the sandbox itself: `uv run python -m uspiflash.sandbox
 - [ ] **Step 6: Amend the spec**
 
 Append to the spec a section `## 13. Amendments (M1 plan, 2026-09-28)`
-containing the six numbered decisions from the M1 index, verbatim.
+containing the numbered decisions from the M1 index, verbatim.
 
 - [ ] **Step 7: Commit (three commits)**
 
@@ -655,7 +657,7 @@ Build-Depends: debhelper-compat (= 13),
                python3-hatchling,
                python3-hatch-vcs,
                python3-setuptools-scm,
-               python3-spiflash,
+               python3-spiflash (>= 0.0.post38~),
                python3-pytest <!nocheck>,
                gcc <!nocheck>,
 Standards-Version: 4.7.0
@@ -667,7 +669,7 @@ Rules-Requires-Root: no
 Package: python3-uspiflash
 Architecture: all
 Depends: python3 (>= 3.11),
-         python3-spiflash,
+         python3-spiflash (>= 0.0.post38~),
          ${python3:Depends},
          ${misc:Depends}
 Provides: uspiflash
@@ -680,6 +682,12 @@ Description: generator of tiny C libraries that detect SPI flash chips
  .
  This package provides the uspiflash Python module and the uspiflash command.
 ```
+
+The trailing `~` in `(>= 0.0.post38~)` matters. spiflash's debs are
+versioned `0.0.post38~deb13` (bookworm `~deb12`, and so on), and `~`
+sorts before everything in dpkg. So `0.0.post38~deb13` is *lower* than
+`0.0.post38` and would not satisfy `>= 0.0.post38`. The same applies to
+`Build-Depends`: write `python3-spiflash (>= 0.0.post38~)` there too.
 
 `debian/rules`: copy spiflash's. Set `PYBUILD_NAME = uspiflash`, keep the
 `SETUPTOOLS_SCM_PRETEND_VERSION` line, and set:
