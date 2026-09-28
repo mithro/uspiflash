@@ -1,0 +1,548 @@
+# uspiflash — design
+
+Date: 2026-09-28. Status: draft for review.
+
+## 1. What this is
+
+`uspiflash` is a Python tool that reads the
+[spiflash](https://github.com/mithro/spiflash) database and writes a **single C
+file** that, on a device, detects which SPI flash chip is attached and reports
+what it can do. The generated file is meant to be committed into other
+projects (Zephyr, MicroPython, the LiteX BIOS, bare-metal firmware, Linux
+tools), so it carries its own provenance and regeneration instructions.
+
+The one optimisation target is **bytes on the device**: code and data,
+flash and SRAM, counted together. Decode speed is recorded but never traded
+against size: detection happens rarely, at human timescales.
+
+### Goals
+
+1. Carry *everything* spiflash knows (at the `full` detail level), in the
+   fewest device bytes, with smaller presets and database subsets for tighter
+   parts.
+2. Build warning-free (`-Wall -Wextra -Wpedantic -Werror`) with every
+   supported GCC, LLVM and SDCC version, need no libc functions, and never
+   allocate memory.
+3. Generate specialised output per CPU architecture and compiler, chosen by
+   measurement, and prove every specialisation behaves identically to the
+   portable one.
+4. Record every size measurement and experiment so that any of it can be
+   rerun and rechecked later, by anyone.
+5. Demonstrate it in Zephyr (Renode), MicroPython (Renode), a custom LiteX
+   BIOS (fpgas.online: Arty A7, TT FPGA demo board, Fomu) and a static Linux
+   spidev tool (QEMU and a fpgas.online Raspberry Pi).
+
+### Non-goals
+
+- Reading, programming or erasing flash contents. The library only issues the
+  commands needed to identify a chip (and, with SFDP enabled, to read its
+  SFDP tables). It *reports* the read/program/erase commands a driver needs.
+- MSVC / Windows.
+- Building toolchains in the normal development flow (see §7.2).
+- 8051/8052 optimisation (Phase 2, §11). SDCC builds for mcs51 are compiled
+  and tested from the start so the portable core stays 8051-clean.
+
+## 2. Decisions (from the question round, 2026-09-28)
+
+| Topic | Decision |
+|---|---|
+| Name | `uspiflash`: repo `mithro/uspiflash`, PyPI `uspiflash`, module `uspiflash`, CLI `uspiflash`. The MicroPython module is also `uspiflash`. |
+| Output file / C prefix | Chosen on the generator command line; defaults `uspiflash.h`, `usf_` / `USF_`. |
+| Licences | Tool: Apache-2.0. Generated C file: Apache-2.0. |
+| Detail levels | Presets (`read`, `write`, `full`, …) plus database subsetting; main effort goes into making `full` small, strings especially. |
+| SFDP | Optional module in the output; a core part of the generator and its tests. |
+| Objective | Size only (code + data, flash + SRAM). Instruction counts recorded, never optimised for. |
+| Toolchains | Prebuilt only: existing Docker images and release tarballs. Separate, optional tooling may build and publish images to ghcr.io. |
+| WCH | WCH's MounRiver GCC forks included, labelled "vendor fork". |
+| LiteX hard CPUs | Size tracking only. |
+| Zephyr | Module + sample + runtime-configured flash driver, in Renode. |
+| MicroPython | `USER_C_MODULE` and a dynamic native `.mpy`, in Renode. |
+| LiteX | Custom BIOS in this repo; Arty A7, TT FPGA demo board and a real Fomu, all on fpgas.online. Flash writes allowed. |
+| Linux tool | QEMU (m25p80) in CI and a real fpgas.online Pi. |
+| Debian | `python3-uspiflash` (all) and `uspiflash-linux` (static tool, per architecture). |
+| Process | Worktrees under `.worktrees/`, small commits, a PR per milestone, self-merge after green CI and a subagent review; up to 2 subagents at a time. PRs to `mithro/spiflash` allowed when the C side needs data. |
+| Sandboxing | Every heavy job runs in a resource-limited scope whose limits are set from the machine's current load (§7.5). |
+
+## 3. The data, measured
+
+From spiflash at commit `0556ad6` (2026-09-27), computed by a throwaway
+script, recomputed and recorded properly as the first experiment in M1:
+
+| Quantity | Value |
+|---|---|
+| Chip ids (`Flash` objects) | 778 (651 NOR, 127 NAND) |
+| Id families | JEDEC 751, RES2 12, REMS 6, RES1 4, AT25F 4, ST95 1 |
+| Id lengths (bytes, after continuation codes) | 3: 660, 2: 110, 1: 5, 5: 3 |
+| JEP106 banks used | 0: 727, 1: 26, 6: 24, 7: 1 |
+| Manufacturers | 37 (224 bytes of names) |
+| Part names | 1,202 (11,238 bytes; 3,584 bytes zlib -9), up to 19 per id |
+| Part-name alphabet | 40 characters: `)-.0-9A-Z_` |
+| Distinct opcode sets / with source attribution | 215 / 314 (of 58 operations used) |
+| Distinct feature sets | 126 |
+| Distinct (size, page, sector, voltage) tuples | 163 |
+| Ids whose sources conflict | 60 |
+| Ids with extended-id variants | 21 (67 records) |
+
+Almost every per-chip attribute is drawn from a small set of distinct values,
+so the baseline encoding (§5.4) stores per-chip indices into small
+deduplicated tables, and the research effort goes into the strings.
+
+## 4. Architecture
+
+```
+spiflash (PyPI)  ──►  uspiflash.model    snapshot of the database as plain,
+                                          immutable Python values (the "IR")
+                        │
+                        ▼
+                      uspiflash.select   detail level + chip filters → the
+                                          fields and chips that will be emitted
+                        │
+                        ▼
+                      uspiflash.codecs   each codec = Python encoder + the C
+                                          decoder it needs (tables, strings,
+                                          bitfields, id search)
+                        │
+                        ▼
+                      uspiflash.targets  Target class hierarchy: picks codecs
+                                          and C idioms per architecture/compiler
+                        │
+                        ▼
+                      uspiflash.emit     renders the single C file from
+                                          templates, with provenance header
+```
+
+Beside the generator:
+
+- `uspiflash.measure`: compiles a generated file with a given toolchain and
+  target and returns section sizes, the linked-image difference, symbol
+  sizes, stack use, and which libgcc/compiler-rt helpers were pulled in.
+- `uspiflash.sim`: runs a test harness under an instruction-set simulator
+  and returns its output and instruction count.
+- `uspiflash.oracle`: the expected output for any id or bus transcript,
+  computed with the Python spiflash package.
+
+### 4.1 Approaches considered
+
+1. **A fixed hand-written C file with `#if` switches, and Python emitting only
+   data tables.** Simple, but every specialisation becomes more preprocessor
+   branches in one file, and the data layout cannot change per target.
+2. **Python emitting all code, e.g. lookup compiled to a decision tree of
+   `if`/`switch`.** Code-as-data can win on some ISAs, but it is hard to review
+   and hard to prove equivalent, and it bloats on others.
+3. **Chosen: a template core plus pluggable codecs, specialised by a `Target`
+   class hierarchy.** The core C (probe sequence, API, printer) is a readable
+   template. Each data structure is produced by a *codec*: a Python encoder
+   paired with its C decoder fragment. A `Target` subclass chooses codecs and
+   idioms (integer widths, `__code` placement, how to avoid a multiply) for
+   its architecture and compiler. Approach 2 survives as one more codec (a
+   decision-tree id search) and is kept only where it measures smaller.
+
+### 4.2 The `Target` hierarchy
+
+```
+Target                      portable C99; the reference every other target
+ │                          is tested against
+ ├── Target32               32-bit load/store CPUs: word-aligned tables
+ │    ├── ArmThumb          Thumb-1 limits (M0/M0+/M23): no wide immediates
+ │    │    └── ArmThumb2    M3/M4/M7/M33/M55/M85
+ │    ├── RiscV32           rv32i/e with or without C/M/Zc*
+ │    │    └── WchRiscV     rv32ec/rv32imac + XW with MounRiver GCC
+ │    ├── OpenRisc          or1k, big-endian
+ │    └── PowerPC64         microwatt (ppc64le)
+ ├── Target64Host           Linux hosts (x86-64, aarch64, riscv64)
+ └── Target8                8-bit: byte-wide everything
+      └── Mcs51Sdcc         Phase 2
+```
+
+A target decides:
+
+- which codec each structure gets
+- integer types and loop idioms
+- whether to avoid `*`, `/` and `%` (no hardware divide on rv32e, rv32i or M0)
+- qualifiers such as SDCC's `__code`
+- alignment
+
+The choice for each target and compiler is **data, not code**: a table of
+measured winners shipped with the package (`uspiflash/targets/best.toml`),
+regenerated by `uspiflash research select`. Generating output never needs a
+compiler installed. `--search` compiles every candidate with the local
+toolchain and picks the smallest.
+
+### 4.3 Detail levels and subsets
+
+A detail level is a named set of *fields*; the command line can add or remove
+single fields (`--level write --with voltage --without names`).
+
+| Level | Contents (cumulative) |
+|---|---|
+| `id` | probe; identify the chip; manufacturer and chip index only |
+| `read` | + size, 3/4-byte addressing, the fastest read of each width (opcode, protocol, address bytes, dummy clocks), NOR/NAND |
+| `write` | + page size, every eraser with its block layout, program opcodes, write-enable/status/register operations, lock/OTP/no-erase flags |
+| `describe` | + part names, manufacturer names, voltage, all features, all operations, and the text printer |
+| `full` (default) | everything `spiflash id --opcodes --json` prints: + per-feature and per-operation source attribution, conflicting values, the source list, operation descriptions, extended-id narrowing |
+
+Opt-in extras beyond `full`:
+
+- `jep106-all`: every manufacturer name, not just those with flash chips
+- `provenance`: upstream file and line, flags, notes
+
+Subsets filter chips before encoding:
+
+- `--manufacturer`
+- `--id` (an explicit list, e.g. the chips on one board)
+- `--type nor|nand`, `--family jedec`, `--min-size` / `--max-size`
+
+A subset only shrinks the tables; the code shrinks when a level drops fields.
+
+## 5. The generated C file
+
+### 5.1 Shape
+
+A single stb-style header, C99 restricted to what SDCC accepts, usable from
+C++ (`extern "C"`):
+
+```c
+#include "uspiflash.h"             /* declarations only */
+
+#define USF_IMPLEMENTATION         /* in exactly one .c file */
+#include "uspiflash.h"
+```
+
+It begins with a comment block (§5.5) and has extensive inline
+documentation: every public symbol, the encoding of every table, and why each
+unusual idiom is there (with a link to the experiment that justified it).
+
+Dependencies:
+
+- **No libc functions** at all. The headers `<stdint.h>` and `<stddef.h>`
+  are optional (they are freestanding headers; SDCC and very early boot code
+  can define `USF_NO_STDINT` and supply the types).
+- **No memory allocation, no writable static state.** All tables are `const`
+  and live in flash (or `__code` on 8051). SRAM use is the caller's result
+  struct plus stack. Peak stack is measured and published per target.
+- **No compiler-generated calls.** Tests link with `-nostdlib` so that a
+  compiler-generated `memcpy`, `memset` or `__udivsi3` fails the build rather
+  than silently adding bytes.
+
+### 5.2 API (sketch; names use the default prefix)
+
+```c
+/* Transport: the one thing a port must provide. Either define the macro
+ * (zero overhead, inlined by the compiler) or leave it undefined and pass
+ * a function pointer in usf_bus. */
+#define USF_XFER(bus, tx, txlen, rx, rxlen)  my_spi_xfer(...)
+
+typedef struct usf_chip usf_chip;   /* small; the caller owns it */
+
+int  usf_probe(usf_bus *bus, usf_chip *out);           /* talk to the chip */
+int  usf_lookup(const uint8_t *id, uint8_t len,
+                usf_chip *out);                        /* id bytes → chip */
+/* Accessors decode on demand from ROM; nothing is copied to RAM. */
+uint32_t usf_size(const usf_chip *c);
+uint16_t usf_page_size(const usf_chip *c);
+int      usf_supports(const usf_chip *c, uint8_t op);  /* USF_OP_READ_1_1_4 */
+int      usf_op(const usf_chip *c, uint8_t op, usf_op_info *out);
+int      usf_eraser(const usf_chip *c, uint8_t i, usf_eraser_info *out);
+void     usf_name(const usf_chip *c, uint8_t i,
+                  void (*putc)(void *ctx, char ch), void *ctx);
+/* `describe` and above: */
+void     usf_print(const usf_chip *c, void (*putc)(void *, char), void *ctx);
+void     usf_print_json(const usf_chip *c, void (*putc)(void *, char), void *ctx);
+/* SFDP module (#define USF_WITH_SFDP): */
+int      usf_sfdp_read(usf_bus *bus, usf_chip *out);
+```
+
+Strings are *streamed* through a putc callback rather than copied into
+buffers, so neither side needs a RAM buffer and packed strings can be
+decoded one character at a time. The exact API is settled in M1 by writing
+the Linux tool and the Zephyr driver against it (the two most demanding
+users).
+
+### 5.3 Probe sequence
+
+The order is designed so that no step can change a chip's contents:
+
+1. RES (`0xAB`): wakes a chip from deep power-down. Its response byte is kept
+   as the legacy RES1 signature.
+2. RDID (`0x9F`): reads up to 6 bytes, skips `0x7F` JEP106 continuation codes
+   (counting the bank), and keeps extra bytes for extended-id narrowing.
+3. If the RDID answer is all `0x00` or all `0xFF`: SPI NAND read-id (`0x9F`
+   plus one dummy byte), then REMS (`0x90` + 3 address bytes), then RES2
+   (`0xAB` with 3 dummy bytes, 2 bytes back), then AT25F (`0x15`) and ST95
+   signatures.
+4. The id is looked up in the family the command belongs to.
+5. With SFDP enabled and requested, the SFDP header and the Basic Flash
+   Parameter Table are read and merged (§5.6).
+
+Every step is a transcript of bytes on the bus. The test harness replays
+recorded and synthesised transcripts (§6.1).
+
+### 5.4 Encoding (baseline, then research)
+
+The baseline is chosen for obvious correctness; each later change must beat
+it on the size ledger with an experiment write-up.
+
+- **Id search:** one table per id family, sorted by (bank, id bytes) and
+  searched linearly. Linear search is smaller code than binary search, and
+  speed is not a target. Ids of different lengths are stored in separate
+  tables so no length byte is needed per entry.
+- **Per-chip record:** fixed-width indices into deduplicated tables:
+  geometry (163), opcode set (215; 314 with attribution), feature set (126),
+  manufacturer (37), name list. Index widths are computed from the table
+  sizes and bit-packed only where a measurement shows the unpacking code
+  costs less than the bytes saved.
+- **Operation table:** the 58 operations in use, each as opcode, packed
+  protocol, address bytes, dummy clocks, data direction, kind, and a
+  description string reference.
+- **Strings:**
+  - baseline: NUL-separated ASCII
+  - research: 6-bit packing of the 40-character alphabet; front coding within
+    an id's name list (`W25Q128`, `W25Q128FV`, `W25Q128JV`) and across the
+    sorted list; manufacturer-prefix stripping; a small shared-substring
+    dictionary; and a tiny LZ77 variant whose decoder must be measured in
+    bytes (zlib's 3,584-byte result is the reference to beat, decoder
+    included)
+- **Printer:** number formatting avoids division (repeated subtraction by a
+  table of powers of ten), so no `__udivsi3` is linked on CPUs without a
+  hardware divide.
+
+### 5.5 Provenance header
+
+Every generated file starts with a comment giving:
+
+- uspiflash version and git description
+- spiflash version, data format and each upstream's commit (`spiflash.sources()`)
+- the full generator command line and the resolved configuration (level,
+  fields, subset, target, compiler hint, prefix, codecs chosen), plus a hash
+  of that configuration
+- the exact regeneration command, e.g.
+  `uvx --from 'uspiflash==X.Y' --with 'spiflash==A.B' uspiflash generate …`,
+  and how to check a committed copy (`uspiflash check uspiflash.h`)
+- the licence and the data provenance notice (from spiflash's
+  `debian/copyright`)
+- expected sizes for the reference targets
+
+There are **no wall-clock timestamps**: the same inputs give byte-identical
+output (checked in CI).
+
+### 5.6 SFDP
+
+The generator side is core:
+
+- JESD216 parameter decoding in Python, with fixtures
+- a mapping from BFPT fields to the same fields the database provides
+- tests that the C decoder agrees with the Python one on every fixture
+
+The C side is optional (`USF_WITH_SFDP`) and has its own size ledger entry.
+Fixtures come from QEMU's m25p80 SFDP tables, real chips on fpgas.online and
+published datasheet tables, each recorded with its origin.
+
+## 6. Verification
+
+### 6.1 Test oracle
+
+For every id in the database (and every extended-id variant) the expected
+answer comes from the Python spiflash package:
+
+- `usf_print` must match `spiflash id <id> --opcodes` byte for byte
+- `usf_print_json` must parse to the same object as `spiflash id <id>
+  --opcodes --json`
+
+This holds for each detail level: lower levels compare against the oracle
+restricted to their fields. Transcript tests cover the probe sequence: a
+fake bus answers like a given chip (including legacy-only, NAND, continuation
+codes, silent bus and stuck-at-0xFF bus).
+
+### 6.2 Layers
+
+| Layer | What runs | Where |
+|---|---|---|
+| Python unit tests | encoders round-trip, level selection, provenance, determinism | pytest |
+| Host C tests | the generated file compiled natively with gcc and clang, all ids + random non-ids + transcripts, under ASan/UBSan | pytest drives the compiler |
+| Compiler matrix | every (compiler version × target × level × codec set): must build warning-free and link with `-nostdlib` | Docker images, CI |
+| Simulator equivalence | the same test vectors run on the target ISA; the output must be byte-identical to the portable reference built for the host | Unicorn (ARM, RISC-V, PPC), QEMU user mode (or1k, ppc64le), ucsim (8051) |
+| libc matrix | the example programs built against glibc, musl, uclibc-ng, dietlibc, picolibc, newlib, newlib-nano, Zephyr's libcs, LLVM-libc, the LiteX BIOS libc, SDCC's libc and MicroPython's | Docker images, CI |
+| Demos | Zephyr and MicroPython in Renode; Linux tool in QEMU; LiteX on fpgas.online | CI (Renode, QEMU); hardware jobs run from this machine |
+
+Simulator runs use every id in the database; random non-ids are sampled
+(with a fixed, recorded seed) because full 24-bit sweeps are only affordable
+natively.
+
+## 7. Measurement and research
+
+### 7.1 What is measured
+
+For each (generated file, target, compiler, flags):
+
+- flash: `.text` + `.rodata` + `.data` initialisers
+- SRAM: `.data` + `.bss` + peak stack (from `-fstack-usage` where available,
+  and from the simulator's lowest stack pointer)
+- **the linked-image difference**: a minimal program that calls the API,
+  linked with and without the library. This counts libgcc/compiler-rt
+  helpers, literal pools and alignment padding that per-object sizes miss.
+- per-symbol sizes, and the list of helper functions pulled in
+- instruction count for lookup and print (recorded, not optimised)
+
+### 7.2 Toolchains
+
+Only prebuilt toolchains are used:
+
+- existing Docker images where they exist (distribution GCC/LLVM across
+  Debian, Ubuntu and Alpine releases; the Zephyr SDK image; SDCC)
+- sha256-pinned release tarballs (xPack arm-none-eabi and riscv-none-elf, the
+  Arm GNU Toolchain, LLVM releases, WCH's MounRiver GCC, or1k and ppc64le
+  cross compilers)
+
+`tools/images/` holds optional scripts that assemble images containing these
+and publish them to `ghcr.io/mithro/uspiflash-*`; they are not part of the
+normal flow.
+
+The toolchain inventory (`toolchains.toml`) records, for each entry: name,
+version, source URL or image digest, hash, targets it can build, and a
+"vendor fork" flag. Target CPU flags are enumerated from primary sources (GCC
+and LLVM `-mcpu` lists, `litex/soc/cores/cpu` at a pinned LiteX commit) and
+recorded with that commit.
+
+### 7.3 The size ledger
+
+`sizes/` holds one JSON-lines file per (target, compiler) with a row per
+measured commit: uspiflash commit, spiflash version, level, codec set, the
+numbers in §7.1, and the toolchain identity. CI checks each PR's changes
+against `main`, posts a size-difference comment on the PR (in this repo
+only), and fails when the default configuration grows without a matching
+ledger update. The docs render the ledger as tables and charts.
+
+### 7.4 Experiments
+
+Each experiment is a directory `experiments/YYYY-MM-DD-<slug>/` containing:
+
+- `README.md`: question, hypothesis, method, result, conclusion, and what
+  changed in the code because of it
+- `run.py`: reproduces it with one command (`uv run uspiflash research run
+  <slug>`), with pinned inputs
+- `results/`: raw JSON, including toolchain identity, host, spiflash version
+  and random seeds
+
+The docs include every experiment. `uspiflash research rerun --all` reruns
+them and reports which conclusions no longer hold (because of new chips,
+new compilers or new codecs).
+
+### 7.5 Sandboxing
+
+Every compiler, simulator, Renode, QEMU and Docker job goes through one
+runner (`uspiflash.sandbox`):
+
+- **Local runs:** `systemd-run --user --scope` with `MemoryMax`,
+  `MemorySwapMax=0`, `CPUQuota`, `TasksMax` and `nice`, plus a per-job
+  timeout. Docker jobs get `--memory`, `--cpus` and `--pids-limit`.
+- **Dynamic limits:** before each batch the runner reads `/proc/loadavg`,
+  `/proc/meminfo` (MemAvailable) and `/proc/pressure/*`. It sizes the batch's
+  memory limit and parallelism to the currently free headroom (leaving a
+  fixed reserve for the desktop) and backs off when pressure stall
+  information rises.
+- **Pytest workers:** the same calculation sets the `pytest-xdist` worker
+  count.
+- **CI:** the same runner is used, with the runner machine's limits.
+
+## 8. Demonstrations
+
+- **Linux tool** (`examples/linux/`): a static C program for `/dev/spidevX.Y`
+  (`SPI_IOC_MESSAGE`). Its output matches `spiflash id --opcodes` (and
+  `--json`). Built against glibc and musl for amd64, arm64, armhf and
+  riscv64. Tested in QEMU (a small Linux image with the m25p80 model behind
+  a spidev node) and on a fpgas.online Raspberry Pi wired to an FPGA board's
+  configuration flash. Packaged as `uspiflash-linux`.
+- **Zephyr** (`zephyr/`, a Zephyr module):
+  - a sample that probes and prints
+  - a flash driver (`uspiflash,spi-nor`) that configures size, page size,
+    erase types and read mode at runtime from the probe result
+  - tests on `litex_vexriscv` and one ARM board in Renode, against a new
+    Renode SPI-flash peripheral model (`renode/`) that answers as any chip in
+    the database
+  - built against the latest Zephyr release and 3.7 LTS
+- **MicroPython** (`micropython/`): the same `uspiflash` module built both as
+  a `USER_C_MODULE` and as a dynamic native `.mpy`. Its API mirrors spiflash:
+  `lookup(id)` returns an object with `.manufacturer`, `.names`, `.size`,
+  `.page_size`, `.features`, `.opcodes`…, and `probe(spi, cs)` reads a real
+  chip. Tested in Renode on an STM32 board with the Renode flash model.
+- **LiteX BIOS** (`examples/litex/`): LiteX SoCs for the Arty A7, TT FPGA
+  demo board and Fomu, whose BIOS adds a `spiflash` command printing the
+  same output. Built with open toolchains (openXC7 for the Arty,
+  yosys/nextpnr-ice40 for the iCE40UP5K) and run on fpgas.online hardware.
+  The BIOS size difference is recorded in the ledger. The existing
+  `fpgas.online-test-designs/designs/spi-flash-id` is reference material.
+
+## 9. Python tool
+
+- Python ≥ 3.11, `uv`-managed, hatch-vcs rolling versions (as spiflash).
+- **Required dependency:** only `spiflash`. Optional extras enable more:
+  - `uspiflash[measure]`: `pyelftools`
+  - `uspiflash[sim]`: `unicorn`
+  - `uspiflash[docs]`
+  - `uspiflash[research]`: plotting
+- `ruff` (spiflash's rule set) and `mypy --strict` clean, with no
+  suppressions. Docstrings on every public module, class and function.
+- CLI: `uspiflash generate`, `check`, `measure`, `sim`, `research run`,
+  `research rerun`, `research select`, `toolchains list`.
+
+## 10. Packaging, CI, docs
+
+Mirrors spiflash, adapted:
+
+- `.github/workflows/deb.yml` runs the gates (lint, types, tests, host C
+  tests, a small compiler matrix), then builds `python3-uspiflash` and
+  `uspiflash-linux` for bookworm, trixie, forky and sid with
+  `mithro/apt-repo-action`, and publishes the signed apt repository to
+  GitHub Pages (`https://mith.ro/uspiflash/`).
+- `publish-pypi.yml` uploads to PyPI when that succeeds on `main` (trusted
+  publishing).
+- `matrix.yml` runs the full compiler/libc/simulator matrix nightly and on
+  PRs that touch C or codecs, and updates the ledger.
+- `renode.yml` runs the Zephyr and MicroPython demos.
+- Docs: Sphinx, furo and MyST on Read the Docs. Pages cover the user guide,
+  generated-file reference, per-target size tables and charts, every
+  experiment, the toolchain inventory, and the Python API.
+- Tim-only setup (listed in `RELEASING.md`): the PyPI pending publisher, the
+  Read the Docs project import, and "Include Git LFS objects in archives". I
+  create the apt signing key and set its secret myself.
+
+## 11. Milestones
+
+Each is one or more PRs of small commits, reviewed by a subagent before
+merging.
+
+1. **M1: core.** Python scaffolding, packaging, CI and docs skeleton; the
+   IR and levels; baseline codecs; the portable template; the oracle; host C
+   tests; SFDP decoder (Python and C); the Linux tool (QEMU test); the first
+   experiment (§3 statistics).
+2. **M2: measurement.** Sandbox runner; toolchain inventory and images;
+   `measure`; the ledger; the compiler and libc matrix in CI.
+3. **M3: simulators.** Unicorn, QEMU user mode and ucsim harnesses; the
+   equivalence tests.
+4. **M4: specialisation.** Target subclasses; string and table codec
+   research; `best.toml`; experiments write-ups.
+5. **M5: Zephyr** in Renode, with the Renode flash model.
+6. **M6: MicroPython** in Renode.
+7. **M7: LiteX BIOS** on fpgas.online; Linux tool on a real Pi.
+8. **M8: docs polish** and release setup completed.
+9. **Phase 2: 8051/8052.** A short question round first (which cores: WCH
+   CH55x, Nuvoton N76E003, FPGA soft cores; memory model), then an
+   `Mcs51Sdcc` target.
+
+## 12. Risks
+
+- **Parts sharing an id differ** (a W25Q128BV has no QPI, an FV does). The C
+  side reports what the database reports (the union, with attribution at
+  `full`), and the docs say so.
+- **Byte-exact output parity** couples the printer to spiflash's CLI format.
+  The oracle pins a spiflash version; format changes in spiflash become
+  deliberate updates here.
+- **WCH vendor compilers** may not have complete source or stable download
+  URLs; they are pinned by hash and marked as vendor forks, and nothing
+  depends on them.
+- **Renode flash models**: if Renode's existing SPI flash models cannot be
+  configured to answer as any chip in the database (checked at the start of
+  M5), M5 writes one. It may be useful upstream later (only with Tim's
+  approval).
+- **fpgas.online availability**: hardware jobs are not a merge gate; their
+  results are recorded with the date and board serial.
