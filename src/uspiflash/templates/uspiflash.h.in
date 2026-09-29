@@ -252,8 +252,9 @@ typedef struct usf_sfdp {
 
 /* Read the chip's SFDP header, parameter headers and BFPT into `out` and
  * return 1; return 0, `out` untouched, when there is no "SFDP" signature or
- * no BFPT. Of several BFPTs it takes the one spiflash and Linux pick: major
- * revision 1, the highest minor, then the longest. Sends only RDSFDP (0x5A,
+ * no BFPT. Of several BFPTs it takes the one spiflash picks (as Linux does
+ * among valid ones): major revision 1, the highest minor, then the longest.
+ * Sends only RDSFDP (0x5A,
  * 3 address bytes, 8 dummy clocks), four bytes at a time, so it cannot
  * change the chip; an address past the 24-bit SFDP space reads as 0xFF
  * rather than wrapping round. Call it after usf_probe(), whose RES wakes

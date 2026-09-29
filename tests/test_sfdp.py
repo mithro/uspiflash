@@ -42,6 +42,49 @@ def damaged(seed: int = 20260929, n: int = 4000) -> list[bytes]:
     return [*out, b"", b"SFD", b"SFDP", b"\xff" * 64]
 
 
+def edges() -> list[bytes]:
+    """The boundaries random damage misses: every BFPT length from 0 to 20,
+    every 2^N density exponent and the N + 1 density's edges, a table at the
+    end of the 24-bit space and at the end of the sim's 4 KiB image, and two
+    BFPTs competing."""
+    base = next(d for d in DUMPS if d[8] == 0 and d[11] == 16 and d[15] == 0xFF)
+    ptr = int.from_bytes(base[12:15], "little")
+    table = base[ptr : ptr + 64]
+
+    def put(img: bytes, at: int, data: bytes) -> bytes:
+        return img[:at] + data + img[at + len(data) :]
+
+    out = [put(base, 11, bytes([n])) for n in range(21)]
+    dw2 = [0x80000000 | e for e in range(65)]
+    dw2 += [0, 1, 6, 7, 8, 9, 0x7FFFFFFE, 0x7FFFFFFF, 0xFFFFFFFF]
+    out += [put(base, ptr + 4, v.to_bytes(4, "little")) for v in dw2]
+    for p in (0xFFC, 0xFFF, 0x1000, 0xFFFFC0, 0xFFFFFC, 0xFFFFFF):
+        img = put(base, 12, p.to_bytes(3, "little"))
+        if p < 4096:  # the sim holds 4 KiB: the table as far as that goes
+            img = (img.ljust(p, b"\xff") + table)[:4096]
+        out.append(img)
+
+    def two(first: tuple[int, int, int], second: tuple[int, int, int]) -> bytes:
+        """Two BFPT headers, (major, minor, length) each: the first's table
+        at 0x40, the second's at 0x80, told apart by the 4 KiB erase opcode."""
+        img = b"SFDP" + bytes([6, 1, 1, 0xFF])
+        for (major, minor, n), at in ((first, 0x40), (second, 0x80)):
+            img += bytes([0, minor, major, n]) + at.to_bytes(3, "little") + b"\xff"
+        return img.ljust(0x40, b"\xff") + table + put(table, 1, b"\x21")
+
+    out += [
+        two((1, 6, 16), (1, 6, 16)),  # a tie: the first
+        two((1, 5, 16), (1, 6, 16)),  # a higher minor second
+        two((1, 6, 16), (1, 6, 9)),  # a shorter second
+        two((1, 6, 9), (1, 6, 16)),  # a longer second
+        two((1, 6, 16), (2, 7, 16)),  # a second with major 2
+        two((2, 7, 16), (1, 5, 16)),  # a first with major 2
+        two((1, 6, 0), (1, 5, 9)),  # an empty first
+        two((1, 6, 16), (1, 7, 0)),  # an empty second, higher minor
+    ]
+    return out
+
+
 def decoded(out: str) -> str:
     """The harness output without its transaction log."""
     return "".join(line + "\n" for line in out.splitlines() if not line.startswith("> "))
@@ -60,7 +103,7 @@ def test_every_shipped_dump(harnesses: dict[str, Harness]) -> None:
 
 
 def test_damaged_dumps(harnesses: dict[str, Harness]) -> None:
-    images = damaged()
+    images = damaged() + edges()
     want = [oracle.sfdp_fields(i) for i in images]
     assert 1000 < sum(w != "sfdp=none\n" for w in want) < len(images)  # both kinds, many
     for cc, h in harnesses.items():

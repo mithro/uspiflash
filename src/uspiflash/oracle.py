@@ -138,7 +138,8 @@ def sfdp_space(image: bytes) -> bytes:
     """``image`` as a chip whose SFDP space holds it answers: followed by
     0xFF (an idle bus), as far as the header, every parameter header and
     every BFPT they point at reach. A dump file ends where its tables do;
-    the chip's space never ends, so this is what ``usf_sfdp_read`` sees."""
+    the chip's space never ends, so this is what ``usf_sfdp_read`` sees.
+    A table pointer near 0xFFFFFF makes it about 16 MiB long."""
     space = image.ljust(8, b"\xff")
     headers = space[6] + 1
     space = space.ljust(8 + 8 * headers, b"\xff")
