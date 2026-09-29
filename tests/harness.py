@@ -40,6 +40,11 @@ def compile_c(cc: str, sources: Sequence[str | Path], out: Path, extra: Sequence
     assert not res.stderr, f"{' '.join(cmd)}\n{res.stderr}"
 
 
+def impl_source(config: Config) -> str:
+    """A C file that compiles the implementation of ``config``'s header."""
+    return f'#define {config.prefix.upper()}_IMPLEMENTATION\n#include "{config.filename}"\n'
+
+
 def undefined_symbols(obj: Path) -> list[str]:
     """The symbols ``obj`` needs from elsewhere (``nm -u``, names only)."""
     res = subprocess.run(
@@ -52,7 +57,8 @@ def undefined_symbols(obj: Path) -> list[str]:
 
 
 def name(config: Config) -> str:
-    """A test id: the level, then ``+extra``, ``-removed`` and ``:type`` filters."""
+    """A test id: the level, then ``+extra``, ``-removed`` and ``:type``
+    filters, and ``@prefix`` when the prefix is not ``usf``."""
     sel = config.selection
     base = LEVELS[sel.level]
     return "".join(
@@ -61,5 +67,6 @@ def name(config: Config) -> str:
             *(f"+{f}" for f in sorted(sel.fields - base)),
             *(f"-{f}" for f in sorted(base - sel.fields)),
             *(f":{t.value}" for t in sel.chips.types),
+            *([f"@{config.prefix}"] if config.prefix != "usf" else []),
         ]
     )

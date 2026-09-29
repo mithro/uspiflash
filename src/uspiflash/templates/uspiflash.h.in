@@ -83,7 +83,8 @@ uint32_t usf_sector_size(const usf_chip *c);
 uint8_t usf_voltage(const usf_chip *c, uint16_t *min_mv, uint16_t *max_mv);
 #endif
 #if USF_HAVE_FEATURES
-/* Whether any source claims `feature` (USF_FEATURE_*) for the chip. */
+/* Whether any source claims `feature` (USF_FEATURE_*) for the chip; 0 for
+ * a number past the last feature (USF_FEATURE_COUNT or more). */
 uint8_t usf_has_feature(const usf_chip *c, uint8_t feature);
 #endif
 #if USF_HAVE_OPERATIONS
@@ -160,9 +161,12 @@ typedef uint32_t usf__off_t;
     || USF_EXT_COUNT || USF_OP_COUNT || USF_CONF_COUNT || USF_HAVE_RECORDS)
 
 #if USF__NEED_U16
+/* Every byte is widened to an unsigned type before it is shifted: a byte
+ * promotes to (signed) int, and where int is 16 bits (SDCC, msp430) shifting
+ * one into the sign bit is undefined behaviour. */
 static uint16_t usf__u16(usf__p p)
 {
-    return (uint16_t)(p[0] | (uint16_t)(p[1] << 8));
+    return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
 }
 #endif
 
@@ -363,7 +367,10 @@ uint8_t usf_voltage(const usf_chip *c, uint16_t *min_mv, uint16_t *max_mv)
 #if USF_HAVE_FEATURES
 uint8_t usf_has_feature(const usf_chip *c, uint8_t feature)
 {
-    usf__p s = usf__featsets + 3 * usf__row(c)[USF_E_FEAT];
+    usf__p s;
+    if (feature >= USF_FEATURE_COUNT) /* past the chip's 3-byte set */
+        return 0;
+    s = usf__featsets + 3 * usf__row(c)[USF_E_FEAT];
     return (uint8_t)((s[feature >> 3] >> (feature & 7)) & 1);
 }
 #endif

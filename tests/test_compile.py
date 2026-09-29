@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import pytest
 from spiflash.enums import FlashType
 
-from harness import compile_c, generate, name, undefined_symbols
+from harness import compile_c, generate, impl_source, name, undefined_symbols
 from uspiflash.levels import LEVELS, ChipFilter, Selection
 from uspiflash.provenance import Config
 
@@ -25,6 +25,11 @@ CONFIGS = [
     # Fields added on their own.
     Config(Selection.make("read", with_=["descriptions"])),
     Config(Selection.make("describe", with_=["conflicts"])),
+    # Conflicts without a printer (stored nowhere), and JSON without TEXT.
+    Config(Selection.make("write", with_=["conflicts"])),
+    Config(Selection.make("write", with_=["json"])),
+    # A renamed header: every symbol and table under another prefix.
+    Config(Selection.make("full"), "fl", "flashid.h"),
     # Single-type selections, whose counted tables can be empty.
     *(Config(Selection.make(level, chips=chips)) for chips in ONE_TYPE for level in LEVELS),
 ]
@@ -37,7 +42,7 @@ def test_implementation_compiles_and_needs_no_symbols(
 ) -> None:
     generate(tmp_path, config)
     impl = tmp_path / "impl.c"
-    impl.write_text('#define USF_IMPLEMENTATION\n#include "uspiflash.h"\n')
+    impl.write_text(impl_source(config))
     for cc in compilers:
         obj = tmp_path / f"impl-{cc}.o"
         compile_c(cc, [impl], obj, [opt, "-c", "-ffreestanding", f"-I{tmp_path}"])
@@ -63,3 +68,30 @@ def test_header_and_implementation_compile_as_cpp(tmp_path: Path, cxx: str) -> N
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         assert res.returncode == 0, res.stderr
         assert not res.stderr, res.stderr
+
+
+def test_has_feature_is_0_past_the_last_feature(tmp_path: Path, compilers: list[str]) -> None:
+    # A feature number past USF_FEATURE_COUNT must not read beyond the
+    # chip's 3-byte feature set (the next row's bits would show through).
+    config = Config(Selection.make("read"))
+    generate(tmp_path, config)
+    src = tmp_path / "features.c"
+    src.write_text(
+        impl_source(config)
+        + """
+int main(void)
+{
+    usf_chip c;
+    unsigned f, bad = 0;
+    c.base = 0;
+    for (c.entry = 0; c.entry < USF_ENTRY_COUNT; c.entry++)
+        for (f = USF_FEATURE_COUNT; f < 256; f++)
+            bad += usf_has_feature(&c, (uint8_t)f);
+    return bad != 0;
+}
+"""
+    )
+    for cc in compilers:
+        exe = tmp_path / f"features-{cc}"
+        compile_c(cc, [src], exe)
+        assert subprocess.run([str(exe)], check=False).returncode == 0, cc
