@@ -47,9 +47,9 @@ finds the repository root.
    configuration, not a suppression — a `run.py` is a script location, never
    imported by name, so it is never a real package). Every experiment does
    this once, when it is added.
-5. Add the directory to mypy's `files` list in `pyproject.toml` if it is not
-   there yet (only needs doing once, the first time `experiments/` gains a
-   script — see "Notes from the M1a review" in the M1 index).
+5. mypy checks each experiment's `run.py` on its own
+   (`tests/test_research.py`), since every script has the same name; nothing
+   to add.
 6. The docs build picks the experiment up automatically: `docs/conf.py`
    generates `docs/_generated/experiments/<slug>.md` for every experiment at
    build time (see `docs/experiments.md`).
@@ -59,6 +59,7 @@ finds the repository root.
 | Date | Slug | Question |
 |---|---|---|
 | 2026-09-28 | [`database-statistics`](2026-09-28-database-statistics/README.md) | What does the spiflash data look like, byte for byte, and what does the baseline layout cost at each detail level? |
+| 2026-09-29 | [`sfdp-vs-database`](2026-09-29-sfdp-vs-database/README.md) | Where a chip's own SFDP and the database both describe it, do they agree, and which says more? |
 
 ## Rerunning everything
 

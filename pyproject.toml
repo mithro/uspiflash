@@ -77,7 +77,10 @@ extend-exclude = ["src/uspiflash/_version.py"]
 # Each experiment's directory is a script location, not a package (INP001):
 # it has no __init__.py and is never imported by name. Every later
 # experiment adds its directory here too (see experiments/README.md).
-namespace-packages = ["experiments/2026-09-28-database-statistics"]
+namespace-packages = [
+    "experiments/2026-09-28-database-statistics",
+    "experiments/2026-09-29-sfdp-vs-database",
+]
 
 [tool.ruff.format]
 exclude = ["*.md"]
@@ -91,7 +94,9 @@ select = [
 ]
 
 [tool.mypy]
-files = ["src/uspiflash", "tests", "docs/conf.py", "experiments"]
+# Not experiments/: every experiment's script is run.py, and mypy refuses two
+# modules of one name in a run. tests/test_research.py checks each on its own.
+files = ["src/uspiflash", "tests", "docs/conf.py"]
 mypy_path = ["src"]
 strict = true
 

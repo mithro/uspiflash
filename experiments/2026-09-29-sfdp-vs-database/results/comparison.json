@@ -1,0 +1,980 @@
+{
+ "agree": {
+  "features": 5,
+  "operations": 5,
+  "page_size": 12,
+  "sector_size": 12,
+  "size": 12
+ },
+ "chip_ids": 11,
+ "dumps": 12,
+ "rows": [
+  {
+   "chip": "20ba19",
+   "dump": {
+    "parts": [
+     "N25Q256A13",
+     "N25Q256A"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {
+    "4byte_opcodes": [
+     "flashrom",
+     "flashprog",
+     "linux",
+     "u-boot"
+    ],
+    "erase_32k": [
+     "flashrom",
+     "flashprog"
+    ]
+   },
+   "features_only_sfdp": [],
+   "names": [
+    "N25Q256A",
+    "N25Q256..3E",
+    "MT25QL256",
+    "MT25QL256A",
+    "N25Q256",
+    "N25Q256A13"
+   ],
+   "operations_only_database": {
+    "BE_32K": [
+     "flashrom",
+     "flashprog"
+    ],
+    "BE_32K_4B": [
+     "flashrom",
+     "flashprog"
+    ],
+    "BE_4K_4B": [
+     "flashrom",
+     "flashprog",
+     "linux",
+     "u-boot",
+     "openfpgaloader"
+    ],
+    "READ_1_1_1_4B": [
+     "flashrom",
+     "flashprog",
+     "linux",
+     "u-boot",
+     "openocd",
+     "openfpgaloader"
+    ],
+    "READ_1_1_1_FAST_4B": [
+     "flashrom",
+     "flashprog",
+     "linux",
+     "u-boot"
+    ],
+    "READ_1_1_2_4B": [
+     "linux",
+     "u-boot"
+    ],
+    "READ_1_1_4_4B": [
+     "linux",
+     "u-boot"
+    ],
+    "READ_1_4_4_4B": [
+     "openocd"
+    ],
+    "SE_4B": [
+     "flashrom",
+     "flashprog",
+     "linux",
+     "u-boot",
+     "openocd",
+     "openfpgaloader"
+    ]
+   },
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": null
+   },
+   "records": [
+    "flashprog: N25Q256..3E",
+    "flashprog: MT25QL256",
+    "flashrom: MT25QL256",
+    "flashrom: N25Q256..3E",
+    "linux: MT25QL256A",
+    "linux: N25Q256A",
+    "openfpgaloader: N25Q256",
+    "openocd: N25Q256 3V",
+    "qemu: N25Q256A13",
+    "qemu: N25Q256A",
+    "u-boot: MT25QL256A",
+    "u-boot: N25Q256A"
+   ],
+   "revision": "JESD216",
+   "sector_size": {
+    "database": 65536,
+    "sfdp_erase_sizes": [
+     4096,
+     65536
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     65536,
+     216
+    ]
+   ],
+   "size": {
+    "database": 33554432,
+    "sfdp": 33554432
+   },
+   "unnamed_operations": 2,
+   "warnings": []
+  },
+  {
+   "chip": "2c5b1b",
+   "dump": {
+    "parts": [
+     "MT35XU01G"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {
+    "erase_64k": [
+     "linux"
+    ],
+    "octal_read": [
+     "u-boot"
+    ]
+   },
+   "features_only_sfdp": [],
+   "names": [
+    "MT35XU01GBBA",
+    "MT35XU01G",
+    "MT35XU01GABA"
+   ],
+   "operations_only_database": {
+    "READ_1_1_8": [
+     "u-boot"
+    ],
+    "READ_1_1_8_4B": [
+     "u-boot"
+    ]
+   },
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": 256
+   },
+   "records": [
+    "linux: MT35XU01GBBA",
+    "qemu: MT35XU01G",
+    "u-boot: MT35XU01GABA",
+    "u-boot: MT35XU01G",
+    "zephyr: MT35XU01GBBA"
+   ],
+   "revision": "JESD216B",
+   "sector_size": {
+    "database": 131072,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     131072
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     131072,
+     216
+    ],
+    [
+     32768,
+     82
+    ]
+   ],
+   "size": {
+    "database": 134217728,
+    "sfdp": 134217728
+   },
+   "unnamed_operations": 0,
+   "warnings": [
+    "4BAIT claims instructions the BFPT gives no read mode for, ignored: fast read 1-1-8 (bit 20), fast read 1-8-8 (bit 21), DTR fast read 1-8-8 (bit 22), page program 1-1-8 (bit 23), page program 1-8-8 (bit 24)"
+   ]
+  },
+  {
+   "chip": "2c5b1c",
+   "dump": {
+    "parts": [
+     "MT35XU02GBBA"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {
+    "octal_read": [
+     "linux",
+     "u-boot"
+    ]
+   },
+   "features_only_sfdp": [],
+   "names": [
+    "MT35XU02G",
+    "MT35XU02GBBA"
+   ],
+   "operations_only_database": {
+    "READ_1_1_8": [
+     "linux",
+     "u-boot"
+    ],
+    "READ_1_1_8_4B": [
+     "linux",
+     "u-boot"
+    ]
+   },
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": 256
+   },
+   "records": [
+    "flashrom: MT35XU02G",
+    "linux: MT35XU02G",
+    "qemu: MT35XU02GBBA",
+    "u-boot: MT35XU02G"
+   ],
+   "revision": "JESD216B",
+   "sector_size": {
+    "database": 131072,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     131072
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     131072,
+     216
+    ],
+    [
+     32768,
+     82
+    ]
+   ],
+   "size": {
+    "database": 268435456,
+    "sfdp": 268435456
+   },
+   "unnamed_operations": 0,
+   "warnings": [
+    "4BAIT claims instructions the BFPT gives no read mode for, ignored: fast read 1-1-8 (bit 20), fast read 1-8-8 (bit 21), DTR fast read 1-8-8 (bit 22), page program 1-1-8 (bit 23), page program 1-8-8 (bit 24)"
+   ]
+  },
+  {
+   "chip": "9d7019",
+   "dump": {
+    "parts": [
+     "IS25WP256"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {
+    "quad_pp": [
+     "linux"
+    ]
+   },
+   "features_only_sfdp": [],
+   "names": [
+    "IS25WP256",
+    "IS25WP256D"
+   ],
+   "operations_only_database": {
+    "BE_32K_4B": [
+     "flashrom",
+     "flashprog"
+    ],
+    "BE_4K_4B": [
+     "flashrom",
+     "flashprog",
+     "u-boot",
+     "openfpgaloader"
+    ],
+    "READ_1_1_1_4B": [
+     "flashrom",
+     "flashprog",
+     "linux",
+     "u-boot",
+     "openocd",
+     "openfpgaloader"
+    ],
+    "READ_1_1_1_FAST_4B": [
+     "flashrom",
+     "flashprog",
+     "linux",
+     "u-boot"
+    ],
+    "READ_1_1_2_4B": [
+     "u-boot"
+    ],
+    "READ_1_1_4_4B": [
+     "u-boot"
+    ],
+    "READ_1_4_4_4B": [
+     "openocd"
+    ],
+    "SE_4B": [
+     "flashrom",
+     "flashprog",
+     "u-boot",
+     "openocd",
+     "openfpgaloader"
+    ]
+   },
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": 256
+   },
+   "records": [
+    "flashprog: IS25WP256",
+    "flashrom: IS25WP256",
+    "linux: IS25WP256",
+    "openfpgaloader: IS25WP256",
+    "openocd: IS25WP256D",
+    "qemu: IS25WP256",
+    "u-boot: IS25WP256"
+   ],
+   "revision": "JESD216B",
+   "sector_size": {
+    "database": 65536,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     65536
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     32768,
+     82
+    ],
+    [
+     65536,
+     216
+    ]
+   ],
+   "size": {
+    "database": 33554432,
+    "sfdp": 33554432
+   },
+   "unnamed_operations": 1,
+   "warnings": []
+  },
+  {
+   "chip": "c22019",
+   "dump": {
+    "parts": [
+     "MX25L25635E"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {
+    "4byte_opcodes": [
+     "flashrom",
+     "flashprog"
+    ],
+    "qpi": [
+     "flashprog",
+     "qemu"
+    ]
+   },
+   "features_only_sfdp": [],
+   "names": [
+    "MX25L25635F",
+    "MX25L25645G",
+    "MX25L25635E",
+    "MACRONIX-C22019",
+    "MX25L25645"
+   ],
+   "operations_only_database": {
+    "BE_32K_4B": [
+     "flashrom",
+     "flashprog"
+    ],
+    "BE_4K_4B": [
+     "flashrom",
+     "flashprog",
+     "openfpgaloader"
+    ],
+    "READ_1_1_1_4B": [
+     "flashrom",
+     "flashprog",
+     "openocd",
+     "openfpgaloader"
+    ],
+    "READ_1_1_1_FAST_4B": [
+     "flashrom",
+     "flashprog"
+    ],
+    "READ_1_4_4_4B": [
+     "openocd"
+    ],
+    "READ_4_4_4_4B": [
+     "flashprog"
+    ],
+    "SE_4B": [
+     "flashrom",
+     "flashprog",
+     "openocd",
+     "openfpgaloader"
+    ]
+   },
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": null
+   },
+   "records": [
+    "flashprog: MX25L25635F/MX25L25645G",
+    "flashrom: MX25L25635F/MX25L25645G",
+    "linux: MACRONIX-C22019",
+    "openfpgaloader: MX25L25645G",
+    "openocd: MX25L25645",
+    "qemu: MX25L25635E",
+    "qemu: MX25L25635F",
+    "u-boot: MX25L25635E"
+   ],
+   "revision": "JESD216",
+   "sector_size": {
+    "database": 65536,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     65536
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     32768,
+     82
+    ],
+    [
+     65536,
+     216
+    ]
+   ],
+   "size": {
+    "database": 33554432,
+    "sfdp": 33554432
+   },
+   "unnamed_operations": 0,
+   "warnings": []
+  },
+  {
+   "chip": "c22019",
+   "dump": {
+    "parts": [
+     "MX25L25635F"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {
+    "4byte_opcodes": [
+     "flashrom",
+     "flashprog"
+    ]
+   },
+   "features_only_sfdp": [],
+   "names": [
+    "MX25L25635F",
+    "MX25L25645G",
+    "MX25L25635E",
+    "MACRONIX-C22019",
+    "MX25L25645"
+   ],
+   "operations_only_database": {
+    "BE_32K_4B": [
+     "flashrom",
+     "flashprog"
+    ],
+    "BE_4K_4B": [
+     "flashrom",
+     "flashprog",
+     "openfpgaloader"
+    ],
+    "READ_1_1_1_4B": [
+     "flashrom",
+     "flashprog",
+     "openocd",
+     "openfpgaloader"
+    ],
+    "READ_1_1_1_FAST_4B": [
+     "flashrom",
+     "flashprog"
+    ],
+    "READ_1_4_4_4B": [
+     "openocd"
+    ],
+    "READ_4_4_4_4B": [
+     "flashprog"
+    ],
+    "SE_4B": [
+     "flashrom",
+     "flashprog",
+     "openocd",
+     "openfpgaloader"
+    ]
+   },
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": null
+   },
+   "records": [
+    "flashprog: MX25L25635F/MX25L25645G",
+    "flashrom: MX25L25635F/MX25L25645G",
+    "linux: MACRONIX-C22019",
+    "openfpgaloader: MX25L25645G",
+    "openocd: MX25L25645",
+    "qemu: MX25L25635E",
+    "qemu: MX25L25635F",
+    "u-boot: MX25L25635E"
+   ],
+   "revision": "JESD216",
+   "sector_size": {
+    "database": 65536,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     65536
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     32768,
+     82
+    ],
+    [
+     65536,
+     216
+    ]
+   ],
+   "size": {
+    "database": 33554432,
+    "sfdp": 33554432
+   },
+   "unnamed_operations": 1,
+   "warnings": []
+  },
+  {
+   "chip": "c2201b",
+   "dump": {
+    "parts": [
+     "MX66L1G45G"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {},
+   "features_only_sfdp": [],
+   "names": [
+    "MX66L1G45G"
+   ],
+   "operations_only_database": {},
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": 256
+   },
+   "records": [
+    "flashprog: MX66L1G45G",
+    "flashrom: MX66L1G45G",
+    "linux: MX66L1G45G",
+    "openocd: MX66L1G45G",
+    "qemu: MX66L1G45G",
+    "u-boot: MX66L1G45G"
+   ],
+   "revision": "JESD216B",
+   "sector_size": {
+    "database": 65536,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     65536
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     32768,
+     82
+    ],
+    [
+     65536,
+     216
+    ]
+   ],
+   "size": {
+    "database": 134217728,
+    "sfdp": 134217728
+   },
+   "unnamed_operations": 5,
+   "warnings": [
+    "4BAIT claims instructions the BFPT gives no read mode for, ignored: fast read 1-1-8 (bit 20), fast read 1-8-8 (bit 21), DTR fast read 1-8-8 (bit 22), page program 1-1-8 (bit 23), page program 1-8-8 (bit 24)"
+   ]
+  },
+  {
+   "chip": "ef4014",
+   "dump": {
+    "parts": [
+     "W25Q80BL"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {},
+   "features_only_sfdp": [],
+   "names": [
+    "W25Q80BV",
+    "W25Q80BL",
+    "W25Q80DV",
+    "W25Q80RV",
+    "W25Q80.V",
+    "S25FL008K"
+   ],
+   "operations_only_database": {},
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": 256
+   },
+   "records": [
+    "flashprog: W25Q80.V",
+    "flashrom: W25Q80BV/W25Q80DV",
+    "flashrom: W25Q80RV",
+    "linux: S25FL008K",
+    "linux: W25Q80BL",
+    "openfpgaloader: W25Q80BV",
+    "openocd: W25Q80BV",
+    "qemu: W25Q80BL",
+    "u-boot: W25Q80BL"
+   ],
+   "revision": "JESD216A",
+   "sector_size": {
+    "database": 65536,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     65536
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     32768,
+     82
+    ],
+    [
+     65536,
+     216
+    ]
+   ],
+   "size": {
+    "database": 1048576,
+    "sfdp": 1048576
+   },
+   "unnamed_operations": 0,
+   "warnings": []
+  },
+  {
+   "chip": "ef4019",
+   "dump": {
+    "parts": [
+     "W25Q256"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {
+    "4byte_opcodes": [
+     "flashrom",
+     "flashprog"
+    ]
+   },
+   "features_only_sfdp": [],
+   "names": [
+    "W25Q256FV",
+    "W25Q256",
+    "W25Q256JV_Q",
+    "W25Q256JV"
+   ],
+   "operations_only_database": {
+    "BE_4K_4B": [
+     "flashrom",
+     "flashprog"
+    ],
+    "READ_1_1_1_4B": [
+     "flashrom",
+     "flashprog"
+    ],
+    "READ_1_1_1_FAST_4B": [
+     "flashrom",
+     "flashprog"
+    ],
+    "SE_4B": [
+     "flashrom",
+     "flashprog"
+    ]
+   },
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": null
+   },
+   "records": [
+    "flashprog: W25Q256FV",
+    "flashprog: W25Q256JV_Q",
+    "flashrom: W25Q256FV",
+    "flashrom: W25Q256JV_Q",
+    "linux: W25Q256",
+    "openocd: W25Q256FV/JV",
+    "qemu: W25Q256",
+    "u-boot: W25Q256"
+   ],
+   "revision": "JESD216",
+   "sector_size": {
+    "database": 65536,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     65536
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     32768,
+     82
+    ],
+    [
+     65536,
+     216
+    ]
+   ],
+   "size": {
+    "database": 33554432,
+    "sfdp": 33554432
+   },
+   "unnamed_operations": 1,
+   "warnings": []
+  },
+  {
+   "chip": "ef4020",
+   "dump": {
+    "parts": [
+     "W25Q512JV"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {},
+   "features_only_sfdp": [],
+   "names": [
+    "W25Q512JV",
+    "W25Q512JVQ",
+    "W25Q512JVFIQ"
+   ],
+   "operations_only_database": {},
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": 256
+   },
+   "records": [
+    "flashprog: W25Q512JV",
+    "flashrom: W25Q512JV",
+    "linux: W25Q512JVQ",
+    "openocd: W25Q512JV",
+    "qemu: W25Q512JV",
+    "u-boot: W25Q512JVQ",
+    "zephyr: W25Q512JVFIQ"
+   ],
+   "revision": "JESD216B",
+   "sector_size": {
+    "database": 65536,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     65536
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     32768,
+     82
+    ],
+    [
+     65536,
+     216
+    ]
+   ],
+   "size": {
+    "database": 67108864,
+    "sfdp": 67108864
+   },
+   "unnamed_operations": 1,
+   "warnings": [
+    "4BAIT claims instructions the BFPT gives no read mode for, ignored: fast read 1-1-8 (bit 20), fast read 1-8-8 (bit 21), DTR fast read 1-8-8 (bit 22), page program 1-1-8 (bit 23), page program 1-8-8 (bit 24)"
+   ]
+  },
+  {
+   "chip": "ef4021",
+   "dump": {
+    "parts": [
+     "W25Q01JVQ"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {},
+   "features_only_sfdp": [],
+   "names": [
+    "W25Q01JV",
+    "W25Q01JVQ"
+   ],
+   "operations_only_database": {},
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": 256
+   },
+   "records": [
+    "flashrom: W25Q01JV",
+    "linux: W25Q01JV",
+    "openocd: W25Q01JV",
+    "qemu: W25Q01JVQ",
+    "u-boot: W25Q01JV"
+   ],
+   "revision": "JESD216B",
+   "sector_size": {
+    "database": 65536,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     65536
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     32768,
+     82
+    ],
+    [
+     65536,
+     216
+    ]
+   ],
+   "size": {
+    "database": 134217728,
+    "sfdp": 134217728
+   },
+   "unnamed_operations": 1,
+   "warnings": [
+    "4BAIT claims instructions the BFPT gives no read mode for, ignored: fast read 1-1-8 (bit 20), fast read 1-8-8 (bit 21), DTR fast read 1-8-8 (bit 22), page program 1-1-8 (bit 23), page program 1-8-8 (bit 24)"
+   ]
+  },
+  {
+   "chip": "ef7022",
+   "dump": {
+    "parts": [
+     "W25Q02JVM"
+    ],
+    "source": "qemu"
+   },
+   "features_only_database": {},
+   "features_only_sfdp": [],
+   "names": [
+    "W25Q02JV",
+    "W25Q02JV-DTR",
+    "W25Q02JVM"
+   ],
+   "operations_only_database": {},
+   "operations_only_sfdp": [],
+   "page_size": {
+    "database": 256,
+    "sfdp": 256
+   },
+   "records": [
+    "linux: W25Q02JV",
+    "openocd: W25Q02JV-DTR",
+    "qemu: W25Q02JVM",
+    "u-boot: W25Q02JV"
+   ],
+   "revision": "JESD216B",
+   "sector_size": {
+    "database": 65536,
+    "sfdp_erase_sizes": [
+     4096,
+     32768,
+     65536
+    ]
+   },
+   "sfdp_erases": [
+    [
+     4096,
+     32
+    ],
+    [
+     32768,
+     82
+    ],
+    [
+     65536,
+     216
+    ]
+   ],
+   "size": {
+    "database": 268435456,
+    "sfdp": 268435456
+   },
+   "unnamed_operations": 1,
+   "warnings": [
+    "4BAIT claims instructions the BFPT gives no read mode for, ignored: fast read 1-1-8 (bit 20), fast read 1-8-8 (bit 21), DTR fast read 1-8-8 (bit 22), page program 1-1-8 (bit 23), page program 1-8-8 (bit 24)"
+   ]
+  }
+ ],
+ "spiflash_version": "0.0.post92"
+}
