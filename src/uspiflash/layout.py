@@ -4,78 +4,152 @@ This docstring is the reference the C template implements;
 :mod:`uspiflash.decode` reads the tables back the same way. The baseline is
 chosen for obvious correctness, not size (M4 measures and improves it).
 
-Every multi-byte integer is little-endian. ``OFF`` is an offset into the
-string pool, ``OFF_BYTES`` (2 or 3) wide. Each table is present only with the
-field named after it in brackets.
+Conventions
+-----------
+
+- Every field is **one byte** unless marked ``u16`` (2 bytes), ``u32`` (4
+  bytes), ``u24`` (3 bytes) or ``OFF``. Multi-byte integers are
+  little-endian.
+- ``OFF`` is an offset into ``str``, ``OFF_BYTES`` (2, or 3 once the pool
+  reaches 0xFFFF bytes) wide.
+- A **source mask** is one byte: bit *i* set for ``SOURCES[i]``
+  (:data:`SOURCES`: flashrom, flashprog, linux, u-boot, openocd,
+  openfpgaloader, spiflash's priority order).
+- A **blob table** (``opsets``, ``namelists``, ``conflicts``, ``ext``,
+  ``records``) is a run of variable-length blobs, each stored once however
+  many entries share it; entries point at a blob by its ``u16`` offset.
+- Each table is present only with the field in parentheses after its name.
+- **Empty tables.** Any table but ``ids`` can be 0 bytes long, and the C
+  emitter must then leave it out (C99 has no zero-length arrays): ``str`` is
+  always emitted and is empty at the ``id``, ``read`` and ``write`` levels;
+  with a filtered snapshot, ``conflicts``, ``ext``, ``mfrs``, ``ops`` and the
+  value tables can be empty too. No entry field then points into the empty
+  table (every such field holds its "none" value), so no reader indexes it.
+
+Tables
+------
 
 ``ids`` (always)
-    Per base entry, in order: ``hdr`` = ``len`` (bits 0-2) | ``type`` (bit 3,
-    1 = NAND) | ``family`` (bits 4-6, the index in
-    :data:`~uspiflash.model.FAMILIES`), then ``len`` id bytes. Ends with a
-    ``0`` byte.
+    Per base entry, in entry order: ``hdr`` = ``len`` (bits 0-2) | ``type``
+    (bit 3: 0 NOR, 1 NAND) | ``family`` (bits 4-6: the index in
+    :data:`~uspiflash.model.FAMILIES`), then ``len`` (1-7) id bytes, without
+    continuation codes. Ends with a ``0`` byte (``len`` is never 0).
 ``entries`` (always)
-    ``ENTRY_SIZE`` bytes per entry, the fields at offsets ``E_*`` (below).
+    ``ENTRY_SIZE`` bytes per entry (base entries, then variants), the fields
+    at offsets ``E_*`` (below).
 ``sizes`` (SIZE)
-    u32 per distinct size (sorted).
+    ``u32`` per distinct size in bytes, sorted ascending.
 ``pages`` (PAGE_SIZE)
-    u16 per distinct page size (sorted).
+    ``u16`` per distinct page size in bytes, sorted ascending.
 ``sectors`` (SECTOR_SIZE)
-    u32 per distinct sector size (sorted).
+    ``u32`` per distinct sector size in bytes, sorted ascending.
 ``volts`` (VOLTAGE)
-    u16 min, u16 max (millivolts) per distinct range (sorted).
+    ``u16`` minimum, ``u16`` maximum (millivolts) per distinct range, sorted
+    ascending by (minimum, maximum).
 ``featsets`` (FEATURES)
-    3 bytes per distinct feature set; bit *i* = ``FEATURES[i]``.
+    ``u24`` per distinct feature set: bit *i* set for ``FEATURES[i]``
+    (:data:`FEATURES`, sorted by value, as ``spiflash id`` prints them).
 ``ops`` (OPERATIONS)
-    ``OP_SIZE`` bytes per stored operation: stable id (the index in
-    :data:`ALL_OPS`), opcode, kind (index in ``OperationKind``), protocol
-    (index in :data:`PROTOCOLS`), address bytes, dummy clocks (``0xFF`` =
-    varies), data (0 none, 1 read, 2 write), data bytes (0 = unbounded); then
-    with DESCRIPTIONS: name ``OFF`` (at ``OP_NAME``), description ``OFF``.
+    ``OP_SIZE`` bytes per stored operation, in stable-id order: stable id
+    (the index in :data:`ALL_OPS`), opcode, kind (the index in
+    :data:`KINDS`), protocol (the index in :data:`PROTOCOLS`), address bytes,
+    dummy clocks (``0xFF`` = varies), data (0 none, 1 read, 2 write), data
+    bytes (0 = unbounded); then, with DESCRIPTIONS, name ``OFF`` (at byte
+    ``OP_NAME`` = 8) and description ``OFF``. ``OP_COUNT`` rows; only the
+    operations some entry keeps are stored.
 ``opsets`` (OPERATIONS)
-    Per distinct list: count, then per op: stored-op index, and with SOURCES
-    a source mask byte.
+    Blobs: count, then per operation: its row index in ``ops``, and, with
+    SOURCES, a source mask (who says the chip has it). Operations appear in
+    stable-id order.
 ``namelists`` (NAMES)
-    Per distinct list: count, then ``OFF`` per name.
+    Blobs: count, then ``OFF`` per part name, most-cited first.
 ``mfrs`` (MANUFACTURER)
-    ``OFF`` per manufacturer (sorted by name).
+    ``OFF`` per distinct manufacturer name, sorted by name.
 ``conflicts`` (CONFLICTS)
-    Per distinct list of a chip's conflicts: repeated ``[attr, n, n x (value
-    index, source mask)]``, ending ``0xFF``. ``attr`` indexes
-    :data:`CONFLICT_ATTRS`; the value index is into ``sizes``, ``pages``,
-    ``sectors`` or ``volts``.
+    Blobs, one per distinct list of a chip's conflicts: repeated ``attr``,
+    ``n``, ``n x (value index, source mask)``, then ``0xFF``. ``attr`` is the
+    index in :data:`CONFLICT_ATTRS` (size, page_size, sector_size, voltage);
+    the value index is into ``sizes``, ``pages``, ``sectors`` or ``volts``
+    respectively. Attributes and values are in spiflash's order
+    (:attr:`~spiflash.model.Flash.conflicts`).
 ``ext`` (EXT)
-    Per base with extended ids: ``k``, ``k x (len, bytes)``, ``n``,
-    ``n x (mask u16, entry u16)`` in ascending mask order. Bit *i* of a mask
-    is set when extended id *i* agrees with the bytes read after the id; a
-    mask not listed means the base entry.
+    Blobs, one per base entry whose records carry extended ids: ``k``, then
+    ``k x (len, len bytes)``: the chip's distinct extended ids, sorted; then
+    ``n``, ``n x (u16 mask, u16 entry index)`` in ascending mask order.
+    ``k`` is at most 16.
 ``records`` (RECORDS)
-    Per entry: ``n``, then ``n x (source, name OFF, ext len, ext bytes[, at
-    OFF with PROVENANCE])``.
+    Blobs, one per entry: ``n``, then per upstream record: source (the index
+    in :data:`SOURCES`), name ``OFF``, ext len (0 = no extended id), ext len
+    bytes, and with PROVENANCE ``at`` ``OFF`` (the upstream ``file:line``).
 ``jep106`` (JEP106)
-    Per manufacturer, sorted by (bank, id): bank, id, name ``OFF``;
-    ``JEP106_COUNT`` of them.
-``str`` (any string)
-    NUL-terminated strings. With TEXT or JSON, the fixed string lists
-    ``featnames``, ``srcnames``, ``famnames``, ``kindnames``, ``protonames``,
-    ``attrnames`` and ``typenames`` are ``OFF`` arrays.
+    ``JEP106_COUNT`` rows, sorted by (bank, id): bank, id (with its parity
+    bit, as a chip sends it), name ``OFF``.
+``str`` (always)
+    NUL-terminated printable-ASCII strings with no ``"`` or ``\\``.
+Name arrays (TEXT or JSON)
+    ``OFF`` arrays holding each member's value (``str(member)``: ``"nor"``,
+    ``"u-boot"``, ``"erase_4k"``): ``featnames`` per :data:`FEATURES`,
+    ``srcnames`` per :data:`SOURCES`, ``famnames`` per
+    :data:`~uspiflash.model.FAMILIES`, ``kindnames`` per :data:`KINDS`,
+    ``protonames`` per :data:`PROTOCOLS`, ``attrnames`` per
+    :data:`CONFLICT_ATTRS` and ``typenames`` per :data:`TYPES`.
 
-Entry fields (a field is present only if its table is), in this order:
+Entry fields
+------------
 
-- ``E_BANK`` (1 byte): the JEP106 bank (continuation codes before the id).
+Present only with their table, in this order, packed:
+
+- ``E_BANK``: the JEP106 bank (continuation codes before the id). Always.
 - ``E_SIZE``, ``E_PAGE``, ``E_SECTOR``, ``E_VOLT``, ``E_FEAT`` and ``E_MFR``:
-  1-byte indices, ``0xFF`` = none.
-- ``E_SRCS``: a source mask.
-- ``E_NAMES``, ``E_OPS``, ``E_CONF``, ``E_EXT`` and ``E_RECS``: u16 offsets
-  into their tables, ``0xFFFF`` = none.
+  indices into ``sizes``, ``pages``, ``sectors``, ``volts``, ``featsets`` and
+  ``mfrs``; ``0xFF`` = unknown (``E_FEAT`` is never ``0xFF``).
+- ``E_SRCS``: a source mask (who has an entry for the chip).
+- ``E_NAMES``, ``E_OPS``, ``E_CONF``, ``E_EXT`` and ``E_RECS``: ``u16``
+  offsets into ``namelists``, ``opsets``, ``conflicts``, ``ext`` and
+  ``records``; ``0xFFFF`` = none. ``E_CONF`` is none for a chip without
+  conflicts, ``E_EXT`` for a chip without extended ids and for every variant;
+  the others always point at a blob (an empty list is a blob with count 0).
 
-The generator raises :exc:`ValueError` if any index exceeds 254 or any offset
-exceeds 0xFFFE. M4 revisits widths with measurements.
+The generator raises :exc:`ValueError` if any index exceeds 254, any offset
+exceeds 0xFFFE, or any value overflows its field. M4 revisits widths with
+measurements.
 
-Constants for the C template go in :attr:`Layout.defines`: ``ENTRY_COUNT``,
-``BASE_COUNT``, ``OFF_BYTES``, ``OP_COUNT``, ``OP_SIZE``, ``OP_NAME``,
-``JEP106_COUNT``, ``RDID_LEN``, ``ENTRY_SIZE`` and each present ``E_*``;
-``HAVE_<FIELD>`` per selected field; ``HAVE_NOR`` / ``HAVE_NAND`` per chip
-type present; ``HAVE_FAMILY_<NAME>`` per id family present.
+Lookup
+------
+
+``lookup(family, data)`` (C's ``usf_lookup``, :func:`uspiflash.decode.lookup`):
+
+1. Skip leading ``0x7f`` continuation codes while more than one byte
+   remains; the rest is ``core``. The bank is not compared (spiflash ignores
+   it too, since many chips leave the codes out).
+2. Walk ``ids``, counting entries. An id matches when its ``family`` is
+   ``family``, its ``len`` is at most ``len(core)`` and its bytes equal the
+   start of ``core``. Keep, per type, the first longest match.
+3. The answer is the NOR match, then the NAND match, each narrowed:
+
+Narrowing, with EXT only (without it, the base entry is the answer): let
+``x`` be the bytes of ``core`` after the id. If ``x`` is empty, or the base
+entry's ``E_EXT`` is ``0xFFFF``, the answer is the base entry. Otherwise form
+a mask: bit *i* set when the *i*-th extended id ``e`` of its ``ext`` blob
+agrees with ``x``, by spiflash's two-way prefix rule ``e[:len(x)] ==
+x[:len(e)]`` (:func:`uspiflash.model.compatible`). The answer is the entry of
+the pair whose mask equals it exactly, or the base entry if none does.
+
+Defines
+-------
+
+Constants for the C template, in :attr:`Layout.defines`:
+
+- ``ENTRY_COUNT``, ``BASE_COUNT``, ``ENTRY_SIZE`` and each present ``E_*``;
+- ``OFF_BYTES``; ``OP_COUNT``, ``OP_SIZE`` and (with DESCRIPTIONS)
+  ``OP_NAME``; ``JEP106_COUNT`` (0 without JEP106);
+- ``RDID_LEN``: the bytes the probe reads for RDID: max(6, the longest bank +
+  id length + longest extended id over the JEDEC-family base entries). Only
+  JEDEC answers are looked up from RDID reads; the legacy probes read fixed
+  lengths.
+- ``HAVE_<FIELD>`` per selected :class:`~uspiflash.levels.Field`;
+  ``HAVE_NOR`` / ``HAVE_NAND`` per chip type among the base entries;
+  ``HAVE_FAMILY_<NAME>`` per id family among them.
 """
 
 from __future__ import annotations
@@ -172,6 +246,14 @@ def _u8(v: int) -> bytes:
         msg = f"{v} does not fit 8 bits"
         raise ValueError(msg)
     return bytes([v])
+
+
+def _uint(v: int, width: int, what: str) -> bytes:
+    """``v`` as ``width`` little-endian bytes; ``ValueError`` if it doesn't fit."""
+    if not 0 <= v < 1 << 8 * width:
+        msg = f"{what} {v} does not fit {8 * width} bits"
+        raise ValueError(msg)
+    return v.to_bytes(width, "little")
 
 
 def _idx(values: tuple[object, ...], v: object) -> int:
@@ -327,12 +409,12 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         if has(fld):
             ints = _int_values(snap, attr)
             values[table] = ints
-            tables[table] = b"".join(v.to_bytes(widths[table], "little") for v in ints)
+            tables[table] = b"".join(_uint(v, widths[table], attr) for v in ints)
     if has(Field.VOLTAGE):
         volts = _volt_values(snap)
         values["volts"] = volts
         tables["volts"] = b"".join(
-            lo.to_bytes(2, "little") + hi.to_bytes(2, "little") for lo, hi in volts
+            _uint(lo, 2, "voltage") + _uint(hi, 2, "voltage") for lo, hi in volts
         )
 
     # featsets
@@ -341,7 +423,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         for e in snap.entries:
             featsets.setdefault(e.flash.features, len(featsets))
         tables["featsets"] = b"".join(
-            sum(1 << FEATURES.index(x) for x in fs).to_bytes(3, "little") for fs in featsets
+            _uint(sum(1 << FEATURES.index(x) for x in fs), 3, "feature set") for fs in featsets
         )
 
     # ops and opsets
@@ -413,7 +495,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         if has(Field.OPERATIONS):
             kept = [o for o in f.opcodes.values() if o.operation.kind in sel.op_kinds]
             blob = _u8(len(kept)) + b"".join(
-                _u8(ops.index(o.name)) + (_u8(mask(o.sources)) if has(Field.SOURCES) else b"")
+                _u8(_idx(ops, o.name)) + (_u8(mask(o.sources)) if has(Field.SOURCES) else b"")
                 for o in kept
             )
             row += _u16(opsets.add(blob))

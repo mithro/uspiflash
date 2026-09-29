@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING
+from dataclasses import replace
+from typing import TYPE_CHECKING, Any
 
 import pytest
-from spiflash.db import database
-from spiflash.enums import FlashType
+from spiflash.db import Database, database
+from spiflash.enums import FlashType, IdFamily
+from spiflash.model import Voltage
 from spiflash.opcodes import OPERATIONS
 
 from uspiflash import decode, layout
@@ -15,7 +17,7 @@ from uspiflash.levels import LEVELS, ChipFilter, Field, Selection
 from uspiflash.model import FAMILIES, Snapshot
 
 if TYPE_CHECKING:
-    from spiflash.model import Flash
+    from spiflash.model import Flash, Record
 
 
 @pytest.fixture(scope="module")
@@ -55,16 +57,23 @@ def expected(sel: Selection, flash: Flash) -> dict[str, object]:
     return out
 
 
+def ordered(d: dict[str, object]) -> dict[str, object]:
+    """``d`` with its conflicts as a list, so their order is compared too."""
+    conf = d.get("conflicts")
+    return {**d, "conflicts": list(conf.items())} if isinstance(conf, dict) else d
+
+
 @pytest.mark.parametrize("level", list(LEVELS))
 def test_every_entry_round_trips(snap: Snapshot, level: str) -> None:
     sel = Selection.make(level)
     lay = layout.build(snap, sel)
     for i, e in enumerate(snap.entries):
-        assert decode.entry(lay, i) == expected(sel, e.flash), (level, i)
+        assert ordered(decode.entry(lay, i)) == ordered(expected(sel, e.flash)), (level, i)
 
 
-def test_lookup_in_the_bytes_matches_the_snapshot(snap: Snapshot) -> None:
-    lay = layout.build(snap, Selection.make("full"))
+@pytest.mark.parametrize("level", ["read", "full"])
+def test_lookup_in_the_bytes_matches_the_snapshot(snap: Snapshot, level: str) -> None:
+    lay = layout.build(snap, Selection.make(level))
     rng = random.Random(7)
     for i in range(snap.n_base):
         f = snap.entries[i].flash
@@ -75,6 +84,44 @@ def test_lookup_in_the_bytes_matches_the_snapshot(snap: Snapshot) -> None:
             assert decode.lookup(lay, fam, f.id + probe) == snap.lookup(f.family, f.id + probe)
         sent = b"\x7f" * f.bank + f.id  # as a chip in a later JEP106 bank sends it
         assert decode.lookup(lay, fam, sent) == snap.lookup(f.family, sent)
+        # A continuation code before a bank-0 id: skipped, as spiflash does.
+        sent = b"\x7f" + f.id
+        assert decode.lookup(lay, fam, sent) == snap.lookup(f.family, sent)
+
+
+def test_lookup_misses_as_spiflash_does(snap: Snapshot) -> None:
+    lay = layout.build(snap, Selection.make("full"))
+    nothing = b"\x00\x00\x00"
+    assert snap.lookup(IdFamily.JEDEC, nothing) == []
+    assert decode.lookup(lay, 0, nothing) == []
+    # Every chip's id asked for under every other family.
+    misses = 0
+    for i in range(snap.n_base):
+        f = snap.entries[i].flash
+        for fam, family in enumerate(FAMILIES):
+            if family is not f.family:
+                want = snap.lookup(family, f.id)
+                assert decode.lookup(lay, fam, f.id) == want, (i, family)
+                misses += not want
+    assert misses > 0
+
+
+def test_lookup_without_ext_answers_the_base_entry(snap: Snapshot) -> None:
+    """Without EXT (the ``id`` level) nothing narrows: the bytes after the id
+    are ignored and the answer is the chip id's base entry."""
+    lay = layout.build(snap, Selection.make("id"))
+    assert "HAVE_EXT" not in lay.defines
+    for i, ids in snap.ext.items():
+        f = snap.entries[i].flash
+        fam = FAMILIES.index(f.family)
+        for probe in ids:
+            want = [snap.entries[j].base for j in snap.lookup(f.family, f.id + probe)]
+            assert decode.lookup(lay, fam, f.id + probe) == want
+    assert any(
+        snap.lookup(snap.entries[i].flash.family, snap.entries[i].flash.id + probe) != [i]
+        for i, ids in snap.ext.items()
+        for probe in ids
+    )
 
 
 def test_build_is_deterministic(snap: Snapshot) -> None:
@@ -143,7 +190,7 @@ def test_single_type_selections(keep: FlashType, other: str) -> None:
         f"HAVE_FAMILY_{f.name}" for f in families
     }
     for i, e in enumerate(one.entries):
-        assert decode.entry(lay, i) == expected(sel, e.flash), (keep, i)
+        assert ordered(decode.entry(lay, i)) == ordered(expected(sel, e.flash)), (keep, i)
 
 
 def test_full_database_has_both_types_and_every_family(snap: Snapshot) -> None:
@@ -157,3 +204,39 @@ def test_string_returns_what_was_added(snap: Snapshot) -> None:
     at = pool.add("ab")
     lay = layout.Layout(Selection.make("id"), snap, 2, tables={"str": pool.data})
     assert decode.string(lay, at) == "ab"
+
+
+def _chip_records() -> list[Record]:
+    """The records of one ordinary JEDEC NOR chip."""
+    f = next(
+        f for f in database().flashes if f.family is IdFamily.JEDEC and f.type is FlashType.NOR
+    )
+    return list(f.records)
+
+
+def _build(records: list[Record], level: str) -> layout.Layout:
+    db = database()
+    small = Database(records, db.manufacturers, db.sources, db.datasheets)
+    return layout.build(Snapshot.build(small), Selection.make(level))
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"size": 1 << 32}, "size 4294967296 does not fit 32 bits"),
+        ({"page_size": 1 << 16}, "page_size 65536 does not fit 16 bits"),
+        ({"sector_size": 1 << 32}, "sector_size 4294967296 does not fit 32 bits"),
+        ({"voltage": Voltage(1800, 1 << 16)}, "voltage 65536 does not fit 16 bits"),
+    ],
+)
+def test_a_value_too_wide_for_its_table_is_refused(change: dict[str, Any], message: str) -> None:
+    records = [replace(r, **change) for r in _chip_records()]
+    with pytest.raises(ValueError, match=message):
+        _build(records, "describe")
+
+
+def test_more_than_254_distinct_values_is_refused() -> None:
+    r = _chip_records()[0]
+    records = [replace(r, id=bytes([0xEF, i >> 8, i & 0xFF]), size=i + 1) for i in range(300)]
+    with pytest.raises(ValueError, match="more than 254 distinct values"):
+        _build(records, "read")

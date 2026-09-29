@@ -87,8 +87,19 @@ def _narrow(lay: Layout, base: int, x: bytes) -> int:
     return base
 
 
+#: Each value table's row width in bytes.
+_WIDTH = {"sizes": 4, "pages": 2, "sectors": 4, "volts": 4}
+
+
 def _value(lay: Layout, table: str, i: int) -> object:
-    return None if i == NONE8 else lay.values[table][i]
+    """Row ``i`` of value table ``table``, read from its bytes; ``None`` for 0xFF."""
+    if i == NONE8:
+        return None
+    w = _WIDTH[table]
+    row = lay.tables[table][i * w : (i + 1) * w]
+    if table == "volts":
+        return (_u16(row, 0), _u16(row, 2))
+    return int.from_bytes(row, "little")
 
 
 def _operations(lay: Layout, offset: int) -> list[tuple[str, list[Source] | None]]:
