@@ -98,3 +98,15 @@ int main(void)
         compile_c(cc, [src], exe)
         assert subprocess.run([str(exe)], check=False).returncode == 0, cc
 
+
+@pytest.mark.parametrize("config", CONFIGS, ids=name)
+def test_every_table_is_read(tmp_path: Path, compilers: list[str], config: Config) -> None:
+    """Compiled as the main file, so -Wunused-const-variable sees the tables:
+    one that nothing reads fails here. (Neither compiler warns about an
+    unused table in an included header, which is how the other tests
+    compile it.)"""
+    header = generate(tmp_path, config)
+    impl = f"-D{config.prefix.upper()}_IMPLEMENTATION"
+    for cc in compilers:
+        obj = tmp_path / f"main-{cc}.o"
+        compile_c(cc, [header], obj, ["-c", "-ffreestanding", "-x", "c", impl])
