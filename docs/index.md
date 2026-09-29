@@ -8,6 +8,7 @@
 :maxdepth: 2
 
 design
+usage
 developing
 experiments
 sizes
