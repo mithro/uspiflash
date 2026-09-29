@@ -546,3 +546,73 @@ merging.
   approval).
 - **fpgas.online availability**: hardware jobs are not a merge gate; their
   results are recorded with the date and board serial.
+
+## 13. Amendments (M1 plan, 2026-09-28)
+
+1. **`records` and `provenance` extras.**
+   - `spiflash id --json` includes every upstream record (source, raw name,
+     ext_id, `at`). The raw names alone are 19,329 bytes, more than every
+     other string together.
+   - So `full` covers everything the **text** output shows, plus the JSON
+     *minus* `records`.
+   - The extra `records` adds `records[]` without `at`; the extra
+     `provenance` adds `at`.
+   - JSON parity tests delete what the level leaves out from the oracle's
+     JSON.
+2. **Erasers with block layouts** are per-record data. spiflash's `Flash`
+   exposes no consensus for them, so `write` gets erase *operations* (with
+   `sector_size`), and eraser layouts wait for a spiflash change (a PR to
+   `mithro/spiflash`, M4 or later).
+3. **Stable operation ids.**
+   - `USF_OP_<NAME>` is the operation's index in spiflash's full operation
+     list (sorted by `spiflash.opcodes.sort_key`).
+   - Ids therefore do not change when a subset drops an operation.
+   - The generated table stores only the operations it needs, each with its
+     stable id.
+4. **`usf_lookup` returns up to two chips** (one NOR, one NAND), because
+   spiflash's `lookup` does.
+5. **The probe reads these exact transactions**, derived from spiflash's
+   operation table (`RES` `0xAB`, 24 dummy clocks; `RDID_ATMEL` `0x15`;
+   `RDID_M95` `0x83` with 2 address bytes and 3 data bytes; `REMS` `0x90`
+   with 3 address bytes):
+
+   | Step | TX | RX bytes | Family looked up |
+   |---|---|---|---|
+   | RES | `ab 00 00 00` | 2 | RES2 (2 bytes), RES1 (first byte) — after the JEDEC steps fail |
+   | RDID | `9f` | `USF_RDID_LEN` | JEDEC |
+   | NAND RDID | `9f 00` | `USF_RDID_LEN - 1` | JEDEC |
+   | REMS | `90 00 00 00` | 2 | REMS |
+   | AT25F | `15` | 2 | AT25F |
+   | M95 | `83 00 00` | 3 | ST95 |
+
+   `USF_RDID_LEN` is generated: the longest (continuation codes + id +
+   extended id) over the selected chips, and at least 6. At spiflash
+   0.0.post36 it is 10 (checked 2026-09-28): the ATXP032 sits in JEP106
+   bank 7, so it sends seven `0x7f` codes before its 3-byte id `43a700`. A
+   fixed 6-byte read could never identify it.
+
+6. **Strings must be printable ASCII without `"` or `\`.** The generator
+   checks this and refuses otherwise, so the C JSON writer needs no escaping.
+   Every chip, record and operation string in spiflash 0.0.post36 passes.
+   The one exception is datasheet titles and revisions (decision 7). They
+   appear only in JSON, so they are stored already JSON-escaped: exactly
+   what `json.dumps` writes, `×` and all.
+7. **Datasheets are two extras, not part of `full`.** spiflash 0.0.post38
+   (released during planning, 2026-09-28) added datasheets: 651 of them
+   for 631 chip ids, with 52,464 bytes of URLs and 42,296 bytes of titles.
+   That is several times all other strings together.
+   - The text output prints the best one (`    datasheet: <url>`, after
+     `from:`); the JSON lists all of them (`datasheets`, between
+     `conflicts` and `records`).
+   - The extra `datasheet` adds the best URL per chip (the text line).
+   - The extra `datasheets` adds the full JSON list (url, title, revision,
+     date, official, id_confirmed).
+   - The oracle removes the line and the key when they aren't selected, as
+     it does for `records`.
+8. **The probe only sends legacy commands to a silent bus.**
+   - The NAND read-id (`9f 00`) runs whenever the JEDEC lookup fails. It is
+     the same read-id command, and a NAND chip answers plain `9f` with a
+     non-blank dummy byte first.
+   - REMS, RES2/RES1, AT25F and ST95 run only when the JEDEC answer was
+     blank (all `0x00` or `0xFF`), as spec §5.3 says. A chip that answers
+     read-id but isn't in the database is never sent anything else.

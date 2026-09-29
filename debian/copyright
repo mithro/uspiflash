@@ -1,0 +1,19 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: uspiflash
+Upstream-Contact: Tim Ansell <me@mith.ro>
+Source: https://github.com/mithro/uspiflash
+
+Files: *
+Copyright: 2026 Tim Ansell
+License: Apache-2.0
+Comment:
+ uspiflash writes C headers containing data (chip ids, sizes, geometry, supply
+ voltages, capabilities and supported commands) drawn from the spiflash
+ Python package's database (Apache-2.0), itself extracted by spiflash from
+ the upstreams listed in spiflash's own debian/copyright
+ (https://github.com/mithro/spiflash/blob/main/debian/copyright). No code
+ from those upstreams, or from spiflash itself, is included here.
+
+License: Apache-2.0
+ On Debian systems, the complete text of the Apache License Version 2.0
+ can be found in '/usr/share/common-licenses/Apache-2.0'.
