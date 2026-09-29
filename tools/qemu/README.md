@@ -34,12 +34,17 @@ is set and `docker` is on `PATH`. CI runs it in `.github/workflows/qemu.yml`.
   guest: the kernel `Image` and `initramfs.cpio.gz`, into `tmp/qemu/`.
 - `init`: the guest's `/init` (busybox sh).
 - `run.py`: generates the tool's header on the host (the Makefile's
-  `GENERATE` options), builds the image (tagged `uspiflash-qemu`, kept as a
-  cache: about 720 MB), builds the guest, boots it with a 300 s timeout,
-  and prints the tool's output from between the markers `init` prints. It
-  exits with the tool's exit code, or 3 if the markers never appear. Every
-  `docker run` gets `--rm` and the memory and CPU limits
-  `uspiflash.sandbox.current_limits()` gives, and `--pids-limit 512`.
+  `GENERATE` options), builds the image, builds the guest, boots it with a
+  300 s timeout, and prints the tool's output from between the markers
+  `init` prints. It exits with the tool's exit code, or 3 if the markers
+  never appear; then the console's last 200 lines and docker's exit code go
+  to stderr. Every `docker run` gets `--rm` and the memory and CPU limits
+  `uspiflash.sandbox.current_limits()` gives, and `--pids-limit 512`; a
+  hung one is killed. The image is tagged `uspiflash-qemu:<hash>`, a hash
+  of the Dockerfile and its build arguments, and kept as a cache (about
+  720 MB): an image of that tag is used as it is. When the pins change, a
+  new tag is built, and `docker rmi` removes the old one. The Dockerfile
+  checks the kernel's and busybox's .deb sha256s against run.py's.
 
 The tool is cross-compiled with `riscv64-linux-gnu-gcc -static -Os`, the
 Makefile's `CFLAGS` (read from `examples/linux/Makefile`) and

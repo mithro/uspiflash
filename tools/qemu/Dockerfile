@@ -5,14 +5,16 @@
 # The base image and the apt snapshot are uspiflash.ledger.IMAGE and
 # SNAPSHOT (the `sizes` job's), so the packages are the same whatever the
 # live mirror holds today. run.py passes them in, with the kernel's and
-# busybox's versions.
+# busybox's versions and their .debs' sha256s.
 ARG IMAGE
 FROM ${IMAGE}
 
 ARG SNAPSHOT
 ARG KERNEL
 ARG KERNEL_VERSION
+ARG KERNEL_SHA256
 ARG BUSYBOX_VERSION
+ARG BUSYBOX_SHA256
 
 RUN rm -f /etc/apt/sources.list.d/debian.sources \
  && echo "deb http://snapshot.debian.org/archive/debian/${SNAPSHOT}/ trixie main" > /etc/apt/sources.list \
@@ -31,7 +33,8 @@ RUN mkdir -p /opt/riscv && cd /opt/riscv \
  && apt-get download \
       "busybox-static:riscv64=${BUSYBOX_VERSION}" \
       "linux-image-${KERNEL}:riscv64=${KERNEL_VERSION}" \
- && sha256sum ./*.deb \
+ && printf '%s  %s\n' "${BUSYBOX_SHA256}" busybox-static_*.deb \
+      "${KERNEL_SHA256}" linux-image-*.deb | sha256sum -c \
  && dpkg-deb -x busybox-static_*.deb busybox \
  && dpkg-deb -x linux-image-*.deb kernel \
  && rm ./*.deb \
