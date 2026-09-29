@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import TYPE_CHECKING
+
 import uspiflash
+from uspiflash import research
+
+if TYPE_CHECKING:
+    from sphinx.application import Sphinx
 
 project = "uspiflash"
 author = "Tim Ansell"
@@ -34,3 +41,22 @@ html_theme_options = {
     "source_branch": "main",
     "source_directory": "docs/",
 }
+
+
+def _generate_experiment_pages(app: Sphinx) -> None:
+    """Write ``_generated/experiments/<slug>.md`` for each experiment
+    (spec §7.4), each ``{include}``-ing that experiment's own README, so
+    ``experiments.md``'s glob toctree picks every one of them up."""
+    root = research.find_root(Path(app.confdir))
+    generated = Path(app.confdir) / "_generated" / "experiments"
+    generated.mkdir(parents=True, exist_ok=True)
+    for slug in research.slugs(root):
+        text = f"# {slug}\n\n```{{include}} ../../../experiments/{slug}/README.md\n```\n"
+        (generated / f"{slug}.md").write_text(text)
+
+
+def setup(app: Sphinx) -> dict[str, bool]:
+    """Regenerate the experiments index before each build (idempotent:
+    writing the same generated files again changes nothing)."""
+    app.connect("builder-inited", _generate_experiment_pages)
+    return {"parallel_read_safe": True, "parallel_write_safe": True}
