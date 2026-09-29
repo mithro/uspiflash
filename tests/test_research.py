@@ -78,6 +78,16 @@ def test_cli_runs_an_experiment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert json.loads(out.read_text()) == {"answer": 42}
 
 
+def test_cli_unknown_experiment_is_an_error_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(make(tmp_path))
+    assert main(["research", "run", "no-such-experiment"]) == 2
+    out = capsys.readouterr()
+    assert out.out == ""
+    assert out.err == "uspiflash: no experiment 'no-such-experiment' (known: 2026-01-01-toy)\n"
+
+
 def test_cli_research_with_no_subcommand_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

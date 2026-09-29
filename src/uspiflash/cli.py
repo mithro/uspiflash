@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -41,6 +42,10 @@ def _research(args: argparse.Namespace) -> int:
     """Dispatch ``research run`` and ``research list``."""
     root = research.find_root(Path.cwd())
     if args.research_command == "run":
+        if args.slug not in research.slugs(root):
+            known = ", ".join(research.slugs(root))
+            print(f"uspiflash: no experiment {args.slug!r} (known: {known})", file=sys.stderr)
+            return 2
         return research.run(args.slug, root)
     if args.research_command == "list":
         for slug in research.slugs(root):
