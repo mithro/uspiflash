@@ -296,7 +296,11 @@ def test_the_committed_files_match_the_committed_ledger() -> None:
         assert (ROOT / path).read_text(encoding="utf-8") == text, path
     assert [c["name"] for c in data["configs"]] == [n for n, _ in measure.CONFIGS]
     assert [t["name"] for t in data["targets"]] == [t.name for t in TARGETS]
-    assert data["environment"] == {"image": ledger.IMAGE, "packages": list(ledger.PACKAGES)}
+    assert data["environment"] == {
+        "image": ledger.IMAGE,
+        "packages": list(ledger.PACKAGES),
+        "snapshot": ledger.SNAPSHOT,
+    }
 
 
 def test_ci_checks_the_ledger_in_the_pinned_image() -> None:
@@ -305,6 +309,28 @@ def test_ci_checks_the_ledger_in_the_pinned_image() -> None:
     assert f"    container: {ledger.IMAGE}\n" in job
     install = job[job.index("apt-get install") :].split("\n\n")[0].split()
     assert set(ledger.PACKAGES) <= set(install)
+    _assert_snapshot_install(job)
+
+
+def _assert_snapshot_install(script: str) -> None:
+    """``script`` installs from the pinned snapshot only: the default
+    sources removed, the snapshot line in their place, and apt told that a
+    snapshot's expired Release file is expected."""
+    assert "rm -f /etc/apt/sources.list.d/debian.sources" in script
+    assert f'echo "{ledger.APT_SOURCE}" > /etc/apt/sources.list' in script
+    assert "Acquire::Check-Valid-Until" in script
+    first = script.index("rm -f /etc/apt/sources.list.d/debian.sources")
+    assert first < script.index("apt-get update")
+
+
+def test_releasing_regenerates_from_the_same_snapshot() -> None:
+    releasing = ROOT / "RELEASING.md"
+    if not releasing.is_file():
+        pytest.skip("no RELEASING.md (an sdist)")
+    text = releasing.read_text(encoding="utf-8")
+    command = text[text.index("## The size ledger's image") :]
+    command = command[command.index("```sh\n   IMAGE=") :].split("   ```\n")[0]
+    _assert_snapshot_install(command)
 
 
 def test_write_updates_the_readme_figures(

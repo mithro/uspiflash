@@ -136,25 +136,32 @@ and update its README's numbers.
 ## The size ledger's image
 
 `sizes/ledger.json` is made and checked in one container image, Debian
-trixie for linux/amd64 pinned by digest. The digest appears in exactly two
-places, which a test keeps equal: `IMAGE` in `src/uspiflash/ledger.py` and
-the `sizes` job's `container:` in `.github/workflows/deb.yml`. The ledger
-records the image too, so changing the pin without regenerating fails
-`measure --check`.
+trixie for linux/amd64 pinned by digest, with its tools installed from
+snapshot.debian.org at a fixed timestamp (so a trixie point release on the
+live mirror cannot change them). The digest appears in exactly two places,
+which a test keeps equal: `IMAGE` in `src/uspiflash/ledger.py` and the
+`sizes` job's `container:` in `.github/workflows/deb.yml`; the timestamp is
+`SNAPSHOT` there, and in the `sizes` job's apt source and the command below
+(tests check both). The ledger records the image and the timestamp too, so
+changing either without regenerating fails `measure --check`.
 
-The pin moves only deliberately (for example when trixie's point release
-updates clang or gcc: the job then exits 2, naming the changed tool). To
-move it:
+The pins move only deliberately (for example to take a trixie point
+release's clang or gcc). To move them:
 
 1. Find the new digest of the linux/amd64 image:
    `docker buildx imagetools inspect debian:trixie` lists it under
-   `Platform: linux/amd64`.
-2. Put it in both places above.
+   `Platform: linux/amd64`. The image's `/etc/apt/sources.list.d/debian.sources`
+   names the snapshot it was built from (a `# http://snapshot.debian.org/...`
+   comment): use that timestamp.
+2. Put the digest and the timestamp in the places above.
 3. Regenerate the ledger in that image, from the repository's root:
 
    ```sh
    IMAGE=debian:trixie@sha256:<digest>
    docker run --rm -v "$PWD:/w" -w /w -e UV_PROJECT_ENVIRONMENT=/venv "$IMAGE" bash -ec '
+     rm -f /etc/apt/sources.list.d/debian.sources
+     echo "deb http://snapshot.debian.org/archive/debian/20260918T000000Z/ trixie main" > /etc/apt/sources.list
+     echo "Acquire::Check-Valid-Until \"false\";" > /etc/apt/apt.conf.d/99snapshot
      apt-get update -q
      apt-get install -y -q --no-install-recommends \
        clang-19 llvm-19 gcc libc6-dev python3 ca-certificates git curl
@@ -164,7 +171,8 @@ move it:
      chown -R "$(stat -c %u:%g /w)" /w'
    ```
 
-4. Commit the digest and the regenerated `sizes/` and `README.md` together.
+4. Commit the digest, the timestamp and the regenerated `sizes/` and
+   `README.md` together.
 
 ## Verifying a release
 

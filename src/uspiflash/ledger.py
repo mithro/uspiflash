@@ -53,6 +53,15 @@ REGENERATE = "uv run python -m uspiflash.sandbox -- uv run uspiflash measure --w
 IMAGE = "debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674"
 #: The Debian packages the image needs for :data:`~uspiflash.measure.TARGETS`.
 PACKAGES = ("clang-19", "llvm-19", "gcc", "libc6-dev")
+#: The snapshot.debian.org timestamp the packages are installed from, so the
+#: tools are the same whatever the live trixie mirror holds today. It is the
+#: snapshot the image itself was built from, and its clang-19, llvm-19 and
+#: gcc are the versions the ledger records.
+SNAPSHOT = "20260918T000000Z"
+#: The one apt source the image uses (in place of its defaults). Snapshots
+#: are older than their Valid-Until, so apt needs
+#: ``Acquire::Check-Valid-Until=false`` to read them.
+APT_SOURCE = f"deb http://snapshot.debian.org/archive/debian/{SNAPSHOT}/ trixie main"
 _REPO = "https://github.com/mithro/uspiflash/blob/main"
 _STATS = "2026-09-28-database-statistics"
 
@@ -93,7 +102,7 @@ def build(
     }
     return {
         "format": FORMAT,
-        "environment": {"image": IMAGE, "packages": list(PACKAGES)},
+        "environment": {"image": IMAGE, "packages": list(PACKAGES), "snapshot": SNAPSHOT},
         "spiflash": {"version": spiflash.__version__, "database_format": DB_FORMAT},
         "tools": versions,
         "configs": [
@@ -178,8 +187,9 @@ def readme(ledger: dict[str, Any]) -> str:
         *(f"- `{name}`: {v}" for name, v in sorted(ledger["tools"].items())),
         "",
         f"These are the Debian packages {', '.join(f'`{p}`' for p in env['packages'])}",
-        f"in `{env['image']}`, the image CI's `sizes` job checks the ledger in. On a",
-        "machine with the same versions, regenerate with:",
+        f"from snapshot.debian.org at `{env['snapshot']}`, in `{env['image']}`, the",
+        "image CI's `sizes` job checks the ledger in. On a machine with the same",
+        "versions, regenerate with:",
         "",
         "```sh",
         REGENERATE,

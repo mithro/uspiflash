@@ -104,8 +104,9 @@ Tools:
 - `llvm-readobj`: Debian LLVM version 19.1.7
 
 These are the Debian packages `clang-19`, `llvm-19`, `gcc`, `libc6-dev`
-in `debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674`, the image CI's `sizes` job checks the ledger in. On a
-machine with the same versions, regenerate with:
+from snapshot.debian.org at `20260918T000000Z`, in `debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674`, the
+image CI's `sizes` job checks the ledger in. On a machine with the same
+versions, regenerate with:
 
 ```sh
 uv run python -m uspiflash.sandbox -- uv run uspiflash measure --write

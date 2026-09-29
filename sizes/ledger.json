@@ -544,7 +544,8 @@
    "llvm-19",
    "gcc",
    "libc6-dev"
-  ]
+  ],
+  "snapshot": "20260918T000000Z"
  },
  "format": 1,
  "sizes": {
