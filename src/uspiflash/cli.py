@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import spiflash
 from spiflash.enums import FlashType, IdFamily
 
-from . import __version__, emit, ledger, research
+from . import VERIFIED_SPIFLASH, __version__, emit, ledger, research
 from .levels import LEVELS, ChipFilter, Field, Selection
 from .measure import MeasureError
 from .model import FAMILIES
@@ -221,8 +221,21 @@ def _measure(args: argparse.Namespace) -> int:
     return 0
 
 
+def spiflash_warning() -> str | None:
+    """The warning ``generate`` prints when the installed spiflash is not
+    the one the output is verified against, else ``None``."""
+    if spiflash.__version__ == VERIFIED_SPIFLASH:
+        return None
+    return (
+        f"uspiflash: warning: output is verified byte-identical to spiflash "
+        f"{VERIFIED_SPIFLASH}; spiflash {spiflash.__version__} is installed"
+    )
+
+
 def _generate(args: argparse.Namespace) -> int:
     """Write the generated file (``-o -``: to standard output)."""
+    if (warning := spiflash_warning()) is not None:
+        print(warning, file=sys.stderr)
     try:
         text = emit.render(_config(args))
     except ValueError as e:

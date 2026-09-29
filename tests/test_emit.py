@@ -6,7 +6,8 @@ import json
 import os
 import subprocess
 import sys
-from typing import TYPE_CHECKING
+import tomllib
+from pathlib import Path
 
 import pytest
 import spiflash
@@ -19,9 +20,6 @@ from uspiflash.cli import config_from_args, main
 from uspiflash.levels import ChipFilter, Selection
 from uspiflash.model import Snapshot
 from uspiflash.provenance import CONFIG_RE, Config
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 FULL = Config(Selection.make("full"), "usf", "uspiflash.h")
 
@@ -140,6 +138,33 @@ def test_generate_writes_the_file(tmp_path: Path) -> None:
     m = CONFIG_RE.search(text)
     assert m is not None
     assert Config.from_json(json.loads(m.group(1))).filename == "x.h"
+
+
+def test_generate_warns_when_spiflash_is_not_the_verified_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "x.h"
+    monkeypatch.setattr(spiflash, "__version__", uspiflash.VERIFIED_SPIFLASH)
+    assert main(["generate", "-o", str(out), "--level", "id"]) == 0
+    assert capsys.readouterr().err == ""
+    out.unlink()
+    monkeypatch.setattr(spiflash, "__version__", "9.9.post9")
+    assert main(["generate", "-o", str(out), "--level", "id"]) == 0
+    assert capsys.readouterr().err == (
+        f"uspiflash: warning: output is verified byte-identical to spiflash "
+        f"{uspiflash.VERIFIED_SPIFLASH}; spiflash 9.9.post9 is installed\n"
+    )
+    assert out.is_file()
+
+
+def test_the_lock_pins_the_verified_spiflash() -> None:
+    """So every normal CI job runs the parity tests in full."""
+    lock = Path(__file__).resolve().parent.parent / "uv.lock"
+    if not lock.is_file():
+        pytest.skip("no uv.lock (an sdist or a Debian build)")
+    packages = tomllib.loads(lock.read_text(encoding="utf-8"))["package"]
+    (pinned,) = (p["version"] for p in packages if p["name"] == "spiflash")
+    assert pinned == uspiflash.VERIFIED_SPIFLASH
 
 
 def test_generate_refuses_a_broken_selection(capsys: pytest.CaptureFixture[str]) -> None:

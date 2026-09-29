@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from harness import check, name, snapshot
+from harness import check, name, parity, snapshot
 from uspiflash import layout, oracle
 from uspiflash.levels import Selection
 from uspiflash.model import FAMILIES
@@ -21,6 +21,7 @@ CONFIGS = [
 ]
 
 
+@parity
 @pytest.mark.parametrize("config", CONFIGS, ids=name)
 def test_text_and_json_with_datasheets(
     tmp_path: Path, compilers: list[str], config: Config

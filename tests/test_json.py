@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from spiflash.enums import FlashType
 
-from harness import check, name, snapshot
+from harness import check, name, parity, snapshot
 from uspiflash import oracle
 from uspiflash.levels import ChipFilter, Selection
 from uspiflash.model import FAMILIES
@@ -27,6 +27,7 @@ CONFIGS = [
 ]
 
 
+@parity
 @pytest.mark.parametrize("config", CONFIGS, ids=name)
 def test_json_matches_spiflash(tmp_path: Path, compilers: list[str], config: Config) -> None:
     db = snapshot(config).database

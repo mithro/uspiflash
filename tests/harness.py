@@ -4,15 +4,18 @@ strict flags, and building and driving tests/c/harness.c."""
 from __future__ import annotations
 
 import functools
+import os
 import random
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pytest
+import spiflash
 from spiflash.db import database
 
-from uspiflash import emit, layout
+from uspiflash import VERIFIED_SPIFLASH, emit, layout
 from uspiflash.levels import LEVELS
 from uspiflash.model import FAMILIES, Snapshot, reaching_probes
 
@@ -20,6 +23,27 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
     from uspiflash.provenance import Config
+
+#: Set to 1 to run the parity tests whatever spiflash is installed (the
+#: daily drift alarm, .github/workflows/spiflash-latest.yml, does).
+FORCE_PARITY = "USPIFLASH_FORCE_PARITY"
+
+
+def parity_skip_reason() -> str | None:
+    """Why the parity tests (the C's printed output against spiflash's) are
+    skipped, or ``None`` when they run: they run against the spiflash the
+    output is verified with, or anywhere with ``USPIFLASH_FORCE_PARITY=1``."""
+    if spiflash.__version__ == VERIFIED_SPIFLASH or os.environ.get(FORCE_PARITY) == "1":
+        return None
+    return (
+        f"output parity is verified against spiflash {VERIFIED_SPIFLASH}; spiflash "
+        f"{spiflash.__version__} is installed ({FORCE_PARITY}=1 runs it anyway)"
+    )
+
+
+_REASON = parity_skip_reason()
+#: Marks a test comparing the C's output with what spiflash prints.
+parity = pytest.mark.skipif(_REASON is not None, reason=_REASON or "")
 
 CFLAGS = ["-std=c99", "-Wall", "-Wextra", "-Wpedantic", "-Wundef", "-Werror"]
 HERE = Path(__file__).parent

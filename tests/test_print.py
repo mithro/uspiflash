@@ -9,7 +9,7 @@ from spiflash.cli import describe
 from spiflash.db import database
 from spiflash.enums import FlashType
 
-from harness import check, name, snapshot
+from harness import check, name, parity, snapshot
 from uspiflash import oracle
 from uspiflash.levels import ChipFilter, Selection
 from uspiflash.model import FAMILIES
@@ -26,6 +26,7 @@ CONFIGS = [
 ]
 
 
+@parity
 @pytest.mark.parametrize("config", CONFIGS, ids=name)
 def test_text_matches_spiflash(tmp_path: Path, compilers: list[str], config: Config) -> None:
     db = snapshot(config).database
@@ -40,6 +41,7 @@ def test_text_matches_spiflash(tmp_path: Path, compilers: list[str], config: Con
     check(tmp_path, compilers, config, {"T": with_opcodes, "t": without})
 
 
+@parity
 def test_cli_describe_is_the_reference() -> None:
     # Guard against spiflash changing its format under us: pin one example.
     (f,) = database().lookup("ef4018")
