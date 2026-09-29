@@ -4,6 +4,9 @@
 # Scratch space; never committed.
 tmp/
 
+# The controller's scratch area.
+.superpowers/
+
 # Python.
 __pycache__/
 *.py[cod]
@@ -15,3 +18,9 @@ dist/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+src/uspiflash/_version.py
+
+# Docs build output.
+docs/_build/
+docs/_generated/
+docs/_autosummary/
