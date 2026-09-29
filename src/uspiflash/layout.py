@@ -18,13 +18,16 @@ Conventions
 - A **blob table** (``opsets``, ``namelists``, ``conflicts``, ``ext``,
   ``records``) is a run of variable-length blobs, each stored once however
   many entries share it; entries point at a blob by its ``u16`` offset.
-- Each table is present only with the field in parentheses after its name.
-- **Empty tables.** Any table but ``ids`` can be 0 bytes long, and the C
-  emitter must then leave it out (C99 has no zero-length arrays): ``str`` is
-  always emitted and is empty at the ``id``, ``read`` and ``write`` levels;
-  with a filtered snapshot, ``conflicts``, ``ext``, ``mfrs``, ``ops`` and the
-  value tables can be empty too. No entry field then points into the empty
-  table (every such field holds its "none" value), so no reader indexes it.
+- A table is present (a key of :attr:`Layout.tables`) exactly when the
+  code compiled for the selection reads it: with the field(s) in parentheses
+  after its name. So the C file never holds a table nothing uses (which
+  ``-Wunused-const-variable`` would reject).
+- **Empty tables.** A present table other than ``ids`` can still be 0 bytes
+  long (with a filtered snapshot, ``conflicts``, ``ext``, ``mfrs``, ``ops``,
+  ``str`` and the value tables can be). C99 has no zero-length arrays, so the
+  C emitter pads a 0-byte table to one unused byte. No entry field then
+  points into it (every such field holds its "none" value), so no reader
+  indexes the pad byte.
 
 Tables
 ------
@@ -84,15 +87,20 @@ Tables
 ``jep106`` (JEP106)
     ``JEP106_COUNT`` rows, sorted by (bank, id): bank, id (with its parity
     bit, as a chip sends it), name ``OFF``.
-``str`` (always)
-    NUL-terminated printable-ASCII strings with no ``"`` or ``\\``.
-Name arrays (TEXT or JSON)
+``str`` (any string field, :data:`STRING_FIELDS`)
+    NUL-terminated printable-ASCII strings with no ``"`` or ``\\``, each
+    stored once. The string fields are MANUFACTURER, NAMES, DESCRIPTIONS,
+    TEXT, JSON, RECORDS, PROVENANCE and JEP106.
+Name arrays
     ``OFF`` arrays holding each member's value (``str(member)``: ``"nor"``,
-    ``"u-boot"``, ``"erase_4k"``): ``featnames`` per :data:`FEATURES`,
-    ``srcnames`` per :data:`SOURCES`, ``famnames`` per
-    :data:`~uspiflash.model.FAMILIES`, ``kindnames`` per :data:`KINDS`,
-    ``protonames`` per :data:`PROTOCOLS`, ``attrnames`` per
-    :data:`CONFLICT_ATTRS` and ``typenames`` per :data:`TYPES`.
+    ``"u-boot"``, ``"erase_4k"``), for the printers (:func:`name_arrays`):
+    ``featnames`` per :data:`FEATURES`, ``famnames`` per
+    :data:`~uspiflash.model.FAMILIES` and ``typenames`` per :data:`TYPES`
+    (TEXT or JSON); ``kindnames`` per :data:`KINDS` (JSON); ``srcnames`` per
+    :data:`SOURCES` (SOURCES, and TEXT or JSON); ``attrnames`` per
+    :data:`CONFLICT_ATTRS` (CONFLICTS, and TEXT or JSON). No printer prints an
+    operation's protocol, so there is no protocol name array; ``ops`` rows
+    still hold the :data:`PROTOCOLS` index.
 
 Entry fields
 ------------
@@ -111,7 +119,9 @@ Present only with their table, in this order, packed:
   the others always point at a blob (an empty list is a blob with count 0).
 
 The generator raises :exc:`ValueError` if any index exceeds 254, any offset
-exceeds 0xFFFE, or any value overflows its field. M4 revisits widths with
+exceeds 0xFFFE, any value overflows its field, or ``entries`` or ``ops`` is
+over 65,535 bytes (the C computes a row's offset as ``(uint16_t)(entry *
+ENTRY_SIZE)``, and likewise with ``OP_SIZE``). M4 revisits widths with
 measurements.
 
 Lookup
@@ -147,9 +157,12 @@ Constants for the C template, in :attr:`Layout.defines`:
   id length + longest extended id over the JEDEC-family base entries). Only
   JEDEC answers are looked up from RDID reads; the legacy probes read fixed
   lengths.
-- ``HAVE_<FIELD>`` per selected :class:`~uspiflash.levels.Field`;
-  ``HAVE_NOR`` / ``HAVE_NAND`` per chip type among the base entries;
-  ``HAVE_FAMILY_<NAME>`` per id family among them.
+- ``HAVE_<FIELD>`` for **every** :class:`~uspiflash.levels.Field`: 1 if
+  selected, else 0; ``HAVE_NOR`` and ``HAVE_NAND``: 1 if that chip type is
+  among the base entries, else 0; ``HAVE_FAMILY_<NAME>`` for every id family
+  in :data:`~uspiflash.model.FAMILIES`: 1 if among them, else 0. Every flag
+  is defined, as 0 or 1, so the C's ``#if`` lines are well-defined under
+  ``-Wundef``.
 """
 
 from __future__ import annotations
@@ -266,6 +279,14 @@ def _idx(values: tuple[object, ...], v: object) -> int:
     return i
 
 
+def _row_table(name: str, data: bytes) -> bytes:
+    """``data``, if every row offset into it fits the C's 16-bit arithmetic."""
+    if len(data) > NONE16:
+        msg = f"table {name} is {len(data)} bytes, over 65,535"
+        raise ValueError(msg)
+    return data
+
+
 class _Blobs:
     """A table of deduplicated byte strings, addressed by u16 offsets."""
 
@@ -285,15 +306,42 @@ class _Blobs:
         return self._at[blob]
 
 
+#: The fields that put strings in ``str`` (so C code reading ``str`` is compiled).
+STRING_FIELDS = frozenset(
+    {
+        Field.MANUFACTURER,
+        Field.NAMES,
+        Field.DESCRIPTIONS,
+        Field.TEXT,
+        Field.JSON,
+        Field.RECORDS,
+        Field.PROVENANCE,
+        Field.JEP106,
+    }
+)
+
+
+def name_arrays(sel: Selection) -> dict[str, tuple[object, ...]]:
+    """The name arrays the printers compiled for ``sel`` read, with their members."""
+    has = sel.has
+    printer = has(Field.TEXT) or has(Field.JSON)
+    wanted: tuple[tuple[str, tuple[object, ...], bool], ...] = (
+        ("featnames", FEATURES, printer),
+        ("srcnames", SOURCES, printer and has(Field.SOURCES)),
+        ("famnames", FAMILIES, printer),
+        ("kindnames", KINDS, has(Field.JSON)),
+        ("attrnames", CONFLICT_ATTRS, printer and has(Field.CONFLICTS)),
+        ("typenames", TYPES, printer),
+    )
+    return {table: members for table, members, present in wanted if present}
+
+
 def _strings(snap: Snapshot, sel: Selection, pool: StringPool, ops: tuple[str, ...]) -> None:
     """Pass 1: every string, so the pool's size (hence offset width) is known."""
     has = sel.has
-    if has(Field.TEXT) or has(Field.JSON):
-        for group in (FEATURES, SOURCES, FAMILIES, KINDS, TYPES):
-            for member in group:
-                pool.add(str(member))
-        for s in (*PROTOCOLS, *CONFLICT_ATTRS):
-            pool.add(s)
+    for members in name_arrays(sel).values():
+        for member in members:
+            pool.add(str(member))
     if has(Field.DESCRIPTIONS):
         for name in ops:
             pool.add(name)
@@ -445,7 +493,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
             ) + _u8(op.data_bytes or 0)
             if has(Field.DESCRIPTIONS):
                 rows += off(name) + off(op.description)
-        tables["ops"] = bytes(rows)
+        tables["ops"] = _row_table("ops", bytes(rows))
         defines["OP_SIZE"] = 8 + (2 * lay.off_bytes if has(Field.DESCRIPTIONS) else 0)
         if has(Field.DESCRIPTIONS):
             defines["OP_NAME"] = 8
@@ -533,7 +581,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     if len(rows) != at * len(snap.entries):
         msg = "entry rows disagree with ENTRY_SIZE"
         raise AssertionError(msg)
-    tables["entries"] = bytes(rows)
+    tables["entries"] = _row_table("entries", bytes(rows))
     for blobs, fld in (
         (namelists, Field.NAMES),
         (opsets, Field.OPERATIONS),
@@ -550,21 +598,13 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         tables["jep106"] = b"".join(_u8(m.bank) + _u8(m.id) + off(m.name) for m in jep)
 
     # Strings.
-    if has(Field.TEXT) or has(Field.JSON):
-        for table, names in (
-            ("featnames", FEATURES),
-            ("srcnames", SOURCES),
-            ("famnames", FAMILIES),
-            ("kindnames", KINDS),
-            ("protonames", PROTOCOLS),
-            ("attrnames", CONFLICT_ATTRS),
-            ("typenames", TYPES),
-        ):
-            tables[table] = b"".join(off(str(n)) for n in names)
+    for table, members in name_arrays(sel).items():
+        tables[table] = b"".join(off(str(n)) for n in members)
     if len(pool.data) != pool_size:
         msg = "a string was added after the offset width was chosen"
         raise AssertionError(msg)
-    tables["str"] = pool.data
+    if sel.fields & STRING_FIELDS:
+        tables["str"] = pool.data
 
     # Defines.
     defines["ENTRY_COUNT"] = len(snap.entries)
@@ -573,14 +613,11 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     defines["OP_COUNT"] = len(ops)
     defines["JEP106_COUNT"] = len(jep) if has(Field.JEP106) else 0
     for fld in Field:
-        if has(fld):
-            defines[f"HAVE_{fld.name}"] = 1
+        defines[f"HAVE_{fld.name}"] = int(has(fld))
     for flash_type in TYPES:
-        if any(f.type is flash_type for f in bases):
-            defines[f"HAVE_{flash_type.name}"] = 1
+        defines[f"HAVE_{flash_type.name}"] = int(any(f.type is flash_type for f in bases))
     for fam in FAMILIES:
-        if any(f.family is fam for f in bases):
-            defines[f"HAVE_FAMILY_{fam.name}"] = 1
+        defines[f"HAVE_FAMILY_{fam.name}"] = int(any(f.family is fam for f in bases))
     longest = 0
     for i, f in enumerate(bases):
         if f.family is FAMILIES[0]:

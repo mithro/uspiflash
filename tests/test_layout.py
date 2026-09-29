@@ -14,7 +14,7 @@ from spiflash.opcodes import OPERATIONS
 
 from uspiflash import decode, layout
 from uspiflash.levels import LEVELS, ChipFilter, Field, Selection
-from uspiflash.model import FAMILIES, Snapshot
+from uspiflash.model import FAMILIES, Snapshot, reaching_probes
 
 if TYPE_CHECKING:
     from spiflash.model import Flash, Record
@@ -80,7 +80,7 @@ def test_lookup_in_the_bytes_matches_the_snapshot(snap: Snapshot, level: str) ->
         fam = FAMILIES.index(f.family)
         for tail in (b"", bytes(rng.randrange(256) for _ in range(rng.randint(1, 3)))):
             assert decode.lookup(lay, fam, f.id + tail) == snap.lookup(f.family, f.id + tail)
-        for probe in snap.ext.get(i, ()):
+        for probe in reaching_probes(snap.ext.get(i, ())):
             assert decode.lookup(lay, fam, f.id + probe) == snap.lookup(f.family, f.id + probe)
         sent = b"\x7f" * f.bank + f.id  # as a chip in a later JEP106 bank sends it
         assert decode.lookup(lay, fam, sent) == snap.lookup(f.family, sent)
@@ -110,7 +110,7 @@ def test_lookup_without_ext_answers_the_base_entry(snap: Snapshot) -> None:
     """Without EXT (the ``id`` level) nothing narrows: the bytes after the id
     are ignored and the answer is the chip id's base entry."""
     lay = layout.build(snap, Selection.make("id"))
-    assert "HAVE_EXT" not in lay.defines
+    assert lay.defines["HAVE_EXT"] == 0
     for i, ids in snap.ext.items():
         f = snap.entries[i].flash
         fam = FAMILIES.index(f.family)
@@ -142,6 +142,53 @@ def test_stable_operation_ids_cover_spiflash() -> None:
     assert sorted(layout.ALL_OPS) == sorted(OPERATIONS)
 
 
+_ID_TABLES = {"ids", "entries"}
+_READ_TABLES = _ID_TABLES | {"sizes", "featsets", "ops", "opsets", "ext"}
+_WRITE_TABLES = _READ_TABLES | {"pages", "sectors"}
+_DESCRIBE_TABLES = _WRITE_TABLES | {
+    "volts",
+    "mfrs",
+    "namelists",
+    "str",
+    "featnames",
+    "famnames",
+    "typenames",
+}
+_FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrnames"}
+
+
+@pytest.mark.parametrize(
+    ("level", "extras", "tables"),
+    [
+        ("id", [], _ID_TABLES),
+        ("read", [], _READ_TABLES),
+        ("write", [], _WRITE_TABLES),
+        ("describe", [], _DESCRIBE_TABLES),
+        ("full", [], _FULL_TABLES),
+        ("full", ["records", "provenance", "jep106"], _FULL_TABLES | {"records", "jep106"}),
+        # A string field alone brings the pool, without any name array.
+        ("id", ["jep106"], _ID_TABLES | {"jep106", "str"}),
+        # TEXT with SOURCES: srcnames, still no kindnames (JSON only).
+        ("describe", ["sources"], _DESCRIBE_TABLES | {"srcnames"}),
+    ],
+)
+def test_exactly_the_tables_compiled_code_reads(
+    snap: Snapshot, level: str, extras: list[str], tables: set[str]
+) -> None:
+    """A table is present iff the C compiled at that selection reads it: an
+    unread one fails -Werror (-Wunused-const-variable). Part C's compile matrix
+    relies on these sets."""
+    assert layout.build(snap, Selection.make(level, with_=extras)).tables.keys() == tables
+
+
+def test_the_pool_holds_only_strings_something_prints(snap: Snapshot) -> None:
+    """No printer prints a protocol, so neither the pool nor a name array holds one."""
+    lay = layout.build(snap, Selection.make("full", with_=["records", "provenance", "jep106"]))
+    pool = set(lay.tables["str"].split(b"\0"))
+    assert not {p.encode() for p in layout.PROTOCOLS} & pool
+    assert "protonames" not in lay.tables
+
+
 def test_extras_add_their_tables(snap: Snapshot) -> None:
     lay = layout.build(snap, Selection.make("full", with_=["records", "provenance", "jep106"]))
     assert {"records", "jep106"} <= lay.tables.keys()
@@ -171,7 +218,12 @@ def test_every_entry_field_has_an_offset_define(snap: Snapshot) -> None:
     assert d["ENTRY_COUNT"] == len(snap.entries)
     assert d["BASE_COUNT"] == snap.n_base
     assert d["RDID_LEN"] >= 6
-    assert all(d[f"HAVE_{f.name}"] == 1 for f in lay.selection.fields)
+    # Every flag is defined, as 0 or 1 (the C compiles with -Wundef).
+    assert {k: v for k, v in d.items() if k.startswith("HAVE_") and "FAMILY" not in k} == {
+        **{f"HAVE_{f.name}": int(f in lay.selection.fields) for f in Field},
+        "HAVE_NOR": 1,
+        "HAVE_NAND": 1,
+    }
     assert len(lay.tables["entries"]) == d["ENTRY_SIZE"] * d["ENTRY_COUNT"]
     idl = layout.build(snap, Selection.make("id")).defines
     assert {k for k in idl if k.startswith("E_")} == {"E_BANK"}
@@ -184,10 +236,10 @@ def test_single_type_selections(keep: FlashType, other: str) -> None:
     sel = Selection.make("full")
     lay = layout.build(one, sel)
     assert lay.defines[f"HAVE_{keep.name}"] == 1
-    assert f"HAVE_{other}" not in lay.defines
+    assert lay.defines[f"HAVE_{other}"] == 0
     families = {one.entries[i].flash.family for i in range(one.n_base)}
-    assert {k for k in lay.defines if k.startswith("HAVE_FAMILY_")} == {
-        f"HAVE_FAMILY_{f.name}" for f in families
+    assert {k: v for k, v in lay.defines.items() if k.startswith("HAVE_FAMILY_")} == {
+        f"HAVE_FAMILY_{f.name}": int(f in families) for f in FAMILIES
     }
     for i, e in enumerate(one.entries):
         assert ordered(decode.entry(lay, i)) == ordered(expected(sel, e.flash)), (keep, i)
@@ -233,6 +285,16 @@ def test_a_value_too_wide_for_its_table_is_refused(change: dict[str, Any], messa
     records = [replace(r, **change) for r in _chip_records()]
     with pytest.raises(ValueError, match=message):
         _build(records, "describe")
+
+
+def test_an_entries_table_over_65535_bytes_is_refused() -> None:
+    """The C computes a row's offset as (uint16_t)(entry * ENTRY_SIZE)."""
+    r = _chip_records()[0]
+    # Level ``write``: ENTRY_SIZE 9 (bank, size, page, sector, feat, u16 ops,
+    # u16 ext), so 7,282 entries are 65,538 bytes.
+    records = [replace(r, id=bytes([0xEF, i >> 8, i & 0xFF])) for i in range(7282)]
+    with pytest.raises(ValueError, match="table entries is 65538 bytes, over 65,535"):
+        _build(records, "write")
 
 
 def test_more_than_254_distinct_values_is_refused() -> None:

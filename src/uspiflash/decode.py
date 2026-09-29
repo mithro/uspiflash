@@ -65,7 +65,7 @@ def _narrow(lay: Layout, base: int, x: bytes) -> int:
     """The entry for ``base`` given the bytes read after its id (C's
     ``usf__narrow``): the mask of agreeing extended ids selects a variant."""
     d = lay.defines
-    if not x or not d.get("HAVE_EXT"):
+    if not x or not d["HAVE_EXT"]:
         return base
     offset = _u16(lay.tables["entries"], base * d["ENTRY_SIZE"] + d["E_EXT"])
     if offset == NONE16:
@@ -104,7 +104,7 @@ def _value(lay: Layout, table: str, i: int) -> object:
 
 def _operations(lay: Layout, offset: int) -> list[tuple[str, list[Source] | None]]:
     b, ops = lay.tables["opsets"], lay.tables["ops"]
-    with_sources = "HAVE_SOURCES" in lay.defines
+    with_sources = bool(lay.defines["HAVE_SOURCES"])
     step = 2 if with_sources else 1
     out: list[tuple[str, list[Source] | None]] = []
     for j in range(b[offset]):
@@ -176,7 +176,7 @@ def records(lay: Layout, index: int) -> list[tuple[Source, str, bytes | None, st
         ext = b[at + 1 : at + 1 + n] or None
         at += 1 + n
         url = None
-        if "HAVE_PROVENANCE" in d:
+        if d["HAVE_PROVENANCE"]:
             url = string(lay, _off(lay, b, at))
             at += ob
         out.append((source, name, ext, url))
