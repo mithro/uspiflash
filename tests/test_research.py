@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import runpy
 from pathlib import Path
 
 import pytest
+from spiflash.db import database
 
 from uspiflash import research
 from uspiflash.cli import main
@@ -81,3 +83,11 @@ def test_cli_research_with_no_subcommand_fails(
 ) -> None:
     monkeypatch.chdir(make(tmp_path))
     assert main(["research"]) == 2
+
+
+def test_the_statistics_experiment_counts_the_database() -> None:
+    root = research.find_root(Path(__file__).parent)
+    ns = runpy.run_path(str(root / "experiments/2026-09-28-database-statistics/run.py"))
+    stats = ns["collect"]()
+    assert stats["chip_ids"] == len(database().flashes)
+    assert stats["layout_bytes"]["full"] > stats["layout_bytes"]["id"]

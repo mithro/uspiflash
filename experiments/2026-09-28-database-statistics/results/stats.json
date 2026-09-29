@@ -1,0 +1,62 @@
+{
+ "banks": {
+  "0": 727,
+  "1": 26,
+  "6": 24,
+  "7": 1
+ },
+ "chip_ids": 778,
+ "conflicting_ids": 60,
+ "ext_ids": 21,
+ "ext_records": 67,
+ "families": {
+  "at25f": 4,
+  "jedec": 751,
+  "rems": 6,
+  "res1": 4,
+  "res2": 12,
+  "st95": 1
+ },
+ "feature_sets": 126,
+ "geometry_tuples": 163,
+ "id_lengths": {
+  "1": 5,
+  "2": 110,
+  "3": 660,
+  "5": 3
+ },
+ "jep106_bytes": 47526,
+ "layout_bytes": {
+  "describe": 37813,
+  "full": 47351,
+  "full+records+provenance+jep106": 191646,
+  "id": 3823,
+  "read": 10681,
+  "write": 15393
+ },
+ "manufacturers": 37,
+ "name_alphabet": ")-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_",
+ "name_bytes": 10909,
+ "name_bytes_zlib9": 3339,
+ "names": 1165,
+ "notes_bytes": 164813,
+ "opcode_sets": 215,
+ "opcode_sets_with_sources": 314,
+ "record_name_bytes": 19519,
+ "record_url_bytes": 49702,
+ "sources_commits": {
+  "flashprog": "bbe7393f16b710d7e5ddfb1d01c6dadd8c0a5aa7",
+  "flashrom": "a1de15b26bfd2c9759378f835fe3b9a2d9ac08e1",
+  "jep106": "21f88d7815edfb7632548090934c51017604f450",
+  "linux": "fd179f8a05be3ccae366b9b96e176b51fbe54aab",
+  "openfpgaloader": "676e53ec73d2261c974d610b7cf0693117c8d2ef",
+  "openocd": "21f88d7815edfb7632548090934c51017604f450",
+  "u-boot": "a06e89ab05eaa2b8344d521319399333cd760ae5"
+ },
+ "spiflash_version": "0.0.post39",
+ "types": {
+  "nand": 127,
+  "nor": 651
+ },
+ "via_bytes": 400398
+}
