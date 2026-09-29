@@ -1,18 +1,24 @@
 @@PROVENANCE@@
+/*
+ * Use: include this file wherever you need the declarations, and in exactly
+ * one C file define USF_IMPLEMENTATION before including it (that include
+ * may follow an earlier one in the same file).
+ */
 #ifndef @@GUARD@@
 #define @@GUARD@@
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /*
  * Types. <stdint.h> is a freestanding header (no libc needed); define
  * USF_NO_STDINT and provide uint8_t, uint16_t and uint32_t yourself if your
- * environment has no <stdint.h> at all.
+ * environment has no <stdint.h> at all. Included outside extern "C", as a
+ * C++ system header expects.
  */
 #ifndef USF_NO_STDINT
 #include <stdint.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /* ------------------------------------------------------------------------
@@ -187,7 +193,22 @@ typedef struct usf_probe_result {
 uint8_t usf_probe(usf_bus *bus, usf_probe_result *r);
 #endif
 
-#ifdef USF_IMPLEMENTATION
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* @@GUARD@@ */
+
+/*
+ * The implementation, guarded on its own: the declarations above may have
+ * been included already, with USF_IMPLEMENTATION not yet defined.
+ */
+#if defined(USF_IMPLEMENTATION) && !defined(@@GUARD@@_IMPLEMENTATION)
+#define @@GUARD@@_IMPLEMENTATION
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 @@TABLES@@
 
@@ -711,23 +732,25 @@ static void usf__human(uint32_t n, usf_putc_fn sink, void *ctx)
     usf__lit(" B", sink, ctx);
 }
 
-/* Millivolts as Python's "%g" of volts: 2700 -> 2.7, 3000 -> 3. */
+/* Millivolts as Python's "%g" of volts: 2700 -> 2.7, 3000 -> 3. Digit by
+ * digit from usf__p10 as usf__dec does: a subtraction loop by a constant
+ * (while (mv >= 1000) ...) is a division to LLVM, which calls a helper on
+ * CPUs without a divide instruction. */
 static void usf__volt(uint16_t mv, usf_putc_fn sink, void *ctx)
 {
-    uint8_t whole = 0;
+    uint32_t v = mv;
+    uint8_t i;
     char d;
-    while (mv >= 1000) {
-        mv = (uint16_t)(mv - 1000);
-        whole++;
-    }
-    usf__dec(whole, sink, ctx);
-    if (mv)
-        sink(ctx, '.');
-    while (mv) {           /* hundreds, tens, units, stopping at trailing zeros */
-        for (d = '0'; mv >= 100; d++)
-            mv = (uint16_t)(mv - 100);
+    for (i = 5; i < 10; i++) {  /* tens and units of volts, then 100, 10, 1 mV */
+        if (i > 6 && !v)        /* no trailing zeros */
+            break;
+        for (d = '0'; v >= usf__p10[i]; d++)
+            v -= usf__p10[i];
+        if (i == 5 && d == '0') /* no leading zero */
+            continue;
         sink(ctx, d);
-        mv = (uint16_t)(mv * 10);
+        if (i == 6 && v)
+            sink(ctx, '.');
     }
 }
 #endif
@@ -1381,10 +1404,8 @@ uint8_t usf_probe(usf_bus *bus, usf_probe_result *r)
 }
 #endif
 
-#endif /* USF_IMPLEMENTATION */
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* @@GUARD@@ */
+#endif /* USF_IMPLEMENTATION */

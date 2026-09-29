@@ -14,7 +14,7 @@ GCC, LLVM and SDCC versions.
 <!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->
 For SPI NOR flash (`--type nor`), compiled for `cortex-m0` with
 Debian clang version 19.1.7 (3+b1) at `-Os`, the `read` level costs
-**11,275 bytes** of flash and `full` **53,702 bytes**, code and tables
+**11,275 bytes** of flash and `full` **53,662 bytes**, code and tables
 together, with no static RAM. Every configuration (all chip types, and
 NAND), every target, and how they are measured:
 [`sizes/README.md`](https://github.com/mithro/uspiflash/blob/main/sizes/README.md).

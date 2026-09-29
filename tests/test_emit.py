@@ -193,3 +193,8 @@ def test_generate_refuses_a_filter_that_keeps_no_chips(
     assert main(["generate", "-o", str(out), "--min-size", "2", "--max-size", "1"]) == 2
     assert "uspiflash: the chip filter keeps no chips" in capsys.readouterr().err
     assert not out.exists()
+
+
+def test_stdint_is_included_outside_extern_c() -> None:
+    text = emit.render(FULL)
+    assert text.index("#include <stdint.h>") < text.index('extern "C" {')

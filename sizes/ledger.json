@@ -732,7 +732,7 @@
       ".text.usf__human": 136,
       ".text.usf__idhex": 124,
       ".text.usf__opstr": 92,
-      ".text.usf__volt": 124,
+      ".text.usf__volt": 84,
       ".text.usf_bank": 20,
       ".text.usf_family": 36,
       ".text.usf_has_feature": 56,
@@ -755,8 +755,8 @@
       ".text.usf_voltage": 64
      }
     },
-    "text": 3960,
-    "total": 43780
+    "text": 3920,
+    "total": 43740
    },
    "describe:nor": {
     "bss": 0,
@@ -816,7 +816,7 @@
       ".text.usf__human": 136,
       ".text.usf__idhex": 124,
       ".text.usf__opstr": 92,
-      ".text.usf__volt": 124,
+      ".text.usf__volt": 84,
       ".text.usf_bank": 20,
       ".text.usf_family": 36,
       ".text.usf_has_feature": 56,
@@ -839,8 +839,8 @@
       ".text.usf_voltage": 64
      }
     },
-    "text": 3760,
-    "total": 39443
+    "text": 3720,
+    "total": 39403
    },
    "full": {
     "bss": 0,
@@ -924,7 +924,7 @@
       ".text.usf__jsources": 100,
       ".text.usf__opstr": 92,
       ".text.usf__srclist": 132,
-      ".text.usf__volt": 124,
+      ".text.usf__volt": 84,
       ".text.usf_bank": 16,
       ".text.usf_family": 36,
       ".text.usf_has_feature": 52,
@@ -949,8 +949,8 @@
       ".text.usf_voltage": 64
      }
     },
-    "text": 7466,
-    "total": 58420
+    "text": 7426,
+    "total": 58380
    },
    "full+datasheet": {
     "bss": 0,
@@ -1036,7 +1036,7 @@
       ".text.usf__jsources": 100,
       ".text.usf__opstr": 92,
       ".text.usf__srclist": 132,
-      ".text.usf__volt": 124,
+      ".text.usf__volt": 84,
       ".text.usf_bank": 20,
       ".text.usf_family": 36,
       ".text.usf_has_feature": 56,
@@ -1061,8 +1061,8 @@
       ".text.usf_voltage": 64
      }
     },
-    "text": 7666,
-    "total": 106003
+    "text": 7626,
+    "total": 105963
    },
    "full+datasheets": {
     "bss": 0,
@@ -1148,7 +1148,7 @@
       ".text.usf__jsources": 104,
       ".text.usf__opstr": 104,
       ".text.usf__srclist": 164,
-      ".text.usf__volt": 124,
+      ".text.usf__volt": 84,
       ".text.usf_bank": 20,
       ".text.usf_family": 36,
       ".text.usf_has_feature": 56,
@@ -1173,8 +1173,8 @@
       ".text.usf_voltage": 64
      }
     },
-    "text": 8530,
-    "total": 174549
+    "text": 8490,
+    "total": 174509
    },
    "full+records+provenance+jep106": {
     "bss": 0,
@@ -1261,7 +1261,7 @@
       ".text.usf__jsources": 104,
       ".text.usf__opstr": 104,
       ".text.usf__srclist": 164,
-      ".text.usf__volt": 124,
+      ".text.usf__volt": 84,
       ".text.usf_bank": 20,
       ".text.usf_family": 36,
       ".text.usf_has_feature": 56,
@@ -1287,8 +1287,8 @@
       ".text.usf_voltage": 64
      }
     },
-    "text": 8434,
-    "total": 209956
+    "text": 8394,
+    "total": 209916
    },
    "full:nand": {
     "bss": 0,
@@ -1459,7 +1459,7 @@
       ".text.usf__jsources": 100,
       ".text.usf__opstr": 92,
       ".text.usf__srclist": 132,
-      ".text.usf__volt": 124,
+      ".text.usf__volt": 84,
       ".text.usf_bank": 16,
       ".text.usf_family": 36,
       ".text.usf_has_feature": 52,
@@ -1484,8 +1484,8 @@
       ".text.usf_voltage": 64
      }
     },
-    "text": 7266,
-    "total": 53702
+    "text": 7226,
+    "total": 53662
    },
    "id": {
     "bss": 0,
@@ -1815,7 +1815,7 @@
       ".text.usf__human": 200,
       ".text.usf__idhex": 162,
       ".text.usf__opstr": 130,
-      ".text.usf__volt": 192,
+      ".text.usf__volt": 142,
       ".text.usf_bank": 30,
       ".text.usf_family": 50,
       ".text.usf_has_feature": 74,
@@ -1838,8 +1838,8 @@
       ".text.usf_voltage": 88
      }
     },
-    "text": 5280,
-    "total": 44892
+    "text": 5230,
+    "total": 44842
    },
    "describe:nor": {
     "bss": 0,
@@ -1873,7 +1873,7 @@
       ".text.usf__human": 200,
       ".text.usf__idhex": 162,
       ".text.usf__opstr": 130,
-      ".text.usf__volt": 192,
+      ".text.usf__volt": 142,
       ".text.usf_bank": 30,
       ".text.usf_family": 50,
       ".text.usf_has_feature": 74,
@@ -1896,8 +1896,8 @@
       ".text.usf_voltage": 88
      }
     },
-    "text": 5040,
-    "total": 40515
+    "text": 4990,
+    "total": 40465
    },
    "full": {
     "bss": 0,
@@ -1944,7 +1944,7 @@
       ".text.usf__jsources": 148,
       ".text.usf__opstr": 130,
       ".text.usf__srclist": 176,
-      ".text.usf__volt": 192,
+      ".text.usf__volt": 142,
       ".text.usf_bank": 24,
       ".text.usf_family": 50,
       ".text.usf_has_feature": 68,
@@ -1969,8 +1969,8 @@
       ".text.usf_voltage": 82
      }
     },
-    "text": 9782,
-    "total": 60440
+    "text": 9732,
+    "total": 60390
    },
    "full+datasheet": {
     "bss": 0,
@@ -2019,7 +2019,7 @@
       ".text.usf__jsources": 148,
       ".text.usf__opstr": 130,
       ".text.usf__srclist": 176,
-      ".text.usf__volt": 192,
+      ".text.usf__volt": 142,
       ".text.usf_bank": 30,
       ".text.usf_family": 50,
       ".text.usf_has_feature": 74,
@@ -2044,8 +2044,8 @@
       ".text.usf_voltage": 88
      }
     },
-    "text": 10144,
-    "total": 108185
+    "text": 10094,
+    "total": 108135
    },
    "full+datasheets": {
     "bss": 0,
@@ -2095,7 +2095,7 @@
       ".text.usf__name": 98,
       ".text.usf__opstr": 142,
       ".text.usf__srclist": 138,
-      ".text.usf__volt": 192,
+      ".text.usf__volt": 142,
       ".text.usf_bank": 30,
       ".text.usf_family": 50,
       ".text.usf_has_feature": 74,
@@ -2120,8 +2120,8 @@
       ".text.usf_voltage": 88
      }
     },
-    "text": 11182,
-    "total": 176905
+    "text": 11132,
+    "total": 176855
    },
    "full+records+provenance+jep106": {
     "bss": 0,
@@ -2171,7 +2171,7 @@
       ".text.usf__name": 98,
       ".text.usf__opstr": 142,
       ".text.usf__srclist": 138,
-      ".text.usf__volt": 192,
+      ".text.usf__volt": 142,
       ".text.usf_bank": 30,
       ".text.usf_family": 50,
       ".text.usf_has_feature": 74,
@@ -2197,8 +2197,8 @@
       ".text.usf_voltage": 88
      }
     },
-    "text": 11050,
-    "total": 212268
+    "text": 11000,
+    "total": 212218
    },
    "full:nand": {
     "bss": 0,
@@ -2302,7 +2302,7 @@
       ".text.usf__jsources": 148,
       ".text.usf__opstr": 130,
       ".text.usf__srclist": 176,
-      ".text.usf__volt": 192,
+      ".text.usf__volt": 142,
       ".text.usf_bank": 24,
       ".text.usf_family": 50,
       ".text.usf_has_feature": 68,
@@ -2327,8 +2327,8 @@
       ".text.usf_voltage": 82
      }
     },
-    "text": 9548,
-    "total": 55688
+    "text": 9498,
+    "total": 55638
    },
    "id": {
     "bss": 0,
@@ -2596,7 +2596,7 @@
       ".text.usf__name": 25,
       ".text.usf__opitem.isra.0": 38,
       ".text.usf__puts": 48,
-      ".text.usf__volt": 100,
+      ".text.usf__volt": 117,
       ".text.usf_bank": 18,
       ".text.usf_family": 15,
       ".text.usf_has_feature": 63,
@@ -2619,8 +2619,8 @@
       ".text.usf_voltage": 68
      }
     },
-    "text": 3678,
-    "total": 43290
+    "text": 3695,
+    "total": 43307
    },
    "describe:nor": {
     "bss": 0,
@@ -2670,7 +2670,7 @@
       ".text.usf__name": 25,
       ".text.usf__opitem.isra.0": 38,
       ".text.usf__puts": 48,
-      ".text.usf__volt": 100,
+      ".text.usf__volt": 117,
       ".text.usf_bank": 18,
       ".text.usf_family": 15,
       ".text.usf_has_feature": 63,
@@ -2693,8 +2693,8 @@
       ".text.usf_voltage": 68
      }
     },
-    "text": 3501,
-    "total": 38976
+    "text": 3518,
+    "total": 38993
    },
    "full": {
     "bss": 0,
@@ -2765,7 +2765,7 @@
       ".text.usf__puts": 48,
       ".text.usf__srclist.constprop.0": 94,
       ".text.usf__u32": 3,
-      ".text.usf__volt": 100,
+      ".text.usf__volt": 117,
       ".text.usf_bank": 20,
       ".text.usf_family": 15,
       ".text.usf_has_feature": 65,
@@ -2790,8 +2790,8 @@
       ".text.usf_voltage": 70
      }
     },
-    "text": 6916,
-    "total": 57574
+    "text": 6933,
+    "total": 57591
    },
    "full+datasheet": {
     "bss": 0,
@@ -2864,7 +2864,7 @@
       ".text.usf__puts": 48,
       ".text.usf__srclist.constprop.0": 94,
       ".text.usf__u32": 3,
-      ".text.usf__volt": 100,
+      ".text.usf__volt": 117,
       ".text.usf_bank": 18,
       ".text.usf_family": 15,
       ".text.usf_has_feature": 63,
@@ -2889,8 +2889,8 @@
       ".text.usf_voltage": 68
      }
     },
-    "text": 6978,
-    "total": 105019
+    "text": 6995,
+    "total": 105036
    },
    "full+datasheets": {
     "bss": 0,
@@ -2966,7 +2966,7 @@
       ".text.usf__puts": 47,
       ".text.usf__srclist.constprop.0": 94,
       ".text.usf__u32": 3,
-      ".text.usf__volt": 100,
+      ".text.usf__volt": 117,
       ".text.usf_bank": 18,
       ".text.usf_family": 15,
       ".text.usf_has_feature": 63,
@@ -2991,8 +2991,8 @@
       ".text.usf_voltage": 68
      }
     },
-    "text": 7635,
-    "total": 173358
+    "text": 7652,
+    "total": 173375
    },
    "full+records+provenance+jep106": {
     "bss": 0,
@@ -3066,7 +3066,7 @@
       ".text.usf__puts": 47,
       ".text.usf__srclist.constprop.0": 94,
       ".text.usf__u32": 3,
-      ".text.usf__volt": 100,
+      ".text.usf__volt": 117,
       ".text.usf_bank": 18,
       ".text.usf_family": 15,
       ".text.usf_has_feature": 63,
@@ -3092,8 +3092,8 @@
       ".text.usf_voltage": 68
      }
     },
-    "text": 7488,
-    "total": 208706
+    "text": 7505,
+    "total": 208723
    },
    "full:nand": {
     "bss": 0,
@@ -3244,7 +3244,7 @@
       ".text.usf__puts": 48,
       ".text.usf__srclist.constprop.0": 94,
       ".text.usf__u32": 3,
-      ".text.usf__volt": 100,
+      ".text.usf__volt": 117,
       ".text.usf_bank": 20,
       ".text.usf_family": 15,
       ".text.usf_has_feature": 65,
@@ -3269,8 +3269,8 @@
       ".text.usf_voltage": 70
      }
     },
-    "text": 6739,
-    "total": 52879
+    "text": 6756,
+    "total": 52896
    },
    "id": {
     "bss": 0,

@@ -70,16 +70,45 @@ def test_header_and_implementation_compile_as_cpp(tmp_path: Path, cxx: str) -> N
     src.write_text(
         '#include "uspiflash.h"\n'  # declarations, as a C++ user sees them
         "#define USF_IMPLEMENTATION\n"
-        '#include "uspiflash.h"\n'  # the guard makes this a no-op...
+        '#include "uspiflash.h"\n'  # then the implementation (stb style)
     )
     impl = tmp_path / "impl.cpp"
-    impl.write_text('#define USF_IMPLEMENTATION\n#include "uspiflash.h"\n')  # ...so test both
+    impl.write_text('#define USF_IMPLEMENTATION\n#include "uspiflash.h"\n')  # or on its own
     for unit in (src, impl):
         cmd = [cxx, "-std=c++11", "-Wall", "-Wextra", "-Wpedantic", "-Wundef", "-Werror", "-c"]
         cmd += [f"-I{tmp_path}", str(unit), "-o", str(unit.with_suffix(".o"))]
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         assert res.returncode == 0, res.stderr
         assert not res.stderr, res.stderr
+
+
+STB = """\
+#include "uspiflash.h"
+#include "uspiflash.h"
+#define USF_IMPLEMENTATION
+#include "uspiflash.h"
+#include "uspiflash.h"
+"""
+
+
+def test_declarations_then_implementation_in_one_file(tmp_path: Path, compilers: list[str]) -> None:
+    """The stb pattern: the declarations, then USF_IMPLEMENTATION and the
+    file again, compile the implementation exactly once; more includes of
+    either kind change nothing."""
+    generate(tmp_path, Config(Selection.make("full")))
+    unit = tmp_path / "stb.c"
+    unit.write_text(STB)
+    for cc in compilers:
+        obj = tmp_path / f"stb-{cc}.o"
+        compile_c(cc, [unit], obj, ["-c", "-ffreestanding", f"-I{tmp_path}"])
+        assert undefined_symbols(obj) == [], cc
+        res = subprocess.run(
+            ["nm", "--defined-only", "--format=just-symbols", str(obj)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert {"usf_lookup", "usf_probe", "usf_print"} <= set(res.stdout.split()), cc
 
 
 def test_has_feature_is_0_past_the_last_feature(tmp_path: Path, compilers: list[str]) -> None:
