@@ -8,10 +8,9 @@ import subprocess
 from typing import TYPE_CHECKING
 
 import pytest
-from spiflash.db import database
 from spiflash.enums import FlashType
 
-from harness import compile_c, generate, impl_source, name, undefined_symbols
+from harness import compile_c, generate, impl_source, name, no_datasheet, undefined_symbols
 from uspiflash.levels import LEVELS, ChipFilter, Selection
 from uspiflash.provenance import Config
 
@@ -19,9 +18,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 ONE_TYPE = [ChipFilter(types=(FlashType.NOR,)), ChipFilter(types=(FlashType.NAND,))]
-_BARE = next(f for f in database().flashes if not f.datasheets)
 #: One chip id without a datasheet: DS_COUNT is 0 (every type has chips with one).
-NO_DATASHEET = ChipFilter(ids=(_BARE.id,), types=(_BARE.type,), families=(_BARE.family,))
+NO_DATASHEET = no_datasheet()
 CONFIGS = [
     *(Config(Selection.make(level)) for level in LEVELS),
     Config(Selection.make("full", with_=["records", "provenance", "jep106"])),

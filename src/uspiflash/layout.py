@@ -17,8 +17,9 @@ Conventions
   openfpgaloader, qemu, zephyr, spiflash's priority order). Eight sources
   fill the byte: :func:`build` refuses a ninth (:func:`check_sources`).
 - A **blob table** (``opsets``, ``namelists``, ``conflicts``, ``ext``,
-  ``records``, ``dslists``) is a run of variable-length blobs, each stored once however
-  many entries share it; entries point at a blob by its ``u16`` offset.
+  ``records``, ``dslists``) is a run of variable-length blobs, each stored
+  once however many entries share it; entries point at a blob by its
+  ``u16`` offset.
 - A table is present (a key of :attr:`Layout.tables`) exactly when the
   code compiled for the selection reads it: with the field(s) in parentheses
   after its name. So the C file never holds a table nothing uses (which
@@ -95,8 +96,9 @@ Tables
 ``dsrows`` (DATASHEET or DATASHEETS)
     ``DS_ROW`` bytes per stored datasheet, sorted by URL: URL ``OFF``; then,
     with DATASHEETS, title ``OFF``, revision ``OFF`` (``NONE_OFF`` = none),
-    ``u16`` year (0 = no date), month, day, and official (0 or 1). Title and
-    revision are stored JSON-escaped (below). ``DS_COUNT`` rows: with
+    ``u16`` year, month and day (all three 0 = no date; a year is 1000 or
+    later, as the C prints it without zero padding), and official (0 or 1).
+    Title and revision are stored JSON-escaped (below). ``DS_COUNT`` rows: with
     DATASHEETS every datasheet of a chip, with DATASHEET alone only each
     chip's best (the one the text line prints).
 ``dslists`` (DATASHEET or DATASHEETS)
@@ -139,18 +141,21 @@ Present only with their table, in this order, packed:
   ``u16`` offsets into ``namelists``, ``opsets``, ``conflicts``, ``ext``,
   ``records`` and ``dslists``; ``0xFFFF`` = none. ``E_DS`` is present with
   DATASHEET or DATASHEETS (even when ``DS_COUNT`` is 0 and nothing reads
-  it, as ``E_OPS`` is when ``OP_COUNT`` is). ``E_CONF`` is present exactly when the
-  ``conflicts`` table is: conflicts are only ever printed, so selecting
-  CONFLICTS without a printer adds nothing. It is none for a chip without
-  conflicts, ``E_EXT`` for a chip without extended ids and for every variant;
-  the others always point at a blob (an empty list is a blob with count 0).
+  it, as ``E_OPS`` is when ``OP_COUNT`` is). ``E_CONF`` is present exactly
+  when the ``conflicts`` table is: conflicts are only ever printed, so
+  selecting CONFLICTS without a printer adds nothing. It is none for a chip
+  without conflicts, ``E_EXT`` for a chip without extended ids and for every
+  variant; the others always point at a blob (an empty list is a blob with
+  count 0).
 
-The generator raises :exc:`ValueError` if any index exceeds 254, any offset
-exceeds 0xFFFE, any value overflows its field, the pool reaches
-``NONE_OFF`` bytes, two datasheets share a URL, or ``entries``, ``ops`` or
-``dsrows`` is over 65,535 bytes (the C computes a row's offset as
-``(uint16_t)(entry * ENTRY_SIZE)``, and likewise with ``OP_SIZE`` and
-``DS_ROW``). M4 revisits widths with measurements.
+The generator raises :exc:`ValueError` if any index exceeds 254, any value
+overflows its field, a blob table's ``u16`` offsets would pass 0xFFFE, the
+string pool reaches ``NONE_OFF`` bytes (so no ``OFF``, 2 or 3 bytes wide, is
+ever ``NONE_OFF``), two datasheets share a URL, a datasheet is dated before
+the year 1000, or ``entries``, ``ops`` or ``dsrows`` is over 65,535 bytes
+(the C computes a row's offset as ``(uint16_t)(entry * ENTRY_SIZE)``, and
+likewise with ``OP_SIZE`` and ``DS_ROW``). M4 revisits widths with
+measurements.
 
 Lookup
 ------
@@ -650,6 +655,12 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         for d in sheets:
             ds_rows += off(d.url)
             if has(Field.DATASHEETS):
+                if d.date and d.date.year < 1000:
+                    msg = (
+                        f"datasheet {d.url} is dated {d.date}: the C prints years "
+                        "without zero padding, so none before 1000"
+                    )
+                    raise ValueError(msg)
                 ds_rows += off_json(d.title) + off_json(d.revision)
                 ds_rows += _uint(d.date.year if d.date else 0, 2, "year")
                 ds_rows += bytes([d.date.month, d.date.day]) if d.date else b"\0\0"

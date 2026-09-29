@@ -16,7 +16,7 @@ import spiflash
 from spiflash.db import database
 
 from uspiflash import VERIFIED_SPIFLASH, emit, layout
-from uspiflash.levels import LEVELS
+from uspiflash.levels import LEVELS, ChipFilter
 from uspiflash.model import FAMILIES, Snapshot, reaching_probes
 
 if TYPE_CHECKING:
@@ -49,6 +49,17 @@ CFLAGS = ["-std=c99", "-Wall", "-Wextra", "-Wpedantic", "-Wundef", "-Werror"]
 HERE = Path(__file__).parent
 SEP = "\x1e\n"
 SANITIZE = ["-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"]
+
+
+def no_datasheet() -> ChipFilter:
+    """A filter keeping one chip id that has no datasheet, so DS_COUNT is 0.
+    Fails, saying why, if every chip in the database has one."""
+    bare = [f for f in database().flashes if not f.datasheets]
+    if not bare:
+        msg = "every chip has a datasheet now: no configuration with DS_COUNT 0 is tested"
+        raise AssertionError(msg)
+    f = bare[0]
+    return ChipFilter(ids=(f.id,), types=(f.type,), families=(f.family,))
 
 
 @functools.cache

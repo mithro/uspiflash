@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import random
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
@@ -442,3 +443,15 @@ def test_the_source_mask_holds_every_source() -> None:
     nine = (*layout.SOURCES, *layout.SOURCES)[:9]
     with pytest.raises(ValueError, match=r"has 9 sources .* a source mask is one byte"):
         layout.check_sources(nine)
+
+
+def test_a_datasheet_before_the_year_1000_is_refused() -> None:
+    """The C prints a year with usf__dec, which does not zero-pad."""
+    db = database()
+    dated = [replace(d, date=datetime.date(999, 1, 2)) if d.date else d for d in db.datasheets]
+    small = Database(list(db.records), db.manufacturers, db.sources, dated)
+    snap = Snapshot.build(small)
+    with pytest.raises(ValueError, match=r"is dated 0999-01-02: .* none before 1000"):
+        layout.build(snap, Selection.make("full", with_=["datasheets"]))
+    # With the text line alone no date is stored, so nothing to refuse.
+    layout.build(snap, Selection.make("full", with_=["datasheet"]))
