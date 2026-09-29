@@ -120,3 +120,10 @@ def test_the_statistics_experiment_counts_the_database() -> None:
     assert stats["names_per_id"] >= stats["names"]
     assert stats["max_names_per_id"] >= 1
     assert set(stats["host"]) == {"python", "python_implementation", "system", "machine"}
+
+
+def test_tests_cannot_find_the_real_repository_from_their_tmp_path(tmp_path: Path) -> None:
+    """conftest.py stops find_root at pytest's basetemp, which is inside the
+    repository: no test can reach (and rewrite) the committed files."""
+    with pytest.raises(FileNotFoundError, match="no experiments/"):
+        research.find_root(tmp_path)
