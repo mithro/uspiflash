@@ -49,7 +49,7 @@ jobs:
       # SNAPSHOT).
       - name: Restore the image
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: tmp/qemu-image.tar
           key: qemu-image-${{ hashFiles('tools/qemu/Dockerfile', 'tools/qemu/run.py', 'src/uspiflash/ledger.py') }}
