@@ -9,6 +9,26 @@ RISC-V (down to WCH's CH32V003), and Linux spidev.
 Every byte the library puts on a device is measured, across a wide range of
 GCC, LLVM and SDCC versions.
 
+## Quick start
+
+```sh
+pip install uspiflash
+uspiflash generate -o uspiflash.h --level full
+```
+
+```c
+#include "uspiflash.h"
+
+usf_probe(&bus, &r);
+usf_print(r.chip, r.count, USF_PRINT_OPCODES, my_putc, my_ctx);
+```
+
+The full C API, with a worked example of each step above:
+[the docs](https://uspiflash.readthedocs.io/) (`docs/generated-file.md`).
+Already on Linux with a spidev device: skip the generator and use
+[`uspiflash-linux`](https://github.com/mithro/uspiflash/blob/main/examples/linux/README.md)
+instead, from source or the apt repository below.
+
 ## Size
 
 <!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->
