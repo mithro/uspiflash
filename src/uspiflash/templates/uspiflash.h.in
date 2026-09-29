@@ -31,7 +31,14 @@ extern "C" {
 
 /*
  * Where the tables live. Nothing by default; define as __code for SDCC on
- * the 8051 so they stay in program memory.
+ * the 8051 so they stay in program memory, and on AVR as a flash address
+ * space (avr-gcc's __flash, in GNU C): there plain const data is copied to
+ * RAM at startup.
+ *
+ * On 16-bit targets (AVR, msp430, the 8051) the levels id to full fit, as
+ * long as the part has the flash (full is about 59 KB of code and tables);
+ * the datasheet, datasheets, records, provenance and jep106 extras do not,
+ * as their tables pass the 64 KiB a 16-bit pointer can address.
  */
 #ifndef USF_ROM
 #define USF_ROM
@@ -142,16 +149,22 @@ uint8_t usf_jep106(uint8_t bank, uint8_t id, usf_putc_fn sink, void *ctx);
 #if USF_HAVE_TEXT
 /* usf_print's flags: also list the operations, as `spiflash id --opcodes`. */
 #define USF_PRINT_OPCODES 1
-/* Prints exactly what `spiflash id` prints for these answers (n of them,
- * as usf_lookup() or usf_probe() gave them), trailing newline included,
- * except the `sfdp:` lines: SFDP dumps are not in this file yet. */
+/* Prints what `spiflash id` (with USF_PRINT_OPCODES, `spiflash id
+ * --opcodes`) prints for these answers (n of them, as usf_lookup() or
+ * usf_probe() gave them), byte for byte, trailing newline included, less
+ * what this file was generated without: the `from:` line and each opcode's
+ * [sources] without sources, the `sources disagree` lines without
+ * conflicts, and the `datasheet:` line without datasheet. The `sfdp:` lines
+ * are always left out: SFDP dumps are not in this file yet. */
 void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink, void *ctx);
 #endif
 
 #if USF_HAVE_JSON
-/* Prints exactly what `spiflash id --json` prints for these answers, less
- * the records unless the file has them, and less the "sfdp" key: SFDP dumps
- * are not in this file yet. */
+/* Prints what `spiflash id --json` prints for these answers, byte for
+ * byte, less what this file was generated without: "datasheets" without
+ * datasheets, "records" without records, and each record's "at" without
+ * provenance. The "sfdp" key is always left out: SFDP dumps are not in this
+ * file yet. */
 void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ctx);
 #endif
 
@@ -160,6 +173,10 @@ void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ct
  * `rxlen` bytes, with chip select held for the whole transaction.
  * Define USF_XFER(bus, tx, txlen, rx, rxlen) yourself to inline your SPI
  * driver; otherwise a struct usf_bus holding a function pointer is used.
+ * With your own USF_XFER, struct usf_bus is yours: define it as you like,
+ * or leave it incomplete (the library only passes a pointer to it along).
+ * Whatever you define (USF_XFER, USF_DELAY_US, USF_ROM, USF_NO_STDINT) must
+ * be the same in every file that includes this one.
  *
  * The first transaction is RES (0xAB), which wakes a chip from deep
  * power-down; the chip then ignores commands for tRES1 (3-30 us). The probe

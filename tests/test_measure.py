@@ -379,7 +379,10 @@ def test_the_committed_files_match_the_committed_ledger() -> None:
 
 
 def test_ci_checks_the_ledger_in_the_pinned_image() -> None:
-    workflow = (ROOT / ".github" / "workflows" / "deb.yml").read_text(encoding="utf-8")
+    path = ROOT / ".github" / "workflows" / "deb.yml"
+    if not path.is_file():
+        pytest.skip("no .github/ (an sdist)")
+    workflow = path.read_text(encoding="utf-8")
     job = workflow[workflow.index("\n  sizes:\n") :].split("\n  build-deb:\n")[0]
     assert f"    container: {ledger.IMAGE}\n" in job
     install = job[job.index("apt-get install") :].split("\n\n")[0].split()

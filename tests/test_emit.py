@@ -114,7 +114,7 @@ def test_args_regenerate_the_same_config() -> None:
     cfg = Config(
         Selection.make(
             "write",
-            with_=["sfdp"],
+            with_=["jep106"],
             without=["ext"],
             chips=ChipFilter(manufacturers=("Winbond",), types=(FlashType.NOR,)),
         ),
@@ -179,6 +179,26 @@ def test_a_daily_job_runs_parity_against_the_newest_spiflash() -> None:
     assert "uv pip install --upgrade spiflash" in text
     assert f'{FORCE_PARITY}: "1"' in text
     assert "uv run --no-sync pytest" in text
+
+
+@pytest.mark.parametrize("prefix", ["_usf", "_Usf", "__x", "_"])
+def test_a_prefix_starting_with_an_underscore_is_refused(
+    prefix: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(ValueError, match="starts with an underscore"):
+        emit.render(Config(Selection.make("id"), prefix, "x.h"))
+    assert main(["generate", "-o", "-", "--level", "id", "--prefix", prefix]) == 2
+    assert f"uspiflash: prefix '{prefix}' starts with an underscore" in capsys.readouterr().err
+
+
+def test_sfdp_is_refused_until_the_sfdp_milestone(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "x.h"
+    assert main(["generate", "-o", str(out), "--level", "id", "--with", "sfdp"]) == 2
+    err = capsys.readouterr().err
+    assert err.endswith("uspiflash: sfdp is not available yet (the SFDP milestone adds it)\n")
+    assert not out.exists()
 
 
 def test_generate_refuses_a_broken_selection(capsys: pytest.CaptureFixture[str]) -> None:

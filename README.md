@@ -32,7 +32,14 @@ spiflash 0.0.post74 (`uspiflash.VERIFIED_SPIFLASH`).
 
 One known gap: spiflash's SFDP dumps (the `sfdp:` line of `spiflash id`, and
 the JSON `sfdp` key) are not in the generated file yet. The SFDP milestone
-adds them.
+adds them (until then `uspiflash generate` refuses `--with sfdp`).
+
+On 16-bit targets (AVR, msp430, the 8051) the levels `id` to `full` fit, if
+the part has the flash (`full` is about 59 KB of code and tables); the
+`datasheet`, `datasheets`, `records`, `provenance` and `jep106` extras do
+not, as their tables pass the 64 KiB a 16-bit pointer can address. On AVR,
+define `USF_ROM` as a flash address space (avr-gcc's `__flash`) to keep the
+tables in flash rather than copied to RAM.
 
 ## Install
 

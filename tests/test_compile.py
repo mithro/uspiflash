@@ -161,10 +161,16 @@ void my_xfer(const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen);
 """
 
 
-def test_probe_through_a_macro_transport(tmp_path: Path, compilers: list[str]) -> None:
+@pytest.mark.parametrize("bus", ["defined", "incomplete"])
+def test_probe_through_a_macro_transport(tmp_path: Path, compilers: list[str], bus: str) -> None:
+    """With its own USF_XFER, the user's struct usf_bus may be anything,
+    or not defined at all."""
     generate(tmp_path, Config(Selection.make("id")))
     unit = tmp_path / "macro.c"
-    unit.write_text(MACRO_XFER)
+    source = MACRO_XFER
+    if bus == "incomplete":
+        source = source.replace("struct usf_bus { int unused; };\n", "")
+    unit.write_text(source)
     for cc in compilers:
         obj = tmp_path / f"macro-{cc}.o"
         compile_c(cc, [unit], obj, ["-Os", "-c", "-ffreestanding", f"-I{tmp_path}"])
