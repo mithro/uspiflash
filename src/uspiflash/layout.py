@@ -71,7 +71,7 @@ Tables
     Blobs: count, then ``OFF`` per part name, most-cited first.
 ``mfrs`` (MANUFACTURER)
     ``OFF`` per distinct manufacturer name, sorted by name.
-``conflicts`` (CONFLICTS)
+``conflicts`` (CONFLICTS, and TEXT or JSON: :func:`stores_conflicts`)
     Blobs, one per distinct list of a chip's conflicts: repeated ``attr``,
     ``n``, ``n x (value index, source mask)``, then ``0xFF``. ``attr`` is the
     index in :data:`CONFLICT_ATTRS` (size, page_size, sector_size, voltage);
@@ -119,7 +119,9 @@ Present only with their table, in this order, packed:
 - ``E_SRCS``: a source mask (who has an entry for the chip).
 - ``E_NAMES``, ``E_OPS``, ``E_CONF``, ``E_EXT`` and ``E_RECS``: ``u16``
   offsets into ``namelists``, ``opsets``, ``conflicts``, ``ext`` and
-  ``records``; ``0xFFFF`` = none. ``E_CONF`` is none for a chip without
+  ``records``; ``0xFFFF`` = none. ``E_CONF`` is present exactly when the
+  ``conflicts`` table is: conflicts are only ever printed, so selecting
+  CONFLICTS without a printer adds nothing. It is none for a chip without
   conflicts, ``E_EXT`` for a chip without extended ids and for every variant;
   the others always point at a blob (an empty list is a blob with count 0).
 
@@ -335,6 +337,12 @@ def reads_strings(sel: Selection, *, ops: bool, mfrs: bool) -> bool:
     )
 
 
+def stores_conflicts(sel: Selection) -> bool:
+    """Whether ``sel`` stores conflicts (the ``conflicts`` table and
+    ``E_CONF``): CONFLICTS and a printer (TEXT or JSON), the only readers."""
+    return sel.has(Field.CONFLICTS) and (sel.has(Field.TEXT) or sel.has(Field.JSON))
+
+
 def name_arrays(
     sel: Selection, *, ops: bool = True, conflicts: bool = True
 ) -> dict[str, tuple[object, ...]]:
@@ -348,7 +356,7 @@ def name_arrays(
         ("srcnames", SOURCES, printer and has(Field.SOURCES)),
         ("famnames", FAMILIES, printer),
         ("kindnames", KINDS, has(Field.JSON) and ops),
-        ("attrnames", CONFLICT_ATTRS, printer and has(Field.CONFLICTS) and conflicts),
+        ("attrnames", CONFLICT_ATTRS, stores_conflicts(sel) and conflicts),
         ("typenames", TYPES, printer),
     )
     return {table: members for table, members, present in wanted if present}
@@ -434,7 +442,7 @@ _ENTRY_FIELDS: tuple[tuple[str, int, Field], ...] = (
     ("SRCS", 1, Field.SOURCES),
     ("NAMES", 2, Field.NAMES),
     ("OPS", 2, Field.OPERATIONS),
-    ("CONF", 2, Field.CONFLICTS),
+    ("CONF", 2, Field.CONFLICTS),  # only with a printer: stores_conflicts()
     ("EXT", 2, Field.EXT),
     ("RECS", 2, Field.RECORDS),
 )
@@ -447,7 +455,8 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     has = sel.has
     used = {n for e in snap.entries for n in _ops_of(e.flash, sel)}
     ops = tuple(n for n in ALL_OPS if has(Field.OPERATIONS) and n in used)
-    any_conflicts = has(Field.CONFLICTS) and any(e.flash.conflicts for e in snap.entries)
+    with_conflicts = stores_conflicts(sel)
+    any_conflicts = with_conflicts and any(e.flash.conflicts for e in snap.entries)
     pool = StringPool()
     _strings(snap, sel, pool, ops, conflicts=any_conflicts)
     pool_size = len(pool.data)
@@ -568,7 +577,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
                 for o in kept
             )
             row += _u16(opsets.add(blob))
-        if has(Field.CONFLICTS):
+        if with_conflicts:
             conf = f.conflicts
             if conf:
                 conf_blob = bytearray()
@@ -595,7 +604,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     # Entry offsets.
     at = 0
     for name, width, fld in _ENTRY_FIELDS:
-        if has(fld) or name == "BANK":
+        if (has(fld) and (name != "CONF" or with_conflicts)) or name == "BANK":
             defines[f"E_{name}"] = at
             at += width
     defines["ENTRY_SIZE"] = at
@@ -603,14 +612,14 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         msg = "entry rows disagree with ENTRY_SIZE"
         raise AssertionError(msg)
     tables["entries"] = _row_table("entries", bytes(rows))
-    for blobs, fld in (
-        (namelists, Field.NAMES),
-        (opsets, Field.OPERATIONS),
-        (conflicts, Field.CONFLICTS),
-        (ext, Field.EXT),
-        (records, Field.RECORDS),
+    for blobs, present in (
+        (namelists, has(Field.NAMES)),
+        (opsets, has(Field.OPERATIONS)),
+        (conflicts, with_conflicts),
+        (ext, has(Field.EXT)),
+        (records, has(Field.RECORDS)),
     ):
-        if has(fld):
+        if present:
             tables[blobs.name] = bytes(blobs.data)
 
     # jep106

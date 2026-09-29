@@ -50,9 +50,13 @@ def test_conflicts_bring_the_sources_they_print() -> None:
         Selection.make("full", without=["sources"])
 
 
-def test_conflicts_bring_the_text_printer() -> None:
-    # Conflicts are only ever printed, so selecting them pulls in the printer.
-    assert Selection.make("write", with_=["conflicts"]).has(Field.TEXT)
+def test_conflicts_do_not_bring_a_printer() -> None:
+    # Conflicts without a printer are selectable (and add nothing, see
+    # test_layout); JSON, which needs CONFLICTS, is selectable without TEXT.
+    assert not Selection.make("write", with_=["conflicts"]).has(Field.TEXT)
+    json_only = Selection.make("write", with_=["json"])
+    assert json_only.has(Field.CONFLICTS)
+    assert not json_only.has(Field.TEXT)
 
 
 def test_without_refuses_to_break_a_requirement() -> None:

@@ -49,7 +49,7 @@ def expected(sel: Selection, flash: Flash) -> dict[str, object]:
         out["operations"] = [
             (o.name, list(o.sources)) if sel.has(Field.SOURCES) else (o.name, None) for o in ops
         ]
-    if sel.has(Field.CONFLICTS):
+    if layout.stores_conflicts(sel):
         out["conflicts"] = {
             a: [(tuple(v) if isinstance(v, tuple) else v, list(s)) for v, s in vals.items()]
             for a, vals in flash.conflicts.items()
@@ -174,8 +174,13 @@ _FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrna
         ("describe", ["conflicts"], _DESCRIBE_TABLES | {"conflicts", "srcnames", "attrnames"}),
         # DESCRIPTIONS alone: usf_op_name and usf_op_description read the pool.
         ("write", ["descriptions"], _WRITE_TABLES | {"str"}),
-        # JSON without TEXT reads what full reads.
+        # JSON without TEXT (write has no TEXT): JSON brings every field full
+        # has and prints the conflicts, so the tables are full's, conflicts
+        # included.
         ("write", ["json"], _FULL_TABLES),
+        # CONFLICTS without a printer adds nothing itself (no conflicts, no
+        # attrnames); only VOLTAGE, which it requires, adds volts.
+        ("write", ["conflicts"], _WRITE_TABLES | {"volts"}),
     ],
 )
 def test_exactly_the_tables_compiled_code_reads(
@@ -289,6 +294,21 @@ def test_a_counted_table_without_rows_is_left_out(keep: FlashType) -> None:
     if keep is FlashType.NAND:
         # No NAND chip has a voltage, an operation, an extended id or a conflict.
         assert [d[c] for c in ("VOLT_COUNT", "OP_COUNT", "EXT_COUNT", "CONF_COUNT")] == [0] * 4
+
+
+def test_conflicts_are_stored_only_with_a_printer(snap: Snapshot) -> None:
+    """Conflicts are only ever printed, so without TEXT or JSON there is no
+    ``conflicts`` table and no ``E_CONF`` (HAVE_CONFLICTS is still the flag)."""
+    bare = layout.build(snap, Selection.make("write", with_=["conflicts"]))
+    assert bare.defines["HAVE_CONFLICTS"] == 1
+    assert "E_CONF" not in bare.defines
+    assert bare.defines["CONF_COUNT"] == 0
+    assert "conflicts" not in bare.tables
+    for extras in (["json"], ["conflicts", "text"]):
+        lay = layout.build(snap, Selection.make("write", with_=extras))
+        assert "E_CONF" in lay.defines, extras
+        assert lay.defines["CONF_COUNT"] > 0, extras
+        assert "conflicts" in lay.tables, extras
 
 
 def test_full_database_has_both_types_and_every_family(snap: Snapshot) -> None:

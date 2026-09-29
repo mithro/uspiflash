@@ -16,6 +16,10 @@ extended id), ``provenance`` (each entry's upstream file:line), ``datasheet``
 (the best datasheet's URL, the text output's ``datasheet:`` line),
 ``datasheets`` (every datasheet, as the JSON lists them), ``jep106`` (every
 JEP106 manufacturer name), ``sfdp`` (read and decode SFDP on the chip).
+
+Conflicts are only ever printed, so selecting ``conflicts`` without a printer
+(``text`` or ``json``) adds nothing to the file (see
+:func:`uspiflash.layout.stores_conflicts`).
 """
 
 from __future__ import annotations
@@ -105,9 +109,9 @@ REQUIRES: dict[Field, frozenset[Field]] = {
     F.EXT: frozenset({F.IDENT}),
     F.DESCRIPTIONS: frozenset({F.OPERATIONS}),
     F.TEXT: _TEXT_NEEDS,
-    # Conflicts are only ever printed, so they bring the text printer; a
-    # conflict line names the sources on each side, as spiflash prints it.
-    F.CONFLICTS: frozenset({F.SIZE, F.PAGE_SIZE, F.SECTOR_SIZE, F.VOLTAGE, F.SOURCES, F.TEXT}),
+    # A conflict line names the sources on each side, as spiflash prints it.
+    # Conflicts are only ever printed: without TEXT or JSON they add nothing.
+    F.CONFLICTS: frozenset({F.SIZE, F.PAGE_SIZE, F.SECTOR_SIZE, F.VOLTAGE, F.SOURCES}),
     F.JSON: _TEXT_NEEDS | {F.SOURCES, F.CONFLICTS, F.EXT},
     F.RECORDS: frozenset({F.JSON}),
     F.PROVENANCE: frozenset({F.RECORDS}),
