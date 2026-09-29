@@ -1,8 +1,15 @@
 <p>A generator of tiny, single-file C libraries that detect SPI flash chips
 (JEDEC read-id, legacy ids, SFDP) and report their size, geometry, voltages,
 capabilities and supported commands, built from the
-<a href="https://mith.ro/spiflash/">spiflash</a> database. Install
-<code>python3-uspiflash</code>, which provides the <code>uspiflash</code>
-command. The package is architecture <code>all</code> (pure Python), so it
-installs on any Debian or Raspberry Pi OS machine; it depends on
-<code>python3-spiflash</code> from spiflash's own apt repository.</p>
+<a href="https://mith.ro/spiflash/">spiflash</a> database. Two packages:</p>
+<ul>
+<li><code>python3-uspiflash</code> provides the <code>uspiflash</code>
+command. It is architecture <code>all</code> (pure Python), so it installs on
+any Debian or Raspberry Pi OS machine; it depends on
+<code>python3-spiflash</code> from spiflash's own apt repository.</li>
+<li><code>uspiflash-linux</code> identifies the SPI flash chip on a Linux
+spidev device (<code>/dev/spidevX.Y</code>) and describes it as
+<code>spiflash id</code> does. It is a small C program with no dependency
+beyond libc, built for amd64, i386, arm64, armhf and riscv64 (riscv64 from
+trixie on).</li>
+</ul>
