@@ -36,8 +36,8 @@ machine's current load rather than assuming a dedicated CI runner:
 uv run python -m uspiflash.sandbox -- uv run pytest -n {jobs}
 ```
 
-Replace `{jobs}` with the worker count you want; the sandbox still
-caps it to what the machine can currently spare.
+Leave `{jobs}` literally; the sandbox replaces it with the CPU count the
+current limits allow.
 
 ## Workflow
 

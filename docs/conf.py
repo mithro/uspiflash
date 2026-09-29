@@ -22,11 +22,6 @@ source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
 exclude_patterns = ["_build", "superpowers", "Thumbs.db", ".DS_Store"]
 myst_enable_extensions = ["colon_fence", "deflist", "attrs_inline"]
 myst_heading_anchors = 3
-# README.md is included on the home page (index.md) as-is, for GitHub's own
-# rendering. Its `docs/superpowers/specs/` and `LICENSE` links point at a
-# plain source directory and a plain text file, not Sphinx documents, so
-# MyST cannot resolve them as cross-references; suppress just those two.
-nitpick_ignore = [("myst", "docs/superpowers/specs/"), ("myst", "LICENSE")]
 autosummary_generate = True
 autodoc_default_options = {"members": True, "undoc-members": True, "member-order": "bysource"}
 autodoc_typehints = "description"

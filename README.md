@@ -50,8 +50,8 @@ sudo apt install python3-uspiflash      # provides the uspiflash command
 ```
 
 Work in progress: the design is in
-[`docs/superpowers/specs/`](docs/superpowers/specs/).
+[`docs/superpowers/specs/`](https://github.com/mithro/uspiflash/tree/main/docs/superpowers/specs/).
 
 ## License
 
-Apache-2.0; see [LICENSE](LICENSE).
+Apache-2.0; see [LICENSE](https://github.com/mithro/uspiflash/blob/main/LICENSE).
