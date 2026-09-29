@@ -249,7 +249,7 @@ void     usf_name(const usf_chip *c, uint8_t i,
 /* `describe` and above: */
 void     usf_print(const usf_chip *c, void (*putc)(void *, char), void *ctx);
 void     usf_print_json(const usf_chip *c, void (*putc)(void *, char), void *ctx);
-/* SFDP module (#define USF_WITH_SFDP): */
+/* SFDP module (--with sfdp; USF_HAVE_SFDP is 1): */
 uint8_t  usf_sfdp_read(usf_bus *bus, usf_sfdp *out);   /* --with sfdp */
 ```
 
@@ -331,7 +331,9 @@ output (checked in CI).
 The generator side is core:
 
 - JESD216 parameter decoding, from `spiflash.sfdp`
-- a mapping from BFPT fields to the same fields the database provides
+- a comparison of BFPT fields with the same fields the database provides
+  (the SFDP-versus-database experiment, amendment 11); no runtime mapping
+  from one to the other is implemented (deferred)
 - tests that the C decoder agrees with `spiflash.sfdp` on every shipped dump
 
 Since the M1 part D replan, the Python side is spiflash's own
@@ -339,7 +341,8 @@ Since the M1 part D replan, the Python side is spiflash's own
 own and fetches no fixtures of its own. spiflash's shipped SFDP dumps are
 the fixtures.
 
-The C side is optional (`USF_WITH_SFDP`) and has its own size ledger entry.
+The C side is optional (`--with sfdp`, which sets `USF_HAVE_SFDP`) and has
+its own size ledger entries.
 Fixtures currently come from QEMU's m25p80 SFDP tables (spiflash's 12
 dumps, amendment 9); real chips on fpgas.online and published datasheet
 tables may add more later, as spiflash data through PRs to

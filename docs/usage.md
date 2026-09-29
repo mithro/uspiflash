@@ -28,14 +28,14 @@ Options:
 | Option | Meaning |
 |---|---|
 | `-o`, `--output PATH` | the file to write, or `-` for standard output (default: `uspiflash.h`) |
-| `--prefix NAME` | the C symbol prefix, so symbols are `NAME_*` / `NAME_*` in upper case (default: `usf`) |
+| `--prefix NAME` | the C symbol prefix, so symbols are `name_*` / `NAME_*` (default: `usf`) |
 | `--level LEVEL` | one of the levels below (default: `full`) |
 | `--with FIELD` | add a field or extra beyond the level |
 | `--without FIELD` | leave a field the level would include out |
 | `--manufacturer NAME` | keep only this manufacturer's chips (repeatable) |
 | `--id HEX` | keep only this chip id, after stripping `0x7f` continuation codes (repeatable) |
 | `--type TYPE` | keep only chips of this type, `nor` or `nand` (repeatable; default: `nor`, SPI NOR only; `--type nor --type nand` keeps every type) |
-| `--family FAMILY` | keep only chips of this JEP106 id family (repeatable) |
+| `--family FAMILY` | keep only chips of this id family, the command that reads the id: `jedec`, `rems`, `res1`, `res2`, `at25f` or `st95` (repeatable) |
 | `--min-size BYTES` | keep only chips at least this big |
 | `--max-size BYTES` | keep only chips at most this big |
 

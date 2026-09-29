@@ -88,15 +88,16 @@ record names:
   distinct names take 11,363 bytes plus 1,209 NULs (12,572 bytes); the rest
   is manufacturer names, operation names and descriptions, the 12 `sfdp:`
   lines' text (646 bytes; with `sfdprows` and `sfdplines` the SFDP summary
-  costs 733) and the printers' name arrays. With `namelists` (3,912 bytes of offsets pointing at them),
-  part names cost about 16,500 of `describe`'s 40,125 bytes, the largest
-  single cost. It is not the whole story, though: `entries`, the fixed-width
-  per-entry rows of indices and offsets, is nearly as big (11,089 at
-  `describe`, 13,648 at `full`), and at `full` the per-operation source
-  masks make `opsets` 11,522 bytes. The per-chip attribute values are
-  shareable (the value tables total a few hundred bytes at every level), but
-  the baseline's one-byte-per-field rows and per-chip operation lists are
-  where M4 should look next after the strings.
+  costs 733) and the printers' name arrays. With `namelists` (3,912 bytes
+  of offsets pointing at them), part names cost about 16,500 of
+  `describe`'s 40,125 bytes, the largest single cost. It is not the whole
+  story, though: `entries`, the fixed-width per-entry rows of indices and
+  offsets, is nearly as big (11,089 at `describe`, 13,648 at `full`), and
+  at `full` the per-operation source masks make `opsets` 11,522 bytes. The
+  per-chip attribute values are shareable (the value tables total a few
+  hundred bytes at every level), but the baseline's one-byte-per-field rows
+  and per-chip operation lists are where M4 should look next after the
+  strings.
 - With `records` + `provenance` + `jep106` the file quadruples (201,504
   bytes), and `str` grows to 127,246 bytes. Record names are deduplicated
   in the pool (1,206 distinct, 12,711 bytes), so they are not what grows

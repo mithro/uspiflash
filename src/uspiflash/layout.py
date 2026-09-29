@@ -112,7 +112,7 @@ Tables
     order: ``u16`` entry index; with ``sfdplines``, at ``SFDP_LINES``, a
     ``u16`` offset into ``sfdplines``; with SFDP_DUMPS, at ``SFDP_TREE``, a
     ``u16`` offset into ``sfdptree``. ``SFDP_COUNT`` rows (13 at spiflash
-    0.0.post74: 11 chip ids and 2 extended-id variants). An entry without a
+    0.0.post92: 11 chip ids and 2 extended-id variants). An entry without a
     row has no dump; the C finds a row by scanning (no ``E_*`` field: two
     bytes per entry would cost more than the rows).
 ``sfdplines`` (SFDP_SUMMARY with TEXT: :func:`stores_sfdp_lines`)
@@ -126,8 +126,11 @@ Tables
     set on a value that is an array element; then ``T_INT``: ``u32``;
     ``T_STR`` and ``T_KEY`` (an object member's name; its value follows):
     ``OFF``, stored JSON-escaped; ``T_NULL``, ``T_FALSE``, ``T_TRUE``,
-    ``T_LIST``, ``T_DICT``, ``T_LIST_END`` and ``T_DICT_END``: nothing. Flat,
-    so the C walks it in one loop, without recursion.
+    ``T_LIST``, ``T_DICT``, ``T_LIST_END`` and ``T_DICT_END``: nothing. A
+    ``T_KEY`` always starts a member, so the reader writes the member
+    separator before it unasked; ``T_ITEM`` is never set on ``T_KEY``,
+    ``T_LIST_END`` or ``T_DICT_END``. Flat, so the C walks it in one loop,
+    without recursion.
 ``str`` (whenever compiled code reads a string, :func:`reads_strings`)
     NUL-terminated printable-ASCII strings with no ``"`` or ``\\``, each
     stored once. The readers are MANUFACTURER (with ``mfrs``), NAMES,
