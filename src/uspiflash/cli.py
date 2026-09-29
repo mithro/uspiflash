@@ -1,5 +1,6 @@
 """The ``uspiflash`` command. Subcommands are added by later modules:
-``generate`` and ``check`` (the C file), and ``research`` (experiments)."""
+``generate`` and ``check`` (the C file), ``research`` (experiments) and
+``measure`` (the size ledger)."""
 
 from __future__ import annotations
 
@@ -11,8 +12,9 @@ from typing import TYPE_CHECKING
 import spiflash
 from spiflash.enums import FlashType, IdFamily
 
-from . import __version__, emit, research
+from . import __version__, emit, ledger, research
 from .levels import LEVELS, ChipFilter, Field, Selection
+from .measure import MeasureError
 from .model import FAMILIES
 from .provenance import Config
 
@@ -131,6 +133,29 @@ def parser() -> argparse.ArgumentParser:
     run_ap.add_argument("slug", help="the experiment's directory name")
     research_sub.add_parser("list", help="list every experiment, oldest first")
 
+    measure_ap = sub.add_parser(
+        "measure",
+        help="measure the generated library's compiled size",
+        description="Compile every measured configuration for every target and print "
+        "its size, or write or check the committed ledger (sizes/ in the repository).",
+    )
+    mode = measure_ap.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--write", action="store_true", help="rewrite sizes/ledger.json and sizes/README.md"
+    )
+    mode.add_argument(
+        "--check",
+        action="store_true",
+        help="exit 1 if the committed ledger differs from a fresh measurement, "
+        "2 if the installed tools differ from the ledger's",
+    )
+    measure_ap.add_argument(
+        "--root",
+        type=Path,
+        metavar="DIR",
+        help="the repository (default: the nearest directory holding experiments/)",
+    )
+
     return ap
 
 
@@ -148,6 +173,50 @@ def _research(args: argparse.Namespace) -> int:
             print(slug)
         return 0
     return 2
+
+
+def _check_ledger(root: Path) -> int:
+    """``measure --check``: 2 if the tools differ from the ledger's, 1 if a
+    fresh measurement differs from the committed files, else 0."""
+    old = ledger.committed(root)
+    if old is not None:
+        mismatches = ledger.tool_mismatches(old)
+        if mismatches:
+            print(
+                "uspiflash: the installed tools differ from the ones that made "
+                f"{ledger.LEDGER}:\n"
+                + "".join(f"  {m}\n" for m in mismatches)
+                + "Regenerate the ledger with those tools (Debian trixie's clang-19, "
+                "llvm-19 and gcc; see sizes/README.md), or check it there.",
+                file=sys.stderr,
+            )
+            return 2
+    changes = ledger.diff(root, ledger.measure_fresh())
+    if changes:
+        sys.stdout.write(changes)
+        print(
+            f"uspiflash: the size ledger is stale; regenerate it with: {ledger.REGENERATE}",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"{ledger.LEDGER} is current")
+    return 0
+
+
+def _measure(args: argparse.Namespace) -> int:
+    """Print the sizes, or write or check the committed ledger."""
+    try:
+        if not (args.write or args.check):
+            sys.stdout.write(ledger.tables(ledger.measure_fresh()))
+            return 0
+        root = args.root or research.find_root(Path.cwd())
+        if args.check:
+            return _check_ledger(root)
+        ledger.write(root, ledger.measure_fresh())
+    except (MeasureError, FileNotFoundError) as e:
+        print(f"uspiflash: {e}", file=sys.stderr)
+        return 2
+    return 0
 
 
 def _generate(args: argparse.Namespace) -> int:
@@ -175,6 +244,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _research(args)
     if args.command == "generate":
         return _generate(args)
+    if args.command == "measure":
+        return _measure(args)
     return 0
 
 

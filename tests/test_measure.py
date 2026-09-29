@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import os
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 
-from uspiflash import emit, measure
+from uspiflash import emit, ledger, measure
+from uspiflash.cli import main
 from uspiflash.levels import Selection
 from uspiflash.measure import TARGETS, MeasureError, Sizes, Target
 from uspiflash.provenance import Config
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 ID = Config(Selection.make("id"))
 
@@ -137,3 +136,122 @@ def test_config_names_are_unique() -> None:
     names = [n for n, _ in measure.CONFIGS]
     assert len(set(names)) == len(names)
     assert len({t.name for t in TARGETS}) == len(TARGETS)
+
+
+# The ledger and ``uspiflash measure`` (uspiflash.ledger, uspiflash.cli).
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture
+def small(monkeypatch: pytest.MonkeyPatch) -> list[Target]:
+    """Measure only ``id``, on the targets whose tools are installed."""
+    targets = [t for t in TARGETS if available(t)]
+    if not targets:
+        pytest.skip("no target's compiler and llvm-size installed")
+    monkeypatch.setattr(measure, "CONFIGS", (("id", ID),))
+    monkeypatch.setattr(measure, "TARGETS", tuple(targets))
+    return targets
+
+
+def test_the_ledger_is_deterministic(tmp_path: Path, small: list[Target]) -> None:
+    first = ledger.dumps(ledger.build(tmp_path / "a"))
+    second = ledger.dumps(ledger.build(tmp_path / "b"))
+    assert first == second
+    assert first.endswith("}\n")
+    data = json.loads(first)
+    assert [t["name"] for t in data["targets"]] == [t.name for t in small]
+    assert set(data["tools"]) == {*(t.compiler for t in small), measure.SIZE_TOOL}
+    assert data["configs"][0]["options"] == ["--level", "id"]
+    assert data["configs"][0]["config"] == ID.to_json()
+
+
+def test_write_then_check_passes(
+    tmp_path: Path, small: list[Target], capsys: pytest.CaptureFixture[str]
+) -> None:
+    del small
+    assert main(["measure", "--write", "--root", str(tmp_path)]) == 0
+    text = (tmp_path / "sizes" / "ledger.json").read_text()
+    assert main(["measure", "--write", "--root", str(tmp_path)]) == 0
+    assert (tmp_path / "sizes" / "ledger.json").read_text() == text
+    readme = (tmp_path / "sizes" / "README.md").read_text()
+    assert readme == ledger.readme(json.loads(text))
+    assert "| `id` |" in readme
+    assert ledger.REGENERATE in readme
+    capsys.readouterr()
+    assert main(["measure", "--check", "--root", str(tmp_path)]) == 0
+    assert capsys.readouterr().out == "sizes/ledger.json is current\n"
+
+
+def test_check_shows_a_changed_number(
+    tmp_path: Path, small: list[Target], capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["measure", "--write", "--root", str(tmp_path)]) == 0
+    path = tmp_path / "sizes" / "ledger.json"
+    data = json.loads(path.read_text())
+    data["sizes"][small[0].name]["id"]["text"] += 1
+    path.write_text(ledger.dumps(data))
+    capsys.readouterr()
+    assert main(["measure", "--check", "--root", str(tmp_path)]) == 1
+    out, err = capsys.readouterr()
+    assert "--- sizes/ledger.json (committed)" in out
+    assert "+++ sizes/ledger.json (measured)" in out
+    assert "the size ledger is stale" in err
+
+
+def test_check_without_a_ledger_fails(
+    tmp_path: Path, small: list[Target], capsys: pytest.CaptureFixture[str]
+) -> None:
+    del small
+    assert main(["measure", "--check", "--root", str(tmp_path)]) == 1
+    assert "+++ sizes/README.md (measured)" in capsys.readouterr().out
+
+
+def test_check_refuses_other_tool_versions(
+    tmp_path: Path, small: list[Target], capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["measure", "--write", "--root", str(tmp_path)]) == 0
+    path = tmp_path / "sizes" / "ledger.json"
+    data = json.loads(path.read_text())
+    data["tools"][small[0].compiler] = "clang version 1.0"
+    path.write_text(ledger.dumps(data))
+    capsys.readouterr()
+    assert main(["measure", "--check", "--root", str(tmp_path)]) == 2
+    err = capsys.readouterr().err
+    assert f"{small[0].compiler}: the ledger has 'clang version 1.0', installed is" in err
+    assert "Regenerate the ledger with those tools" in err
+
+
+def test_measure_prints_the_tables(small: list[Target], capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["measure"]) == 0
+    out = capsys.readouterr().out
+    for t in small:
+        assert f"## {t.name}\n" in out
+    assert "| `id` |" in out
+
+
+def test_measure_without_tools_names_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert main(["measure"]) == 2
+    assert "not found on PATH (install" in capsys.readouterr().err
+
+
+def test_write_needs_a_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["measure", "--write"]) == 2
+    assert "no experiments/ directory" in capsys.readouterr().err
+
+
+def test_the_committed_files_match_the_committed_ledger() -> None:
+    """Cheap and compiler-free: the generated files were not hand-edited.
+    (CI's sizes job checks the numbers themselves.)"""
+    data = ledger.committed(ROOT)
+    assert data is not None
+    for path, text in ledger.files(data).items():
+        assert (ROOT / path).read_text(encoding="utf-8") == text, path
+    assert [c["name"] for c in data["configs"]] == [n for n, _ in measure.CONFIGS]
+    assert [t["name"] for t in data["targets"]] == [t.name for t in TARGETS]

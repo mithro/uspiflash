@@ -55,7 +55,7 @@ version-file = "src/uspiflash/_version.py"
 packages = ["src/uspiflash"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/", "tests/", "tools/", "examples/", "experiments/", "docs/", "README.md",
+include = ["src/", "tests/", "tools/", "examples/", "experiments/", "docs/", "sizes/", "README.md",
            "LICENSE"]
 # A local docs build writes these git-ignored directories under docs/; without
 # excluding them, a local `uv build` (CI never has a docs build to sweep up)
