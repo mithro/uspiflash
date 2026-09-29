@@ -4,6 +4,7 @@ only the fields the selection leaves out removed."""
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from spiflash.cli import describe
@@ -78,3 +79,17 @@ def text(db: Database, family: IdFamily, data: bytes, sel: Selection, *, opcodes
             lines.append(kept)
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks) + "\n"
+
+
+def json_text(db: Database, family: IdFamily, data: bytes, sel: Selection) -> str:
+    """What `spiflash id --json` prints, less what ``sel`` leaves out."""
+    objs = [f.to_json() for f in db.lookup(data, method=family)]
+    for o in objs:
+        if not sel.has(Field.DATASHEETS):
+            del o["datasheets"]
+        if not sel.has(Field.RECORDS):
+            del o["records"]
+        elif not sel.has(Field.PROVENANCE):
+            for r in o["records"]:
+                del r["at"]
+    return json.dumps(objs, indent=1) + "\n"

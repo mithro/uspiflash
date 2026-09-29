@@ -165,7 +165,10 @@ int main(void)
             else if (cmd == 'T' || cmd == 't')
                 usf_print(chips, n, cmd == 'T' ? USF_PRINT_OPCODES : 0, out, NULL);
 #endif
-            /* Task 11: J. */
+#if USF_HAVE_JSON
+            else if (cmd == 'J')
+                usf_print_json(chips, n, out, NULL);
+#endif
         }
         /* Task 12: P. */
         /* Part D: S. */

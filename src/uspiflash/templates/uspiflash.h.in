@@ -141,7 +141,13 @@ uint8_t usf_jep106(uint8_t bank, uint8_t id, usf_putc_fn sink, void *ctx);
 void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink, void *ctx);
 #endif
 
-/* @@API_JSON@@ @@API_PROBE@@  (Tasks 11-12 insert here) */
+#if USF_HAVE_JSON
+/* Prints exactly what `spiflash id --json` prints for these answers, less
+ * the records unless the file has them. */
+void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ctx);
+#endif
+
+/* @@API_PROBE@@  (Task 12 inserts here) */
 
 #ifdef USF_IMPLEMENTATION
 
@@ -544,9 +550,8 @@ uint8_t usf_jep106(uint8_t bank, uint8_t id, usf_putc_fn sink, void *ctx)
 }
 #endif
 
-/* Formatting helpers for the printers. Only the text printer reads them so far:
- * an unused static function fails -Werror. */
-#if USF_HAVE_TEXT
+/* Formatting helpers both printers call. */
+#if USF_HAVE_TEXT || USF_HAVE_JSON
 static void usf__lit(const char *s, usf_putc_fn sink, void *ctx)
 {
     while (*s)
@@ -838,7 +843,292 @@ void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink
 }
 #endif
 
-/* @@IMPL_JSON@@ @@IMPL_PROBE@@  (Tasks 11-12 insert here) */
+#if USF_HAVE_JSON
+/* A tiny writer for Python's json.dumps(indent=1) layout. */
+typedef struct usf__json {
+    usf_putc_fn sink;
+    void *ctx;
+    uint8_t depth;
+    uint8_t first;
+} usf__json;
+
+static void usf__jnl(usf__json *j)
+{
+    uint8_t i;
+    j->sink(j->ctx, '\n');
+    for (i = 0; i < j->depth; i++)
+        j->sink(j->ctx, ' ');
+}
+
+static void usf__jitem(usf__json *j)
+{
+    if (!j->first)
+        j->sink(j->ctx, ',');
+    usf__jnl(j);
+    j->first = 0;
+}
+
+static void usf__jopen(usf__json *j, char ch)
+{
+    j->sink(j->ctx, ch);
+    j->depth++;
+    j->first = 1;
+}
+
+static void usf__jclose(usf__json *j, char ch)
+{
+    j->depth--;
+    if (!j->first)
+        usf__jnl(j);
+    j->sink(j->ctx, ch);
+    j->first = 0;
+}
+
+static void usf__jkey(usf__json *j, const char *key)
+{
+    usf__jitem(j);
+    j->sink(j->ctx, '"');
+    usf__lit(key, j->sink, j->ctx);
+    usf__lit("\": ", j->sink, j->ctx);
+}
+#endif
+
+#if USF_HAVE_JSON
+static void usf__jpool(usf__json *j, usf__off_t off)   /* "pool string" */
+{
+    j->sink(j->ctx, '"');
+    usf__puts(off, j->sink, j->ctx);
+    j->sink(j->ctx, '"');
+}
+
+static void usf__jname(usf__json *j, usf__p names, uint8_t i)   /* "names[i]" */
+{
+    usf__jpool(j, usf__off(names + USF_OFF_BYTES * i));
+}
+
+static void usf__jint(usf__json *j, uint32_t v) { usf__dec(v, j->sink, j->ctx); }
+
+static void usf__jnull(usf__json *j) { usf__lit("null", j->sink, j->ctx); }
+
+static void usf__jintornull(usf__json *j, uint32_t v)   /* 0 means unknown */
+{
+    if (v)
+        usf__jint(j, v);
+    else
+        usf__jnull(j);
+}
+
+static void usf__jpair(usf__json *j, uint16_t lo, uint16_t hi)   /* [lo, hi] */
+{
+    usf__jopen(j, '[');
+    usf__jitem(j);
+    usf__jint(j, lo);
+    usf__jitem(j);
+    usf__jint(j, hi);
+    usf__jclose(j, ']');
+}
+
+static void usf__jsources(usf__json *j, uint8_t mask)   /* ["flashrom", ...] */
+{
+    uint8_t i;
+    usf__jopen(j, '[');
+    for (i = 0; mask; i++, mask >>= 1)
+        if (mask & 1) {
+            usf__jitem(j);
+            usf__jname(j, usf__srcnames, i);
+        }
+    usf__jclose(j, ']');
+}
+
+static void usf__jidhex(usf__json *j, const usf_chip *c, uint8_t bank)
+{
+    j->sink(j->ctx, '"');
+    usf__idhex(c, bank, j->sink, j->ctx);
+    j->sink(j->ctx, '"');
+}
+
+#if USF_CONF_COUNT
+/* Conflict value `i` of attribute `attr`: an int, or [min, max] for voltage. */
+static void usf__jvalue(usf__json *j, uint8_t attr, uint8_t i)
+{
+#if USF_VOLT_COUNT
+    if (attr == 3) {
+        usf__jpair(j, usf__u16(usf__volts + 4 * i), usf__u16(usf__volts + 4 * i + 2));
+        return;
+    }
+#endif
+    usf__jint(j, usf__confint(attr, i));
+}
+#endif
+
+static void usf__jchip(usf__json *j, const usf_chip *c)
+{
+    uint8_t i, n;
+    uint16_t lo, hi;
+    usf__p p;
+#if USF_OP_COUNT
+    usf__p item, row;
+#endif
+#if USF_CONF_COUNT
+    uint16_t off;
+#endif
+
+    usf__jopen(j, '{');
+    usf__jkey(j, "id");
+    usf__jidhex(j, c, 0);
+    usf__jkey(j, "jedec_id");
+    usf__jidhex(j, c, usf_bank(c));
+    usf__jkey(j, "id_family");
+    usf__jname(j, usf__famnames, usf_family(c));
+    usf__jkey(j, "type");
+    usf__jname(j, usf__typenames, usf_type(c));
+    usf__jkey(j, "manufacturer");
+#if USF_MFR_COUNT
+    i = usf__row(c)[USF_E_MFR];
+    if (i != 0xFF)
+        usf__jname(j, usf__mfrs, i);
+    else
+#endif
+        usf__jnull(j);
+
+    usf__jkey(j, "names");
+    p = usf__namelists + usf__u16(usf__row(c) + USF_E_NAMES);
+    usf__jopen(j, '[');
+    for (i = 0, n = *p; i < n; i++) {
+        usf__jitem(j);
+        usf__jpool(j, usf__off(p + 1 + USF_OFF_BYTES * i));
+    }
+    usf__jclose(j, ']');
+
+    usf__jkey(j, "size");
+    usf__jintornull(j, usf_size(c));
+    usf__jkey(j, "page_size");
+    usf__jintornull(j, usf_page_size(c));
+    usf__jkey(j, "sector_size");
+    usf__jintornull(j, usf_sector_size(c));
+    usf__jkey(j, "voltage");
+    if (usf_voltage(c, &lo, &hi))
+        usf__jpair(j, lo, hi);
+    else
+        usf__jnull(j);
+
+    usf__jkey(j, "features");
+    usf__jopen(j, '[');
+    for (i = 0; i < USF_FEATURE_COUNT; i++)
+        if (usf_has_feature(c, i)) {
+            usf__jitem(j);
+            usf__jname(j, usf__featnames, i);
+        }
+    usf__jclose(j, ']');
+
+    usf__jkey(j, "opcodes");
+    usf__jopen(j, '[');
+#if USF_OP_COUNT
+    for (i = 0, n = usf_op_count(c); i < n; i++) {
+        item = usf__opitem(c, i);
+        row = usf__oprow(item);
+        usf__jitem(j);
+        usf__jopen(j, '{');
+        usf__jkey(j, "op");
+        usf__jpool(j, usf__off(row + USF_OP_NAME));
+        usf__jkey(j, "opcode");
+        usf__jint(j, row[1]);
+        usf__jkey(j, "kind");
+        usf__jname(j, usf__kindnames, row[2]);
+        usf__jkey(j, "description");
+        usf__jpool(j, usf__off(row + USF_OP_NAME + USF_OFF_BYTES));
+        usf__jkey(j, "sources");
+        usf__jsources(j, item[1]);
+        usf__jclose(j, '}');
+    }
+#endif
+    usf__jclose(j, ']');
+
+    usf__jkey(j, "sources");
+    usf__jsources(j, usf_sources(c));
+
+    usf__jkey(j, "conflicts");
+    usf__jopen(j, '{');
+#if USF_CONF_COUNT
+    off = usf__u16(usf__row(c) + USF_E_CONF);
+    if (off != 0xFFFF)
+        for (p = usf__conflicts + off; *p != 0xFF;) {
+            uint8_t attr = *p++, k = *p++;
+            usf__jitem(j);                      /* "<attr>": [ ... ] */
+            usf__jname(j, usf__attrnames, attr);
+            usf__lit(": ", j->sink, j->ctx);
+            usf__jopen(j, '[');
+            for (i = 0; i < k; i++, p += 2) {
+                usf__jitem(j);
+                usf__jopen(j, '{');
+                usf__jkey(j, "value");
+                usf__jvalue(j, attr, p[0]);
+                usf__jkey(j, "sources");
+                usf__jsources(j, p[1]);
+                usf__jclose(j, '}');
+            }
+            usf__jclose(j, ']');
+        }
+#endif
+    usf__jclose(j, '}');
+
+#if USF_HAVE_RECORDS
+    usf__jkey(j, "records");
+    p = usf__records + usf__u16(usf__row(c) + USF_E_RECS);
+    usf__jopen(j, '[');
+    for (n = *p++; n; n--) {
+        uint8_t len;
+        usf__jitem(j);
+        usf__jopen(j, '{');
+        usf__jkey(j, "source");
+        usf__jname(j, usf__srcnames, *p++);
+        usf__jkey(j, "name");
+        usf__jpool(j, usf__off(p));
+        p += USF_OFF_BYTES;
+        len = *p++;
+#if USF_HAVE_PROVENANCE
+        usf__jkey(j, "at");
+        usf__jpool(j, usf__off(p + len));
+#endif
+        usf__jkey(j, "ext_id");
+        if (!len) {
+            usf__jnull(j);
+        } else {
+            j->sink(j->ctx, '"');
+            for (i = 0; i < len; i++)
+                usf__hex8(p[i], j->sink, j->ctx);
+            j->sink(j->ctx, '"');
+        }
+        p += len;
+#if USF_HAVE_PROVENANCE
+        p += USF_OFF_BYTES;
+#endif
+        usf__jclose(j, '}');
+    }
+    usf__jclose(j, ']');
+#endif
+    usf__jclose(j, '}');
+}
+
+void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ctx)
+{
+    usf__json j;
+    uint8_t i;
+    j.sink = sink;
+    j.ctx = ctx;
+    j.depth = 0;
+    j.first = 1;
+    usf__jopen(&j, '[');
+    for (i = 0; i < n; i++) {
+        usf__jitem(&j);
+        usf__jchip(&j, &chips[i]);
+    }
+    usf__jclose(&j, ']');
+    sink(ctx, '\n');
+}
+#endif
+
+/* @@IMPL_PROBE@@  (Task 12 inserts here) */
 
 #endif /* USF_IMPLEMENTATION */
 

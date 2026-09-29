@@ -25,9 +25,11 @@ CONFIGS = [
     # Fields added on their own.
     Config(Selection.make("read", with_=["descriptions"])),
     Config(Selection.make("describe", with_=["conflicts"])),
-    # Conflicts without a printer (stored nowhere), and JSON without TEXT.
+    # Conflicts without a printer (stored nowhere).
     Config(Selection.make("write", with_=["conflicts"])),
+    # JSON without TEXT (Task 11).
     Config(Selection.make("write", with_=["json"])),
+    Config(Selection.make("full", without=["text"])),
     # A renamed header: every symbol and table under another prefix.
     Config(Selection.make("full"), "fl", "flashid.h"),
     # Single-type selections, whose counted tables can be empty.
@@ -95,3 +97,4 @@ int main(void)
         exe = tmp_path / f"features-{cc}"
         compile_c(cc, [src], exe)
         assert subprocess.run([str(exe)], check=False).returncode == 0, cc
+
