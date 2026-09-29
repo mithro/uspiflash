@@ -1,0 +1,48 @@
+name: QEMU
+
+# uspiflash-linux on a real kernel: tests/test_qemu.py boots riscv64 Linux
+# under QEMU's sifive_u (in a docker image, tools/qemu/), binds its emulated
+# SPI flash to spidev, and checks the tool's output against spiflash's.
+# See tools/qemu/README.md.
+#
+# Its own workflow, not part of deb.yml: it is slow, it runs only when the
+# tool, the templates or the QEMU setup change (and on every push to main),
+# and it never holds up publishing (publish-pypi.yml follows deb.yml only).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "examples/**"
+      - "tools/qemu/**"
+      - "tests/linux/**"
+      - "tests/test_qemu.py"
+      - "src/uspiflash/templates/**"
+      - ".github/workflows/qemu.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qemu-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qemu:
+    runs-on: ubuntu-24.04  # has docker
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # hatch-vcs derives the version from the tags
+
+      - uses: astral-sh/setup-uv@v7
+
+      # Only this test, so the coverage gate is left out; the basetemp stays
+      # in tmp/, as the default addopts has it.
+      - name: uspiflash-linux under QEMU
+        env:
+          USPIFLASH_QEMU: "1"
+        run: uv run pytest tests/test_qemu.py -o addopts="--basetemp=tmp/pytest" -v -ra
