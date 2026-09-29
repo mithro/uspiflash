@@ -191,10 +191,11 @@ def test_a_prefix_starting_with_an_underscore_is_refused(
     assert f"uspiflash: prefix '{prefix}' starts with an underscore" in capsys.readouterr().err
 
 
-def test_the_sfdp_extra_generates(tmp_path: Path) -> None:
+def test_every_sfdp_extra_generates(tmp_path: Path) -> None:
     out = tmp_path / "x.h"
-    assert main(["generate", "-o", str(out), "--level", "id", "--with", "sfdp"]) == 0
-    assert "uint8_t usf_sfdp_read(usf_bus *bus, usf_sfdp *out);" in out.read_text()
+    for extra in ("sfdp", "sfdp_summary", "sfdp_dumps"):  # summary: below describe
+        assert main(["generate", "-o", str(out), "--level", "id", "--with", extra]) == 0
+        assert f"--with {extra}" in out.read_text()
 
 
 def test_generate_refuses_a_broken_selection(capsys: pytest.CaptureFixture[str]) -> None:

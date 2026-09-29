@@ -204,15 +204,13 @@ def test_stable_operation_ids_cover_spiflash() -> None:
 _ID_TABLES = {"ids", "entries"}
 _READ_TABLES = _ID_TABLES | {"sizes", "featsets", "ops", "opsets", "ext"}
 _WRITE_TABLES = _READ_TABLES | {"pages", "sectors"}
-_DESCRIBE_TABLES = _WRITE_TABLES | {
-    "volts",
-    "mfrs",
-    "namelists",
-    "str",
-    "featnames",
-    "famnames",
-    "typenames",
-}
+#: The sfdp: lines' tables, in describe and full (SFDP_SUMMARY with TEXT).
+_SFDP_LINES_TABLES = {"sfdprows", "sfdplines"}
+_DESCRIBE_TABLES = (
+    _WRITE_TABLES
+    | {"volts", "mfrs", "namelists", "str", "featnames", "famnames", "typenames"}
+    | _SFDP_LINES_TABLES
+)
 _FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrnames"}
 
 
@@ -235,8 +233,8 @@ _FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrna
         ("write", ["descriptions"], _WRITE_TABLES | {"str"}),
         # JSON without TEXT (write has no TEXT): JSON brings every field full
         # has and prints the conflicts, so the tables are full's, conflicts
-        # included.
-        ("write", ["json"], _FULL_TABLES),
+        # included (and no `sfdp:` lines: they are the text printer's).
+        ("write", ["json"], _FULL_TABLES - _SFDP_LINES_TABLES),
         # CONFLICTS without a printer adds nothing itself (no conflicts, no
         # attrnames); only VOLTAGE, which it requires, adds volts.
         ("write", ["conflicts"], _WRITE_TABLES | {"volts"}),
@@ -244,6 +242,16 @@ _FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrna
         ("full", ["datasheet"], _FULL_TABLES | {"dsrows", "dslists"}),
         ("full", ["datasheets"], _FULL_TABLES | {"dsrows", "dslists"}),
         ("describe", ["datasheet"], _DESCRIBE_TABLES | {"dsrows", "dslists"}),
+        # SFDP: the reader reads no table; the summary is only the text
+        # printer's; sfdp_dumps adds the token table (and the rows).
+        ("id", ["sfdp"], _ID_TABLES),
+        ("write", ["sfdp_summary"], _WRITE_TABLES),
+        ("full", ["sfdp_dumps"], _FULL_TABLES | {"sfdptree"}),
+        (
+            "write",
+            ["json", "sfdp_dumps"],
+            (_FULL_TABLES - _SFDP_LINES_TABLES) | {"sfdprows", "sfdptree"},
+        ),
     ],
 )
 def test_exactly_the_tables_compiled_code_reads(
@@ -253,6 +261,47 @@ def test_exactly_the_tables_compiled_code_reads(
     unread one fails -Werror (-Wunused-const-variable). Part C's compile matrix
     relies on these sets."""
     assert layout.build(snap, Selection.make(level, with_=extras)).tables.keys() == tables
+
+
+def test_sfdp_tables_round_trip(snap: Snapshot) -> None:
+    sel = Selection.make("full", with_=["sfdp_dumps"])
+    lay = layout.build(snap, sel)
+    with_dumps = [i for i, e in enumerate(snap.entries) if e.flash.sfdp_dumps]
+    assert lay.defines["SFDP_COUNT"] == len(with_dumps) >= 11
+    for i, e in enumerate(snap.entries):
+        assert decode.sfdp_lines(lay, i) == layout.sfdp_lines(e.flash), i
+        assert decode.sfdp_json(lay, i) == layout.sfdp_json(e.flash), i
+    # The lines are spiflash's own: one per dump, as `spiflash id` prints them.
+    for i in with_dumps:
+        f = snap.entries[i].flash
+        assert len(layout.sfdp_lines(f)) == len(f.sfdp_dumps)
+
+
+def test_sfdp_tables_are_left_out_when_no_chip_has_a_dump() -> None:
+    nand = Snapshot.build(ChipFilter(types=(FlashType.NAND,)).apply(database()))
+    lay = layout.build(nand, Selection.make("full", with_=["sfdp_dumps"]))
+    assert lay.defines["SFDP_COUNT"] == 0
+    assert not {"sfdprows", "sfdplines", "sfdptree"} & lay.tables.keys()
+
+
+def test_sfdp_lines_are_stored_only_with_the_text_printer(snap: Snapshot) -> None:
+    """Like conflicts: SFDP_SUMMARY is only ever printed by TEXT."""
+    bare = layout.build(snap, Selection.make("full", without=["text"]))
+    assert bare.defines["HAVE_SFDP_SUMMARY"] == 1
+    assert not layout.stores_sfdp_lines(bare.selection)
+    assert bare.defines["SFDP_COUNT"] == 0
+    assert "sfdplines" not in bare.tables
+    lay = layout.build(snap, Selection.make("describe"))
+    assert layout.stores_sfdp_lines(lay.selection)
+    assert lay.defines["SFDP_COUNT"] > 0
+    assert "SFDP_TREE" not in lay.defines
+
+
+def test_the_sfdp_tree_refuses_what_it_cannot_encode() -> None:
+    with pytest.raises(ValueError, match="does not fit 32 bits"):
+        layout.sfdp_tree(1 << 32, lambda _s: b"\0\0")
+    with pytest.raises(ValueError, match="no sfdptree token"):
+        layout.sfdp_tree(1.5, lambda _s: b"\0\0")
 
 
 def test_the_pool_holds_only_strings_something_prints(snap: Snapshot) -> None:
@@ -340,6 +389,7 @@ _COUNTED = {
     "EXT_COUNT": "ext",
     "CONF_COUNT": "conflicts",
     "DS_COUNT": "dsrows",
+    "SFDP_COUNT": "sfdprows",
 }
 
 

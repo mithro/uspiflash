@@ -41,6 +41,14 @@ CONFIGS = [
     # The SFDP reader alone, NOR first.
     Config(Selection.make("id", with_=["sfdp"], chips=ONE_TYPE[0])),
     Config(Selection.make("read", with_=["sfdp"], chips=ONE_TYPE[0])),
+    # describe and full carry the sfdp: lines already (the LEVELS loop).
+    # The summary without its printer, and removed; the JSON list;
+    # everything; and a filter keeping no chip with a dump (SFDP_COUNT 0).
+    Config(Selection.make("write", with_=["sfdp_summary"])),
+    Config(Selection.make("full", without=["sfdp_summary"])),
+    Config(Selection.make("write", with_=["sfdp_dumps"])),
+    Config(Selection.make("full", with_=["sfdp", "sfdp_dumps"])),
+    Config(Selection.make("full", with_=["sfdp_dumps"], chips=ONE_TYPE[1])),
     # A renamed header: every symbol and table under another prefix.
     Config(Selection.make("full"), "fl", "flashid.h"),
     # Renamed, NAND only (--type nand --prefix x).
@@ -68,7 +76,7 @@ def test_implementation_compiles_and_needs_no_symbols(
 def test_header_and_implementation_compile_as_cpp(tmp_path: Path, cxx: str) -> None:
     if shutil.which(cxx) is None:
         pytest.skip(f"{cxx} not installed")
-    generate(tmp_path, Config(Selection.make("full", with_=["jep106", "sfdp"])))
+    generate(tmp_path, Config(Selection.make("full", with_=["jep106", "sfdp", "sfdp_dumps"])))
     src = tmp_path / "use.cpp"
     src.write_text(
         '#include "uspiflash.h"\n'  # declarations, as a C++ user sees them

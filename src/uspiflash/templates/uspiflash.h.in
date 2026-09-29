@@ -154,17 +154,16 @@ uint8_t usf_jep106(uint8_t bank, uint8_t id, usf_putc_fn sink, void *ctx);
  * usf_probe() gave them), byte for byte, trailing newline included, less
  * what this file was generated without: the `from:` line and each opcode's
  * [sources] without sources, the `sources disagree` lines without
- * conflicts, and the `datasheet:` line without datasheet. The `sfdp:` lines
- * are always left out: SFDP dumps are not in this file yet. */
+ * conflicts, the `datasheet:` line without datasheet, and the `sfdp:` lines
+ * without sfdp_summary. */
 void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink, void *ctx);
 #endif
 
 #if USF_HAVE_JSON
 /* Prints what `spiflash id --json` prints for these answers, byte for
  * byte, less what this file was generated without: "datasheets" without
- * datasheets, "records" without records, and each record's "at" without
- * provenance. The "sfdp" key is always left out: SFDP dumps are not in this
- * file yet. */
+ * datasheets, "records" without records, each record's "at" without
+ * provenance, and "sfdp" without sfdp_dumps. */
 void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ctx);
 #endif
 
@@ -299,9 +298,11 @@ typedef uint32_t usf__off_t;
 #define USF__NEED_OFF (USF_MFR_COUNT || USF_HAVE_NAMES \
     || (USF_HAVE_DESCRIPTIONS && USF_OP_COUNT) || USF_HAVE_JEP106 || USF_HAVE_TEXT \
     || USF_HAVE_JSON)
-#define USF__NEED_U32 (USF_SIZE_COUNT || USF_SECTOR_COUNT)
+#define USF__NEED_U32 (USF_SIZE_COUNT || USF_SECTOR_COUNT \
+    || (USF_HAVE_SFDP_DUMPS && USF_SFDP_COUNT))
 #define USF__NEED_U16 (USF__NEED_U32 || USF__NEED_OFF || USF_PAGE_COUNT || USF_VOLT_COUNT \
-    || USF_EXT_COUNT || USF_OP_COUNT || USF_CONF_COUNT || USF_HAVE_RECORDS || USF_DS_COUNT)
+    || USF_EXT_COUNT || USF_OP_COUNT || USF_CONF_COUNT || USF_HAVE_RECORDS || USF_DS_COUNT \
+    || USF_SFDP_COUNT)
 
 #if USF__NEED_U16
 /* Every byte is widened to an unsigned type before it is shifted: a byte
@@ -761,6 +762,20 @@ static usf__p usf__dsrow(usf__p item)
     return usf__dsrows + (uint16_t)(USF_DS_ROW * usf__u16(item));
 }
 #endif
+
+#if USF_SFDP_COUNT
+/* The entry's sfdprows row, or 0 when its records carry no SFDP dump. A
+ * scan: a dozen rows cost less than an entry field in every row. */
+static usf__p usf__sfdprow(const usf_chip *c)
+{
+    usf__p p = usf__sfdprows;
+    uint16_t i;
+    for (i = 0; i < USF_SFDP_COUNT; i++, p += USF_SFDP_ROW)
+        if (usf__u16(p) == c->entry)
+            return p;
+    return 0;
+}
+#endif
 #endif
 
 #if USF_HAVE_TEXT
@@ -941,6 +956,18 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
 #if USF_HAVE_SOURCES
     usf__lit("\n    from: ", sink, ctx);
     usf__srclist(usf_sources(c), ", ", sink, ctx);
+#endif
+#if USF_HAVE_SFDP_SUMMARY && USF_SFDP_COUNT
+    {   /* sfdp: <summary>  [<source>: <parts>], one line per dump */
+        usf__p row = usf__sfdprow(c);
+        if (row) {
+            usf__p q = usf__sfdplines + usf__u16(row + USF_SFDP_LINES);
+            for (i = *q++; i; i--, q += USF_OFF_BYTES) {
+                usf__lit("\n    sfdp: ", sink, ctx);
+                usf__puts(usf__off(q), sink, ctx);
+            }
+        }
+    }
 #endif
 #if USF_HAVE_DATASHEET && USF_DS_COUNT
     {   /* the best datasheet */
@@ -1127,6 +1154,57 @@ static void usf__jvalue(usf__json *j, uint8_t attr, uint8_t i)
     }
 #endif
     usf__jint(j, usf__confint(attr, i));
+}
+#endif
+
+#if USF_HAVE_SFDP_DUMPS && USF_SFDP_COUNT
+/* Writes the JSON value at `p` in sfdptree: a flat run of tokens (see the
+ * layout), walked in one loop, so no recursion (SDCC's 8051 port would
+ * need __reentrant for that). */
+static void usf__jtree(usf__json *j, usf__p p)
+{
+    uint8_t t;
+    while ((t = *p++) != 0) {                 /* 0: the end */
+        if (t & 0x80)                         /* an array element */
+            usf__jitem(j);
+        switch (t & 0x7F) {
+        case 1:
+            usf__jnull(j);
+            break;
+        case 2:
+            usf__lit("false", j->sink, j->ctx);
+            break;
+        case 3:
+            usf__lit("true", j->sink, j->ctx);
+            break;
+        case 4:
+            usf__jint(j, usf__u32(p));
+            p += 4;
+            break;
+        case 5:                               /* a string, stored escaped */
+            usf__jpool(j, usf__off(p));
+            p += USF_OFF_BYTES;
+            break;
+        case 6:                               /* a member's name; its value follows */
+            usf__jitem(j);
+            usf__jpool(j, usf__off(p));
+            usf__lit(": ", j->sink, j->ctx);
+            p += USF_OFF_BYTES;
+            break;
+        case 7:
+            usf__jopen(j, '[');
+            break;
+        case 8:
+            usf__jopen(j, '{');
+            break;
+        case 9:
+            usf__jclose(j, ']');
+            break;
+        default:                              /* 10 */
+            usf__jclose(j, '}');
+            break;
+        }
+    }
 }
 #endif
 
@@ -1317,6 +1395,19 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
         usf__jclose(j, '}');
     }
     usf__jclose(j, ']');
+#endif
+#if USF_HAVE_SFDP_DUMPS
+    usf__jkey(j, "sfdp");
+#if USF_SFDP_COUNT
+    p = usf__sfdprow(c);
+    if (p) {
+        usf__jtree(j, usf__sfdptree + usf__u16(p + USF_SFDP_TREE));
+    } else
+#endif
+    {
+        usf__jopen(j, '[');                   /* no dump: [] */
+        usf__jclose(j, ']');
+    }
 #endif
     usf__jclose(j, '}');
 }

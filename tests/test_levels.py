@@ -34,8 +34,23 @@ def test_extras_are_off_by_default() -> None:
         Field.DATASHEETS,
         Field.JEP106,
         Field.SFDP,
+        Field.SFDP_DUMPS,
     ):
         assert not full.has(extra)
+
+
+def test_the_sfdp_summary_is_wherever_the_text_printer_is() -> None:
+    for level, fields in LEVELS.items():
+        assert (Field.SFDP_SUMMARY in fields) == (Field.TEXT in fields), level
+    # Like conflicts, it brings no printer, and removing the printer keeps it.
+    assert Field.TEXT not in Selection.make("id", with_=["sfdp_summary"]).fields
+    assert Field.SFDP_SUMMARY in Selection.make("full", without=["text"]).fields
+
+
+def test_sfdp_extras_bring_their_printer_or_the_probe() -> None:
+    assert Field.PROBE in Selection.make("id", with_=["sfdp"]).fields
+    assert Field.JSON in Selection.make("id", with_=["sfdp_dumps"]).fields
+    assert Field.TEXT not in Selection.make("id", with_=["sfdp_dumps"]).fields
 
 
 def test_with_pulls_in_requirements() -> None:

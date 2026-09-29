@@ -69,11 +69,11 @@ and its biggest tables (`layout_tables` has every table at every level):
 | `id` | 3,888 | `ids` 3,035, `entries` 853 |
 | `read` | 11,237 | `entries` 5,971, `ids` 3,035, `opsets` 959 |
 | `write` | 16,294 | `entries` 7,677, `opsets` 4,032, `ids` 3,035 |
-| `describe` | 39,392 | `str` 15,354, `entries` 11,089, `opsets` 4,032, `namelists` 3,912, `ids` 3,035 |
-| `full` | 50,229 | `str` 15,492, `entries` 13,648, `opsets` 11,522, `namelists` 3,912, `ids` 3,035 |
-| `full` + `records` + `provenance` + `jep106` | 200,759 | `str` 126,600, `records` 24,440, `entries` 15,354, `jep106` 11,530, `opsets` 11,522 |
-| `full` + `datasheet` | 97,595 | `str` 58,526, `entries` 15,354, `opsets` 11,522, `namelists` 3,912, `ids` 3,035, `dslists` 1,576, `dsrows` 1,050 |
-| `full` + `datasheets` | 165,226 | `str` 115,343, `entries` 15,354, `opsets` 11,522, `dsrows` 9,114, `namelists` 5,456, `dslists` 2,580 |
+| `describe` | 40,125 | `str` 16,000, `entries` 11,089, `opsets` 4,032, `namelists` 3,912, `ids` 3,035 |
+| `full` | 50,962 | `str` 16,138, `entries` 13,648, `opsets` 11,522, `namelists` 3,912, `ids` 3,035 |
+| `full` + `records` + `provenance` + `jep106` | 201,504 | `str` 127,246, `records` 24,440, `entries` 15,354, `jep106` 11,530, `opsets` 11,522 |
+| `full` + `datasheet` | 98,328 | `str` 59,172, `entries` 15,354, `opsets` 11,522, `namelists` 3,912, `ids` 3,035, `dslists` 1,576, `dsrows` 1,050 |
+| `full` + `datasheets` | 165,971 | `str` 115,989, `entries` 15,354, `opsets` 11,522, `dsrows` 9,114, `namelists` 5,456, `dslists` 2,580 |
 
 **Conclusion.** The shape of the data has not moved since spec §3 was
 written: every number in its table reproduced at spiflash 0.0.post39, and
@@ -84,11 +84,12 @@ The hypothesis holds for part names at the default levels, but not for
 record names:
 
 - At `describe` and `full` the string pool, `str`, is the largest table
-  (15,354 and 15,492 bytes), and part names are most of it: the 1,209
+  (16,000 and 16,138 bytes), and part names are most of it: the 1,209
   distinct names take 11,363 bytes plus 1,209 NULs (12,572 bytes); the rest
-  is manufacturer names, operation names and descriptions and the printers'
-  name arrays. With `namelists` (3,912 bytes of offsets pointing at them),
-  part names cost about 16,500 of `describe`'s 39,392 bytes, the largest
+  is manufacturer names, operation names and descriptions, the 12 `sfdp:`
+  lines' text (646 bytes; with `sfdprows` and `sfdplines` the SFDP summary
+  costs 733) and the printers' name arrays. With `namelists` (3,912 bytes of offsets pointing at them),
+  part names cost about 16,500 of `describe`'s 40,125 bytes, the largest
   single cost. It is not the whole story, though: `entries`, the fixed-width
   per-entry rows of indices and offsets, is nearly as big (11,089 at
   `describe`, 13,648 at `full`), and at `full` the per-operation source
@@ -96,8 +97,8 @@ record names:
   shareable (the value tables total a few hundred bytes at every level), but
   the baseline's one-byte-per-field rows and per-chip operation lists are
   where M4 should look next after the strings.
-- With `records` + `provenance` + `jep106` the file quadruples (200,759
-  bytes), and `str` grows to 126,600 bytes. Record names are deduplicated
+- With `records` + `provenance` + `jep106` the file quadruples (201,504
+  bytes), and `str` grows to 127,246 bytes. Record names are deduplicated
   in the pool (1,206 distinct, 12,711 bytes), so they are not what grows
   it: every record's location is distinct (2,182 locations, 57,759 bytes)
   and so is nearly every JEP106 name (2,283 distinct, 46,970 bytes). Those
@@ -106,14 +107,14 @@ record names:
   again. They are opt-in extras for that reason.
 - Datasheets (spiflash 0.0.post38 and later) cost more than `full`
   itself. The `datasheet` extra nearly doubles the file (+47,366 bytes, to
-  97,595): the URLs of the 525 distinct best datasheets are 43,034 bytes of
+  98,328): the URLs of the 525 distinct best datasheets are 43,034 bytes of
   `str`, and `dsrows`, `dslists` and the 2-byte `E_DS` per entry add 4,332.
-  The `datasheets` extra more than triples it (+114,997, to 165,226):
+  The `datasheets` extra more than triples it (+115,009, to 165,971):
   every one of the 651 datasheets' URL, title and revision (99,851 bytes
   of `str`), 14-byte `dsrows` rows (9,114), `dslists` (2,580) and `E_DS`
   (1,706); and because the pool passes 64 KiB, every offset in the file
-  widens to 3 bytes, which alone costs 1,746 bytes in `namelists`, `ops`,
-  `mfrs` and the name arrays. They are opt-in extras for that reason.
+  widens to 3 bytes, which alone costs 1,758 bytes in `namelists`, `ops`,
+  `mfrs`, `sfdplines` and the name arrays. They are opt-in extras for that reason.
 - The two facts the layout never stores at any level, `via` (437,685
   bytes) and upstream `notes` (174,480 bytes), are bigger than everything
   above combined. They exist only in spiflash's own JSON, and uspiflash has

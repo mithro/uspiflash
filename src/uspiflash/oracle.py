@@ -2,11 +2,6 @@
 tests' single source of truth. Every function is spiflash's own output with
 only the fields the selection leaves out removed.
 
-One thing is removed whatever the selection: the SFDP dumps spiflash 0.0.post74
-added (the text line ``    sfdp: <summary>  [<source>: <parts>]`` and the
-JSON key ``"sfdp"``). The generated file does not carry them yet; that is a
-known gap, owned by the SFDP milestone (M1 part D).
-
 :func:`sfdp_fields` is the oracle for ``usf_sfdp_read``, which decodes a
 chip's own SFDP tables: :func:`spiflash.sfdp.parse`, in the fields the C
 fills."""
@@ -80,7 +75,7 @@ def text(db: Database, family: IdFamily, data: bytes, sel: Selection, *, opcodes
         for line in describe(f, opcodes=opcodes).split("\n"):
             if line.startswith("    from: ") and not sel.has(Field.SOURCES):
                 continue
-            if line.startswith("    sfdp: "):  # not carried yet: see the module docstring
+            if line.startswith("    sfdp: ") and not sel.has(Field.SFDP_SUMMARY):
                 continue
             if line.startswith("    sources disagree on ") and not sel.has(Field.CONFLICTS):
                 continue
@@ -98,7 +93,8 @@ def json_text(db: Database, family: IdFamily, data: bytes, sel: Selection) -> st
     """What `spiflash id --json` prints, less what ``sel`` leaves out."""
     objs = [f.to_json() for f in db.lookup(data, method=family)]
     for o in objs:
-        del o["sfdp"]  # not carried yet: see the module docstring
+        if not sel.has(Field.SFDP_DUMPS):
+            del o["sfdp"]
         if not sel.has(Field.DATASHEETS):
             del o["datasheets"]
         if not sel.has(Field.RECORDS):
