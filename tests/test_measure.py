@@ -433,3 +433,10 @@ def test_write_updates_the_readme_figures(
     top.write_text("# no markers\n")
     assert main(["measure", "--write", "--root", str(tmp_path)]) == 2
     assert "README.md has no <!-- sizes:" in capsys.readouterr().err
+
+
+def test_the_sfdp_extras_are_measured_nor_first() -> None:
+    names = [n for n, _ in measure.CONFIGS]
+    nor = ["id+sfdp:nor", "read+sfdp:nor", "full-sfdp_summary:nor", "full+sfdp_dumps:nor"]
+    assert names[len(LEVELS) : len(LEVELS) + len(nor)] == nor
+    assert "full+sfdp+sfdp_dumps" in names

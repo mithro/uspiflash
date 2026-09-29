@@ -36,6 +36,10 @@ comparison.
 | `write:nor` | `--level write --type nor` |
 | `describe:nor` | `--level describe --type nor` |
 | `full:nor` | `--level full --type nor` |
+| `id+sfdp:nor` | `--level id --with sfdp --type nor` |
+| `read+sfdp:nor` | `--level read --with sfdp --type nor` |
+| `full-sfdp_summary:nor` | `--level full --without sfdp_summary --type nor` |
+| `full+sfdp_dumps:nor` | `--level full --with sfdp_dumps --type nor` |
 | `id` | `--level id` |
 | `read` | `--level read` |
 | `write` | `--level write` |
@@ -44,6 +48,7 @@ comparison.
 | `full+datasheet` | `--level full --with datasheet` |
 | `full+datasheets` | `--level full --with datasheets` |
 | `full+records+provenance+jep106` | `--level full --with jep106 --with provenance --with records` |
+| `full+sfdp+sfdp_dumps` | `--level full --with sfdp --with sfdp_dumps` |
 | `read:nand` | `--level read --type nand` |
 | `full:nand` | `--level full --type nand` |
 
@@ -58,6 +63,10 @@ Debian clang version 19.1.7 (3+b1): `clang --target=thumbv6m-none-eabi -mcpu=cor
 | `write:nor` | 1,380 | 14,820 | **16,200** |
 | `describe:nor` | 3,884 | 36,428 | **40,312** |
 | `full:nor` | 7,366 | 47,181 | **54,547** |
+| `id+sfdp:nor` | 1,430 | 3,422 | **4,852** |
+| `read+sfdp:nor` | 1,948 | 10,037 | **11,985** |
+| `full-sfdp_summary:nor` | 7,226 | 46,436 | **53,662** |
+| `full+sfdp_dumps:nor` | 7,966 | 66,159 | **74,125** |
 | `id` | 922 | 3,944 | **4,866** |
 | `read` | 1,472 | 11,333 | **12,805** |
 | `write` | 1,580 | 16,406 | **17,986** |
@@ -66,6 +75,7 @@ Debian clang version 19.1.7 (3+b1): `clang --target=thumbv6m-none-eabi -mcpu=cor
 | `full+datasheet` | 7,766 | 99,082 | **106,848** |
 | `full+datasheets` | 8,638 | 166,776 | **175,414** |
 | `full+records+provenance+jep106` | 8,542 | 202,279 | **210,821** |
+| `full+sfdp+sfdp_dumps` | 8,842 | 70,711 | **79,553** |
 | `read:nand` | 724 | 1,441 | **2,165** |
 | `full:nand` | 4,252 | 5,543 | **9,795** |
 
@@ -80,6 +90,10 @@ Debian clang version 19.1.7 (3+b1): `clang --target=riscv32-unknown-elf -march=r
 | `write:nor` | 1,744 | 14,708 | **16,452** |
 | `describe:nor` | 5,166 | 36,220 | **41,386** |
 | `full:nor` | 9,692 | 46,885 | **56,577** |
+| `id+sfdp:nor` | 1,720 | 3,350 | **5,070** |
+| `read+sfdp:nor` | 2,408 | 9,925 | **12,333** |
+| `full-sfdp_summary:nor` | 9,498 | 46,140 | **55,638** |
+| `full+sfdp_dumps:nor` | 10,502 | 65,899 | **76,401** |
 | `id` | 1,126 | 3,888 | **5,014** |
 | `read` | 1,834 | 11,237 | **13,071** |
 | `write` | 1,980 | 16,294 | **18,274** |
@@ -88,6 +102,7 @@ Debian clang version 19.1.7 (3+b1): `clang --target=riscv32-unknown-elf -march=r
 | `full+datasheet` | 10,276 | 98,786 | **109,062** |
 | `full+datasheets` | 11,340 | 166,480 | **177,820** |
 | `full+records+provenance+jep106` | 11,208 | 201,975 | **213,183** |
+| `full+sfdp+sfdp_dumps` | 11,546 | 70,435 | **81,981** |
 | `read:nand` | 914 | 1,345 | **2,259** |
 | `full:nand` | 5,530 | 5,303 | **10,833** |
 
@@ -102,6 +117,10 @@ gcc (Debian 14.2.0-19) 14.2.0: `gcc -std=c99 -Os -ffreestanding -fno-common -ffu
 | `write:nor` | 1,392 | 14,708 | **16,100** |
 | `describe:nor` | 3,630 | 36,220 | **39,850** |
 | `full:nor` | 6,831 | 46,885 | **53,716** |
+| `id+sfdp:nor` | 1,623 | 3,350 | **4,973** |
+| `read+sfdp:nor` | 2,075 | 9,925 | **12,000** |
+| `full-sfdp_summary:nor` | 6,756 | 46,140 | **52,896** |
+| `full+sfdp_dumps:nor` | 7,366 | 65,899 | **73,265** |
 | `id` | 969 | 3,888 | **4,857** |
 | `read` | 1,474 | 11,237 | **12,711** |
 | `write` | 1,569 | 16,294 | **17,863** |
@@ -110,6 +129,7 @@ gcc (Debian 14.2.0-19) 14.2.0: `gcc -std=c99 -Os -ffreestanding -fno-common -ffu
 | `full+datasheet` | 7,063 | 98,786 | **105,849** |
 | `full+datasheets` | 7,737 | 166,480 | **174,217** |
 | `full+records+provenance+jep106` | 7,590 | 201,975 | **209,565** |
+| `full+sfdp+sfdp_dumps` | 8,321 | 70,435 | **78,756** |
 | `read:nand` | 701 | 1,345 | **2,046** |
 | `full:nand` | 3,831 | 5,303 | **9,134** |
 
