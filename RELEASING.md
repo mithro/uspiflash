@@ -100,10 +100,19 @@ on every push, same as the `sphinx` job in `docs.yml` checks in CI.
 
 ## A data update
 
-A `spiflash` version bump is a commit like any other:
-`uv add --frozen spiflash==<version>` (or bump the `>=` bound in
-`pyproject.toml`'s `dependencies` if a new minimum is needed), review, commit,
-merge. The next green run publishes it.
+A `spiflash` version bump is a commit like any other. Refresh `uv.lock` to the
+latest release without pinning an exact version:
+
+```sh
+uv lock --upgrade-package spiflash
+```
+
+Raise the minimum only when a change actually needs it, by editing the `>=`
+bound in `pyproject.toml`'s `dependencies` — never an exact `==` pin, which
+would contradict the `>=` policy and `debian/control`'s own bound. When the
+minimum changes, also bump both `python3-spiflash (>= …~)` bounds in
+`debian/control` (keeping the trailing `~`) to match. Review, commit, merge.
+The next green run publishes it.
 
 ## Verifying a release
 
