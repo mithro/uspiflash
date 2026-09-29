@@ -23,9 +23,10 @@ classifiers = [
     "Topic :: Software Development :: Code Generators",
 ]
 # The one runtime dependency: the database. Everything else is optional.
-# 0.0.post38 added datasheets (Flash.datasheets, the `datasheet:` line and
-# the JSON `datasheets` list), which the generator and its oracle rely on.
-dependencies = ["spiflash>=0.0.post38"]
+# 0.0.post74 is the version the generated C's output is verified
+# byte-identical to (uspiflash.VERIFIED_SPIFLASH): it added the QEMU and
+# Zephyr sources, SFDP dumps and suffix-group part names.
+dependencies = ["spiflash>=0.0.post74"]
 
 [project.urls]
 Homepage = "https://github.com/mithro/uspiflash"
@@ -55,7 +56,7 @@ version-file = "src/uspiflash/_version.py"
 packages = ["src/uspiflash"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/", "tests/", "tools/", "examples/", "experiments/", "docs/", "README.md",
+include = ["src/", "tests/", "tools/", "examples/", "experiments/", "docs/", "sizes/", "README.md",
            "LICENSE"]
 # A local docs build writes these git-ignored directories under docs/; without
 # excluding them, a local `uv build` (CI never has a docs build to sweep up)
@@ -64,7 +65,8 @@ exclude = ["docs/_autosummary", "docs/_build"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --cov=uspiflash --cov-report=term-missing --cov-fail-under=85"
+# Temporary directories go in the repository's git-ignored tmp/, never /tmp.
+addopts = "-ra --cov=uspiflash --cov-report=term-missing --cov-fail-under=85 --basetemp=tmp/pytest"
 
 [tool.ruff]
 target-version = "py311"

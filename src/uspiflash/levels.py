@@ -15,7 +15,12 @@ Extras (``--with``): ``records`` (each upstream entry's source, raw name and
 extended id), ``provenance`` (each entry's upstream file:line), ``datasheet``
 (the best datasheet's URL, the text output's ``datasheet:`` line),
 ``datasheets`` (every datasheet, as the JSON lists them), ``jep106`` (every
-JEP106 manufacturer name), ``sfdp`` (read and decode SFDP on the chip).
+JEP106 manufacturer name), ``sfdp`` (read and decode SFDP on the chip; not
+available yet: ``uspiflash generate`` refuses it until the SFDP milestone).
+
+Conflicts are only ever printed, so selecting ``conflicts`` without a printer
+(``text`` or ``json``) adds nothing to the file (see
+:func:`uspiflash.layout.stores_conflicts`).
 """
 
 from __future__ import annotations
@@ -105,7 +110,9 @@ REQUIRES: dict[Field, frozenset[Field]] = {
     F.EXT: frozenset({F.IDENT}),
     F.DESCRIPTIONS: frozenset({F.OPERATIONS}),
     F.TEXT: _TEXT_NEEDS,
-    F.CONFLICTS: frozenset({F.SIZE, F.PAGE_SIZE, F.SECTOR_SIZE, F.VOLTAGE}),
+    # A conflict line names the sources on each side, as spiflash prints it.
+    # Conflicts are only ever printed: without TEXT or JSON they add nothing.
+    F.CONFLICTS: frozenset({F.SIZE, F.PAGE_SIZE, F.SECTOR_SIZE, F.VOLTAGE, F.SOURCES}),
     F.JSON: _TEXT_NEEDS | {F.SOURCES, F.CONFLICTS, F.EXT},
     F.RECORDS: frozenset({F.JSON}),
     F.PROVENANCE: frozenset({F.RECORDS}),
@@ -129,10 +136,12 @@ def _close(fields: set[Field]) -> set[Field]:
 class ChipFilter:
     """Which chips to keep; an empty criterion keeps everything.
 
-    ``ids`` are matched without extended-id bytes and without leading
-    ``0x7f`` continuation codes: each wanted id is reduced as spiflash's
-    :func:`~spiflash.model.strip_continuation` does, so ``7f7f7fc84018`` and
-    ``c84018`` keep the same chip id (its bank is not compared)."""
+    ``ids`` are chip ids. Each wanted id loses its leading ``0x7f``
+    continuation codes, as spiflash's :func:`~spiflash.model.strip_continuation`
+    removes them, and must then equal a chip's id exactly: ``7f7f7fc84018``
+    and ``c84018`` keep the same chip (its bank is not compared). Extended-id
+    bytes are not part of a chip id, so an id with them appended keeps
+    nothing."""
 
     manufacturers: tuple[str, ...] = ()
     ids: tuple[bytes, ...] = ()

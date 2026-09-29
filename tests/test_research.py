@@ -37,8 +37,19 @@ def test_find_root_walks_up(tmp_path: Path) -> None:
 
 
 def test_find_root_missing_raises(tmp_path: Path) -> None:
+    deep = tmp_path / "a"
+    deep.mkdir()
     with pytest.raises(FileNotFoundError, match="no experiments/"):
-        research.find_root(tmp_path)
+        research.find_root(deep, ceiling=tmp_path)
+
+
+def test_find_root_looks_no_higher_than_the_ceiling(tmp_path: Path) -> None:
+    root = make(tmp_path)
+    deep = root / "a" / "b"
+    deep.mkdir(parents=True)
+    assert research.find_root(deep, ceiling=root) == root
+    with pytest.raises(FileNotFoundError, match="no experiments/"):
+        research.find_root(deep, ceiling=root / "a")
 
 
 def test_run_writes_results_in_the_experiment(tmp_path: Path) -> None:
@@ -109,3 +120,10 @@ def test_the_statistics_experiment_counts_the_database() -> None:
     assert stats["names_per_id"] >= stats["names"]
     assert stats["max_names_per_id"] >= 1
     assert set(stats["host"]) == {"python", "python_implementation", "system", "machine"}
+
+
+def test_tests_cannot_find_the_real_repository_from_their_tmp_path(tmp_path: Path) -> None:
+    """conftest.py stops find_root at pytest's basetemp, which is inside the
+    repository: no test can reach (and rewrite) the committed files."""
+    with pytest.raises(FileNotFoundError, match="no experiments/"):
+        research.find_root(tmp_path)

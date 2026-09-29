@@ -6,6 +6,7 @@ import os
 import shutil
 import signal
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -99,7 +100,8 @@ def test_main_runs_the_wrapped_command_without_starting_it_via_the_shell(
     limits = Limits(2 * GIB, 3)
     calls: list[list[str]] = []
 
-    def fake_popen(argv: list[str]) -> _FakePopen:
+    def fake_popen(argv: list[str], env: dict[str, str]) -> _FakePopen:
+        del env
         calls.append(list(argv))
         return _FakePopen(argv, returncode=42)
 
@@ -118,7 +120,8 @@ def test_main_keeps_an_inner_double_dash(monkeypatch: pytest.MonkeyPatch) -> Non
     limits = Limits(2 * GIB, 3)
     calls: list[list[str]] = []
 
-    def fake_popen(argv: list[str]) -> _FakePopen:
+    def fake_popen(argv: list[str], env: dict[str, str]) -> _FakePopen:
+        del env
         calls.append(list(argv))
         return _FakePopen(argv, returncode=0)
 
@@ -141,10 +144,33 @@ def test_main_forwards_ctrl_c_as_sigterm_and_returns_130(
 
     monkeypatch.setattr(sandbox, "current_limits", lambda: limits)
     monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/systemd-run")
-    monkeypatch.setattr(subprocess, "Popen", lambda _argv: fake)
+    monkeypatch.setattr(subprocess, "Popen", lambda _argv, **_kwargs: fake)
 
     assert main(["--", "sleep", "4242"]) == 130
     assert fake.signals == [signal.SIGTERM]
+
+
+def test_main_points_tmpdir_at_the_current_directorys_tmp(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """No /tmp: the command's temporary files go in ./tmp, made if missing."""
+    envs: list[dict[str, str]] = []
+
+    def fake_popen(argv: list[str], env: dict[str, str]) -> _FakePopen:
+        envs.append(env)
+        return _FakePopen(argv)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("USPIFLASH_SANDBOX_TEST", "kept")
+    monkeypatch.setattr(sandbox, "current_limits", lambda: Limits(GIB, 1))
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/systemd-run")
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+
+    assert main(["--", "true"]) == 0
+    (env,) = envs
+    assert env["TMPDIR"] == str(tmp_path / "tmp")
+    assert (tmp_path / "tmp").is_dir()
+    assert env["USPIFLASH_SANDBOX_TEST"] == "kept"
 
 
 def test_main_refuses_to_run_unsandboxed_when_systemd_run_is_missing(
@@ -155,3 +181,13 @@ def test_main_refuses_to_run_unsandboxed_when_systemd_run_is_missing(
 
     with pytest.raises(SystemExit):
         main(["--", "true"])
+
+
+def test_the_tests_keep_tmpdir_under_pytests_basetemp(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """conftest.py points TMPDIR into the base temporary directory, so the
+    compilers the tests run write nothing to /tmp."""
+    here = Path(os.environ["TMPDIR"])
+    assert here.is_dir()
+    assert here.is_relative_to(tmp_path_factory.getbasetemp())

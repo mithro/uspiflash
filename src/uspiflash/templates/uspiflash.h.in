@@ -1,0 +1,1429 @@
+@@PROVENANCE@@
+/*
+ * Use: include this file wherever you need the declarations, and in exactly
+ * one C file define USF_IMPLEMENTATION before including it (that include
+ * may follow an earlier one in the same file).
+ */
+#ifndef @@GUARD@@
+#define @@GUARD@@
+
+/*
+ * Types. <stdint.h> is a freestanding header (no libc needed); define
+ * USF_NO_STDINT and provide uint8_t, uint16_t and uint32_t yourself if your
+ * environment has no <stdint.h> at all. Included outside extern "C", as a
+ * C++ system header expects.
+ */
+#ifndef USF_NO_STDINT
+#include <stdint.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* ------------------------------------------------------------------------
+ * What this file was generated with (see the comment at the top): which
+ * fields are present (USF_HAVE_*), table geometry and row counts, and the
+ * constants that name spiflash's families, features, sources, operation
+ * kinds, protocols and operations.
+ * ---------------------------------------------------------------------- */
+@@CONFIG@@
+
+/*
+ * Where the tables live. Nothing by default; define as __code for SDCC on
+ * the 8051 so they stay in program memory, and on AVR as a flash address
+ * space (avr-gcc's __flash, in GNU C): there plain const data is copied to
+ * RAM at startup.
+ *
+ * On 16-bit targets (AVR, msp430, the 8051) the levels id to full fit, as
+ * long as the part has the flash (full is about 59 KB of code and tables);
+ * the datasheet, datasheets, records, provenance and jep106 extras do not,
+ * as their tables pass the 64 KiB a 16-bit pointer can address.
+ */
+#ifndef USF_ROM
+#define USF_ROM
+#endif
+
+/* The longest id usf_id() writes (after 0x7f continuation codes). */
+#define USF_ID_MAX 7
+
+/* A character sink: every string leaves the library through one of these,
+ * one character at a time, so no buffer is ever needed. */
+typedef void (*usf_putc_fn)(void *ctx, char ch);
+
+/* One answer: which entry (a chip id, or a variant of it narrowed by its
+ * extended id) and the chip id it belongs to. Filled by usf_lookup() and
+ * usf_probe(); four bytes of RAM. */
+typedef struct usf_chip {
+    uint16_t entry;
+    uint16_t base;
+} usf_chip;
+
+/*
+ * Look up the bytes a chip answered to an id command of `family`
+ * (USF_FAMILY_JEDEC for 0x9F, or a legacy family). Leading 0x7f
+ * continuation codes are skipped; bytes after the id narrow the answer to
+ * the variants their extended id agrees with. Writes up to USF_LOOKUP_MAX
+ * answers to `out` (a NOR chip, then a NAND chip; USF_LOOKUP_MAX is 1 when
+ * the file holds chips of one type only) and returns how many; 0 means
+ * unknown. Exactly what spiflash's `lookup(data, method=family)` returns.
+ */
+uint8_t usf_lookup(uint8_t family, const uint8_t *id, uint8_t len, usf_chip *out);
+
+/* The chip's id family (USF_FAMILY_*), type (USF_TYPE_*) and JEP106 bank
+ * (how many 0x7f codes precede its manufacturer byte). */
+uint8_t usf_family(const usf_chip *c);
+uint8_t usf_type(const usf_chip *c);
+uint8_t usf_bank(const usf_chip *c);
+/* Writes the chip's id bytes (without continuation codes) to `buf`, which
+ * must hold USF_ID_MAX bytes; returns how many. */
+uint8_t usf_id(const usf_chip *c, uint8_t *buf);
+
+#if USF_HAVE_SIZE
+/* Size in bytes; 0 when unknown. */
+uint32_t usf_size(const usf_chip *c);
+#endif
+#if USF_HAVE_PAGE_SIZE
+/* Program page size in bytes; 0 when unknown. */
+uint32_t usf_page_size(const usf_chip *c);
+#endif
+#if USF_HAVE_SECTOR_SIZE
+/* Sector (usually 64 KiB erase block) size in bytes; 0 when unknown. */
+uint32_t usf_sector_size(const usf_chip *c);
+#endif
+#if USF_HAVE_VOLTAGE
+/* Supply range in millivolts; returns 0 (and writes nothing) when unknown. */
+uint8_t usf_voltage(const usf_chip *c, uint16_t *min_mv, uint16_t *max_mv);
+#endif
+#if USF_HAVE_FEATURES
+/* Whether any source claims `feature` (USF_FEATURE_*) for the chip; 0 for
+ * a number past the last feature (USF_FEATURE_COUNT or more). */
+uint8_t usf_has_feature(const usf_chip *c, uint8_t feature);
+#endif
+#if USF_HAVE_OPERATIONS
+/* One operation the chip supports, and the transaction it is on the bus. */
+typedef struct usf_op {
+    uint8_t id;            /* USF_OP_* */
+    uint8_t opcode;        /* the command byte */
+    uint8_t kind;          /* USF_KIND_* */
+    uint8_t protocol;      /* USF_PROTO_*: lines for command-address-data */
+    uint8_t address_bytes; /* 0, 3 or 4 (2 for M95 id) */
+    uint8_t dummy_clocks;  /* 0xFF: set in the part's registers or its SFDP */
+    uint8_t data;          /* 0: none, 1: read, 2: write */
+    uint8_t data_bytes;    /* 0: as many as the host clocks, or up to a page */
+    uint8_t sources;       /* bit USF_SOURCE_*: who vouches (0 without sources) */
+} usf_op;
+/* How many operations the chip has (in spiflash's order: id, read,
+ * program, erase, register, mode); 0 when none is known. */
+uint8_t usf_op_count(const usf_chip *c);
+/* The i-th operation; returns 0 when i is out of range. */
+uint8_t usf_op_get(const usf_chip *c, uint8_t i, usf_op *out);
+/* The operation `op_id` (USF_OP_*); returns 0 when the chip lacks it. */
+uint8_t usf_op_find(const usf_chip *c, uint8_t op_id, usf_op *out);
+#if USF_HAVE_DESCRIPTIONS
+/* Writes the name ("READ_1_1_4") or the description of operation `op_id`
+ * (USF_OP_*); returns 0 (writing nothing) if no chip in this file has it. */
+uint8_t usf_op_name(uint8_t op_id, usf_putc_fn sink, void *ctx);
+uint8_t usf_op_description(uint8_t op_id, usf_putc_fn sink, void *ctx);
+#endif
+#endif
+#if USF_HAVE_MANUFACTURER
+/* Writes the manufacturer's name; returns 0 (writing nothing) if unknown. */
+uint8_t usf_manufacturer(const usf_chip *c, usf_putc_fn sink, void *ctx);
+#endif
+#if USF_HAVE_NAMES
+/* How many part names the chip id has, most-cited first; and the i-th
+ * (returns 0 when out of range). */
+uint8_t usf_name_count(const usf_chip *c);
+uint8_t usf_name(const usf_chip *c, uint8_t i, usf_putc_fn sink, void *ctx);
+#endif
+#if USF_HAVE_SOURCES
+/* Bit USF_SOURCE_* set for each upstream describing the chip. */
+uint8_t usf_sources(const usf_chip *c);
+#endif
+#if USF_HAVE_JEP106
+/* Writes the JEP106 name of manufacturer byte `id` in `bank`; 0 if none. */
+uint8_t usf_jep106(uint8_t bank, uint8_t id, usf_putc_fn sink, void *ctx);
+#endif
+
+#if USF_HAVE_TEXT
+/* usf_print's flags: also list the operations, as `spiflash id --opcodes`. */
+#define USF_PRINT_OPCODES 1
+/* Prints what `spiflash id` (with USF_PRINT_OPCODES, `spiflash id
+ * --opcodes`) prints for these answers (n of them, as usf_lookup() or
+ * usf_probe() gave them), byte for byte, trailing newline included, less
+ * what this file was generated without: the `from:` line and each opcode's
+ * [sources] without sources, the `sources disagree` lines without
+ * conflicts, and the `datasheet:` line without datasheet. The `sfdp:` lines
+ * are always left out: SFDP dumps are not in this file yet. */
+void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink, void *ctx);
+#endif
+
+#if USF_HAVE_JSON
+/* Prints what `spiflash id --json` prints for these answers, byte for
+ * byte, less what this file was generated without: "datasheets" without
+ * datasheets, "records" without records, and each record's "at" without
+ * provenance. The "sfdp" key is always left out: SFDP dumps are not in this
+ * file yet. */
+void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ctx);
+#endif
+
+#if USF_HAVE_PROBE
+/* How the library talks to the chip: send `txlen` bytes, then clock in
+ * `rxlen` bytes, with chip select held for the whole transaction.
+ * Define USF_XFER(bus, tx, txlen, rx, rxlen) yourself to inline your SPI
+ * driver; otherwise a struct usf_bus holding a function pointer is used.
+ * With your own USF_XFER, struct usf_bus is yours: define it as you like,
+ * or leave it incomplete (the library only passes a pointer to it along).
+ * Whatever you define (USF_XFER, USF_DELAY_US, USF_ROM, USF_NO_STDINT) must
+ * be the same in every file that includes this one.
+ *
+ * The first transaction is RES (0xAB), which wakes a chip from deep
+ * power-down; the chip then ignores commands for tRES1 (3-30 us). The probe
+ * calls USF_DELAY_US(30) after it: define USF_DELAY_US(us) as your delay, or
+ * leave it undefined (it does nothing) and make the transport itself allow
+ * 30 us after the first transaction.
+ */
+#ifndef USF_DELAY_US
+#define USF_DELAY_US(us) ((void)0)
+#endif
+#ifndef USF_XFER
+typedef void (*usf_xfer_fn)(void *ctx, const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen);
+struct usf_bus { usf_xfer_fn xfer; void *ctx; };
+#define USF_XFER(bus, tx, txlen, rx, rxlen) ((bus)->xfer((bus)->ctx, (tx), (txlen), (rx), (rxlen)))
+#endif
+typedef struct usf_bus usf_bus;
+
+typedef struct usf_probe_result {
+    uint8_t family;              /* the command that answered (USF_FAMILY_*) */
+    uint8_t len;                 /* bytes in id[]; 0 if the bus stayed 0x00/0xFF */
+    uint8_t id[USF_RDID_LEN];    /* what the chip sent */
+    uint8_t count;               /* answers in chip[] (0: not in the database) */
+    usf_chip chip[USF_LOOKUP_MAX];
+} usf_probe_result;
+
+/* Identify the chip; returns r->count. Sends only id commands (RES,
+ * RDID, REMS, AT25F RDID, M95 RDID), and only those some chip in this
+ * file answers, so it cannot change the chip. After RES it waits
+ * USF_DELAY_US(30) for the chip to wake: without that hook, the transport
+ * must allow tRES1 after the first transaction (see USF_XFER above). */
+uint8_t usf_probe(usf_bus *bus, usf_probe_result *r);
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* @@GUARD@@ */
+
+/*
+ * The implementation, guarded on its own: the declarations above may have
+ * been included already, with USF_IMPLEMENTATION not yet defined.
+ */
+#if defined(USF_IMPLEMENTATION) && !defined(@@GUARD@@_IMPLEMENTATION)
+#define @@GUARD@@_IMPLEMENTATION
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+@@TABLES@@
+
+typedef const USF_ROM uint8_t *usf__p;
+
+#if USF_OFF_BYTES == 2
+typedef uint16_t usf__off_t;
+#else
+typedef uint32_t usf__off_t;
+#endif
+
+/*
+ * Which helpers the compiled code calls: an unused static function fails
+ * -Werror, so each helper is compiled exactly when something uses it. A
+ * counted table (USF_<NAME>_COUNT) is read only when it has rows.
+ * USF__NEED_OFF must match layout.reads_strings(), which emits `str`.
+ */
+#define USF__NEED_OFF (USF_MFR_COUNT || USF_HAVE_NAMES \
+    || (USF_HAVE_DESCRIPTIONS && USF_OP_COUNT) || USF_HAVE_JEP106 || USF_HAVE_TEXT \
+    || USF_HAVE_JSON)
+#define USF__NEED_U32 (USF_SIZE_COUNT || USF_SECTOR_COUNT)
+#define USF__NEED_U16 (USF__NEED_U32 || USF__NEED_OFF || USF_PAGE_COUNT || USF_VOLT_COUNT \
+    || USF_EXT_COUNT || USF_OP_COUNT || USF_CONF_COUNT || USF_HAVE_RECORDS || USF_DS_COUNT)
+
+#if USF__NEED_U16
+/* Every byte is widened to an unsigned type before it is shifted: a byte
+ * promotes to (signed) int, and where int is 16 bits (SDCC, msp430) shifting
+ * one into the sign bit is undefined behaviour. */
+static uint16_t usf__u16(usf__p p)
+{
+    return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
+}
+#endif
+
+#if USF__NEED_U32
+static uint32_t usf__u32(usf__p p)
+{
+    return (uint32_t)usf__u16(p) | ((uint32_t)usf__u16(p + 2) << 16);
+}
+#endif
+
+#if USF__NEED_OFF
+static usf__off_t usf__off(usf__p p)
+{
+#if USF_OFF_BYTES == 2
+    return usf__u16(p);
+#else
+    return (usf__off_t)usf__u16(p) | ((usf__off_t)p[2] << 16);
+#endif
+}
+
+/* Writes the pool string at `off`. */
+static void usf__puts(usf__off_t off, usf_putc_fn sink, void *ctx)
+{
+    usf__p s = usf__str + off;
+    while (*s)
+        sink(ctx, (char)*s++);
+}
+#endif
+
+static usf__p usf__row(const usf_chip *c)
+{
+    return usf__entries + (uint16_t)(c->entry * (uint16_t)USF_ENTRY_SIZE);
+}
+
+/* The ids-table record (header byte, then id bytes) of chip id `base`. */
+static usf__p usf__idrec(uint16_t base)
+{
+    usf__p p = usf__ids;
+    for (; base; base--)
+        p += 1 + (*p & 7);
+    return p;
+}
+
+#if USF_EXT_COUNT
+/* The entry for chip id `base` given the `xl` bytes read after its id: the
+ * mask of its extended ids that agree with them selects a variant. */
+static uint16_t usf__narrow(uint16_t base, const uint8_t *x, uint8_t xl)
+{
+    usf_chip b;
+    usf__p p;
+    uint16_t off, mask = 0, bit = 1;
+    uint8_t k, n, l, i;
+
+    b.entry = base;
+    off = usf__u16(usf__row(&b) + USF_E_EXT);
+    if (!xl || off == 0xFFFF)
+        return base;
+    p = usf__ext + off;
+    for (k = *p++; k; k--, bit = (uint16_t)(bit << 1)) {
+        l = *p++;
+        n = l < xl ? l : xl;
+        for (i = 0; i < n && p[i] == x[i]; i++)
+            ;
+        if (i == n)
+            mask |= bit;
+        p += l;
+    }
+    for (k = *p++; k; k--, p += 4)
+        if (usf__u16(p) == mask)
+            return usf__u16(p + 2);
+    return base;
+}
+#endif
+
+/* The answer slot of an id header: NOR first, then NAND; one slot when the
+ * file holds one type only. */
+#if USF_LOOKUP_MAX == 2
+#define USF__SLOT(h) (((h) >> 3) & 1)
+#else
+#define USF__SLOT(h) 0
+#endif
+
+uint8_t usf_lookup(uint8_t family, const uint8_t *id, uint8_t len, usf_chip *out)
+{
+    usf__p p = usf__ids;
+    uint16_t e = 0, best[USF_LOOKUP_MAX];
+    uint8_t best_len[USF_LOOKUP_MAX];
+    uint8_t h, l, i, t, n = 0;
+
+    /* Element by element: clang -O0 turns an initialiser list into memset. */
+    best[0] = 0;
+    best_len[0] = 0;
+#if USF_LOOKUP_MAX == 2
+    best[1] = 0;
+    best_len[1] = 0;
+#endif
+    while (len > 1 && *id == 0x7f) {
+        id++;
+        len--;
+    }
+    for (; (h = *p) != 0; p += 1 + l, e++) {
+        l = h & 7;
+        t = USF__SLOT(h);
+        if ((h >> 4) != family || l > len || l <= best_len[t])
+            continue;
+        for (i = 0; i < l && p[1 + i] == id[i]; i++)
+            ;
+        if (i == l) {
+            best_len[t] = l;
+            best[t] = e;
+        }
+    }
+    for (t = 0; t < USF_LOOKUP_MAX; t++) {
+        if (!best_len[t])
+            continue;
+        out[n].base = best[t];
+#if USF_EXT_COUNT
+        out[n].entry = usf__narrow(best[t], id + best_len[t], (uint8_t)(len - best_len[t]));
+#else
+        out[n].entry = best[t];
+#endif
+        n++;
+    }
+    return n;
+}
+
+uint8_t usf_family(const usf_chip *c) { return (uint8_t)(*usf__idrec(c->base) >> 4); }
+uint8_t usf_type(const usf_chip *c) { return (uint8_t)((*usf__idrec(c->base) >> 3) & 1); }
+uint8_t usf_bank(const usf_chip *c) { return usf__row(c)[USF_E_BANK]; }
+
+uint8_t usf_id(const usf_chip *c, uint8_t *buf)
+{
+    usf__p p = usf__idrec(c->base);
+    uint8_t i, n = *p & 7;
+    for (i = 0; i < n; i++)
+        buf[i] = p[1 + i];
+    return n;
+}
+
+#if USF_HAVE_SIZE
+uint32_t usf_size(const usf_chip *c)
+{
+#if USF_SIZE_COUNT
+    uint8_t i = usf__row(c)[USF_E_SIZE];
+    return i == 0xFF ? 0 : usf__u32(usf__sizes + 4 * i);
+#else
+    (void)c; /* no chip in this file has a known size */
+    return 0;
+#endif
+}
+#endif
+
+#if USF_HAVE_PAGE_SIZE
+uint32_t usf_page_size(const usf_chip *c)
+{
+#if USF_PAGE_COUNT
+    uint8_t i = usf__row(c)[USF_E_PAGE];
+    return i == 0xFF ? 0 : usf__u16(usf__pages + 2 * i);
+#else
+    (void)c;
+    return 0;
+#endif
+}
+#endif
+
+#if USF_HAVE_SECTOR_SIZE
+uint32_t usf_sector_size(const usf_chip *c)
+{
+#if USF_SECTOR_COUNT
+    uint8_t i = usf__row(c)[USF_E_SECTOR];
+    return i == 0xFF ? 0 : usf__u32(usf__sectors + 4 * i);
+#else
+    (void)c;
+    return 0;
+#endif
+}
+#endif
+
+#if USF_HAVE_VOLTAGE
+uint8_t usf_voltage(const usf_chip *c, uint16_t *min_mv, uint16_t *max_mv)
+{
+#if USF_VOLT_COUNT
+    uint8_t i = usf__row(c)[USF_E_VOLT];
+    if (i == 0xFF)
+        return 0;
+    *min_mv = usf__u16(usf__volts + 4 * i);
+    *max_mv = usf__u16(usf__volts + 4 * i + 2);
+    return 1;
+#else
+    (void)c;
+    (void)min_mv;
+    (void)max_mv;
+    return 0;
+#endif
+}
+#endif
+
+#if USF_HAVE_FEATURES
+uint8_t usf_has_feature(const usf_chip *c, uint8_t feature)
+{
+    usf__p s;
+    if (feature >= USF_FEATURE_COUNT) /* past the chip's 3-byte set */
+        return 0;
+    s = usf__featsets + 3 * usf__row(c)[USF_E_FEAT];
+    return (uint8_t)((s[feature >> 3] >> (feature & 7)) & 1);
+}
+#endif
+
+#if USF_HAVE_OPERATIONS
+#if USF_OP_COUNT
+#if USF_HAVE_SOURCES
+#define USF__OPITEM 2
+#else
+#define USF__OPITEM 1
+#endif
+
+static usf__p usf__opset(const usf_chip *c)
+{
+    return usf__opsets + usf__u16(usf__row(c) + USF_E_OPS);
+}
+
+/* Item i of the chip's operation list: [stored-op index, (source mask)]. */
+static usf__p usf__opitem(const usf_chip *c, uint8_t i)
+{
+    return usf__opset(c) + 1 + USF__OPITEM * i;
+}
+
+/* The ops-table row an item points at. */
+static usf__p usf__oprow(usf__p item)
+{
+    return usf__ops + (uint16_t)(USF_OP_SIZE * item[0]);
+}
+
+uint8_t usf_op_count(const usf_chip *c) { return *usf__opset(c); }
+
+uint8_t usf_op_get(const usf_chip *c, uint8_t i, usf_op *out)
+{
+    usf__p s, o;
+    if (i >= usf_op_count(c))
+        return 0;
+    s = usf__opitem(c, i);
+    o = usf__oprow(s);
+    out->id = o[0];
+    out->opcode = o[1];
+    out->kind = o[2];
+    out->protocol = o[3];
+    out->address_bytes = o[4];
+    out->dummy_clocks = o[5];
+    out->data = o[6];
+    out->data_bytes = o[7];
+#if USF_HAVE_SOURCES
+    out->sources = s[1];
+#else
+    out->sources = 0;
+#endif
+    return 1;
+}
+#else /* no chip in this file has a known operation */
+uint8_t usf_op_count(const usf_chip *c)
+{
+    (void)c;
+    return 0;
+}
+
+uint8_t usf_op_get(const usf_chip *c, uint8_t i, usf_op *out)
+{
+    (void)c;
+    (void)i;
+    (void)out;
+    return 0;
+}
+#endif
+
+uint8_t usf_op_find(const usf_chip *c, uint8_t op_id, usf_op *out)
+{
+    uint8_t i = 0;
+    while (usf_op_get(c, i++, out))
+        if (out->id == op_id)
+            return 1;
+    return 0;
+}
+
+#if USF_HAVE_DESCRIPTIONS
+/* Writes string `k` (0: name, 1: description) of operation `op_id`. */
+static uint8_t usf__opstr(uint8_t op_id, uint8_t k, usf_putc_fn sink, void *ctx)
+{
+#if USF_OP_COUNT
+    usf__p o = usf__ops;
+    uint8_t n;
+    for (n = USF_OP_COUNT; n; n--, o += USF_OP_SIZE)
+        if (o[0] == op_id) {
+            usf__puts(usf__off(o + USF_OP_NAME + (k ? USF_OFF_BYTES : 0)), sink, ctx);
+            return 1;
+        }
+#else
+    (void)op_id;
+    (void)k;
+    (void)sink;
+    (void)ctx;
+#endif
+    return 0;
+}
+
+uint8_t usf_op_name(uint8_t op_id, usf_putc_fn sink, void *ctx)
+{
+    return usf__opstr(op_id, 0, sink, ctx);
+}
+
+uint8_t usf_op_description(uint8_t op_id, usf_putc_fn sink, void *ctx)
+{
+    return usf__opstr(op_id, 1, sink, ctx);
+}
+#endif
+#endif
+
+#if USF_HAVE_MANUFACTURER
+uint8_t usf_manufacturer(const usf_chip *c, usf_putc_fn sink, void *ctx)
+{
+#if USF_MFR_COUNT
+    uint8_t i = usf__row(c)[USF_E_MFR];
+    if (i == 0xFF)
+        return 0;
+    usf__puts(usf__off(usf__mfrs + USF_OFF_BYTES * i), sink, ctx);
+    return 1;
+#else
+    (void)c;
+    (void)sink;
+    (void)ctx;
+    return 0;
+#endif
+}
+#endif
+
+#if USF_HAVE_NAMES
+static usf__p usf__names(const usf_chip *c)
+{
+    return usf__namelists + usf__u16(usf__row(c) + USF_E_NAMES);
+}
+
+uint8_t usf_name_count(const usf_chip *c) { return *usf__names(c); }
+
+uint8_t usf_name(const usf_chip *c, uint8_t i, usf_putc_fn sink, void *ctx)
+{
+    usf__p p = usf__names(c);
+    if (i >= *p)
+        return 0;
+    usf__puts(usf__off(p + 1 + USF_OFF_BYTES * i), sink, ctx);
+    return 1;
+}
+#endif
+
+#if USF_HAVE_SOURCES
+uint8_t usf_sources(const usf_chip *c) { return usf__row(c)[USF_E_SRCS]; }
+#endif
+
+#if USF_HAVE_JEP106
+uint8_t usf_jep106(uint8_t bank, uint8_t id, usf_putc_fn sink, void *ctx)
+{
+    usf__p p = usf__jep106;
+    uint16_t n;
+    for (n = USF_JEP106_COUNT; n; n--, p += 2 + USF_OFF_BYTES)
+        if (p[0] == bank && p[1] == id) {
+            usf__puts(usf__off(p + 2), sink, ctx);
+            return 1;
+        }
+    return 0;
+}
+#endif
+
+/* Formatting helpers both printers call. */
+#if USF_HAVE_TEXT || USF_HAVE_JSON
+static void usf__lit(const char *s, usf_putc_fn sink, void *ctx)
+{
+    while (*s)
+        sink(ctx, *s++);
+}
+
+/* Decimal without division: subtract powers of ten, so CPUs with no divide
+ * instruction pull in no libgcc helper. */
+static const USF_ROM uint32_t usf__p10[10] = {
+    1000000000UL, 100000000UL, 10000000UL, 1000000UL, 100000UL,
+    10000UL, 1000UL, 100UL, 10UL, 1UL,
+};
+
+static void usf__dec(uint32_t v, usf_putc_fn sink, void *ctx)
+{
+    uint8_t i, started = 0;
+    char d;
+    for (i = 0; i < 10; i++) {
+        for (d = '0'; v >= usf__p10[i]; d++)
+            v -= usf__p10[i];
+        if (d != '0' || started || i == 9) {
+            sink(ctx, d);
+            started = 1;
+        }
+    }
+}
+
+static void usf__hex8(uint8_t v, usf_putc_fn sink, void *ctx)
+{
+    static const USF_ROM char digits[] = "0123456789abcdef";
+    sink(ctx, digits[v >> 4]);
+    sink(ctx, digits[v & 15]);
+}
+
+/* <ident> as the text header shows it, or `id`/`jedec_id` for JSON. */
+static void usf__idhex(const usf_chip *c, uint8_t bank, usf_putc_fn sink, void *ctx)
+{
+    uint8_t buf[USF_ID_MAX], i, n = usf_id(c, buf);
+    for (; bank; bank--)
+        usf__lit("7f", sink, ctx);
+    for (i = 0; i < n; i++)
+        usf__hex8(buf[i], sink, ctx);
+}
+
+#if USF_CONF_COUNT
+/* Conflict value `i` of integer attribute `attr` (0 size, 1 page, 2 sector).
+ * A value table with no rows has no conflicts either. */
+static uint32_t usf__confint(uint8_t attr, uint8_t i)
+{
+#if USF_SIZE_COUNT
+    if (attr == 0)
+        return usf__u32(usf__sizes + 4 * i);
+#endif
+#if USF_PAGE_COUNT
+    if (attr == 1)
+        return usf__u16(usf__pages + 2 * i);
+#endif
+#if USF_SECTOR_COUNT
+    if (attr == 2)
+        return usf__u32(usf__sectors + 4 * i);
+#endif
+    (void)attr;
+    (void)i;
+    return 0;
+}
+#endif
+
+#if USF_DS_COUNT
+/* The chip's datasheet list: n, then n x (row u16[, id_confirmed u8]). */
+static usf__p usf__dslist(const usf_chip *c)
+{
+    return usf__dslists + usf__u16(usf__row(c) + USF_E_DS);
+}
+
+/* The dsrows row a list item points at. */
+static usf__p usf__dsrow(usf__p item)
+{
+    return usf__dsrows + (uint16_t)(USF_DS_ROW * usf__u16(item));
+}
+#endif
+#endif
+
+#if USF_HAVE_TEXT
+/* Writes the i-th pool string of a fixed OFF array (featnames, ...). */
+static void usf__name(usf__p names, uint8_t i, usf_putc_fn sink, void *ctx)
+{
+    usf__puts(usf__off(names + USF_OFF_BYTES * i), sink, ctx);
+}
+
+#if USF_HAVE_SOURCES
+static void usf__srclist(uint8_t mask, const char *sep, usf_putc_fn sink, void *ctx)
+{
+    uint8_t i, first = 1;
+    for (i = 0; mask; i++, mask >>= 1)
+        if (mask & 1) {
+            if (!first)
+                usf__lit(sep, sink, ctx);
+            usf__name(usf__srcnames, i, sink, ctx);
+            first = 0;
+        }
+}
+#endif
+
+static void usf__human(uint32_t n, usf_putc_fn sink, void *ctx)
+{
+    static const USF_ROM char units[] = "GMK";
+    uint8_t u, shift = 30;
+    for (u = 0; u < 3; u++, shift = (uint8_t)(shift - 10)) {
+        uint32_t scale = (uint32_t)1 << shift;
+        if (n >= scale && !(n & (scale - 1))) {
+            usf__dec(n >> shift, sink, ctx);
+            sink(ctx, ' ');
+            sink(ctx, units[u]);
+            usf__lit("iB", sink, ctx);
+            return;
+        }
+    }
+    usf__dec(n, sink, ctx);
+    usf__lit(" B", sink, ctx);
+}
+
+/* Millivolts as Python's "%g" of volts: 2700 -> 2.7, 3000 -> 3. Digit by
+ * digit from usf__p10 as usf__dec does: a subtraction loop by a constant
+ * (while (mv >= 1000) ...) is a division to LLVM, which calls a helper on
+ * CPUs without a divide instruction. */
+static void usf__volt(uint16_t mv, usf_putc_fn sink, void *ctx)
+{
+    uint32_t v = mv;
+    uint8_t i;
+    char d;
+    for (i = 5; i < 10; i++) {  /* tens and units of volts, then 100, 10, 1 mV */
+        if (i > 6 && !v)        /* no trailing zeros */
+            break;
+        for (d = '0'; v >= usf__p10[i]; d++)
+            v -= usf__p10[i];
+        if (i == 5 && d == '0') /* no leading zero */
+            continue;
+        sink(ctx, d);
+        if (i == 6 && v)
+            sink(ctx, '.');
+    }
+}
+#endif
+
+#if USF_HAVE_TEXT
+#if USF_OP_COUNT
+/* strlen of a pool string (op names are at most 18 characters). */
+static uint8_t usf__len(usf__off_t off)
+{
+    usf__p s = usf__str + off;
+    uint8_t n = 0;
+    while (s[n])
+        n++;
+    return n;
+}
+#endif
+
+#if USF_CONF_COUNT
+/* Conflict value `i` of attribute `attr` (0 size, 1 page, 2 sector, 3 voltage). */
+static void usf__value(uint8_t attr, uint8_t i, usf_putc_fn sink, void *ctx)
+{
+#if USF_VOLT_COUNT
+    if (attr == 3) {
+        sink(ctx, '(');
+        usf__dec(usf__u16(usf__volts + 4 * i), sink, ctx);
+        usf__lit(", ", sink, ctx);
+        usf__dec(usf__u16(usf__volts + 4 * i + 2), sink, ctx);
+        sink(ctx, ')');
+        return;
+    }
+#endif
+    usf__dec(usf__confint(attr, i), sink, ctx);
+}
+#endif
+
+static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, void *ctx)
+{
+    uint8_t i, n;
+    uint16_t lo, hi;
+    uint32_t v;
+#if USF_OP_COUNT
+    uint8_t w;
+    usf__p item, row;
+#endif
+#if USF_CONF_COUNT
+    usf__p p;
+    uint16_t off;
+#endif
+
+    /* <ident>  <manufacturer>  <names>  (<type>) */
+    if (usf_family(c) == USF_FAMILY_JEDEC) {
+        usf__idhex(c, usf_bank(c), sink, ctx);
+    } else {
+        usf__name(usf__famnames, usf_family(c), sink, ctx);
+        sink(ctx, ':');
+        usf__idhex(c, 0, sink, ctx);
+    }
+    usf__lit("  ", sink, ctx);
+    if (!usf_manufacturer(c, sink, ctx))
+        sink(ctx, '?');
+    usf__lit("  ", sink, ctx);
+    for (i = 0, n = usf_name_count(c); i < n; i++) {
+        if (i)
+            usf__lit(", ", sink, ctx);
+        usf_name(c, i, sink, ctx);
+    }
+    usf__lit("  (", sink, ctx);
+    usf__name(usf__typenames, usf_type(c), sink, ctx);
+
+    /* size, page, sector, voltage */
+    usf__lit(")\n    size ", sink, ctx);
+    if ((v = usf_size(c)) != 0)
+        usf__human(v, sink, ctx);
+    else
+        sink(ctx, '?');
+    if ((v = usf_page_size(c)) != 0) {
+        usf__lit(", page ", sink, ctx);
+        usf__human(v, sink, ctx);
+    }
+    if ((v = usf_sector_size(c)) != 0) {
+        usf__lit(", sector ", sink, ctx);
+        usf__human(v, sink, ctx);
+    }
+    if (usf_voltage(c, &lo, &hi)) {
+        usf__lit(", ", sink, ctx);
+        usf__volt(lo, sink, ctx);
+        sink(ctx, '-');
+        usf__volt(hi, sink, ctx);
+        usf__lit(" V", sink, ctx);
+    }
+
+    /* features: in FEATURES order, which is sorted by name */
+    for (i = 0, n = 0; i < USF_FEATURE_COUNT; i++)
+        if (usf_has_feature(c, i)) {
+            usf__lit(n++ ? " " : "\n    features: ", sink, ctx);
+            usf__name(usf__featnames, i, sink, ctx);
+        }
+
+#if USF_CONF_COUNT
+    /* sources disagree on <attr>: <v> (<srcs>); ... (CONFLICTS needs SOURCES) */
+    off = usf__u16(usf__row(c) + USF_E_CONF);
+    if (off != 0xFFFF)
+        for (p = usf__conflicts + off; *p != 0xFF;) {
+            uint8_t attr = *p++, k = *p++;
+            usf__lit("\n    sources disagree on ", sink, ctx);
+            usf__name(usf__attrnames, attr, sink, ctx);
+            usf__lit(": ", sink, ctx);
+            for (i = 0; i < k; i++, p += 2) {
+                if (i)
+                    usf__lit("; ", sink, ctx);
+                usf__value(attr, p[0], sink, ctx);
+                usf__lit(" (", sink, ctx);
+                usf__srclist(p[1], ", ", sink, ctx);
+                sink(ctx, ')');
+            }
+        }
+#endif
+#if USF_HAVE_SOURCES
+    usf__lit("\n    from: ", sink, ctx);
+    usf__srclist(usf_sources(c), ", ", sink, ctx);
+#endif
+#if USF_HAVE_DATASHEET && USF_DS_COUNT
+    {   /* the best datasheet */
+        usf__p ds = usf__dslist(c);
+        if (*ds) {
+            usf__lit("\n    datasheet: ", sink, ctx);
+            usf__puts(usf__off(usf__dsrow(ds + 1)), sink, ctx);
+        }
+    }
+#endif
+
+    if (!(flags & USF_PRINT_OPCODES))
+        return;
+    usf__lit("\n    opcodes:", sink, ctx);
+    n = usf_op_count(c);
+    if (!n)
+        usf__lit("\n    no opcodes known (the sources describe none for this part)", sink, ctx);
+#if USF_OP_COUNT
+    for (i = 0, w = 0; i < n; i++) {             /* the name column's width */
+        uint8_t l = usf__len(usf__off(usf__oprow(usf__opitem(c, i)) + USF_OP_NAME));
+        if (l > w)
+            w = l;
+    }
+    for (i = 0; i < n; i++) {
+        uint8_t l;
+        item = usf__opitem(c, i);
+        row = usf__oprow(item);
+        usf__lit("\n    0x", sink, ctx);
+        usf__hex8(row[1], sink, ctx);
+        usf__lit("  ", sink, ctx);
+        usf__puts(usf__off(row + USF_OP_NAME), sink, ctx);
+        for (l = usf__len(usf__off(row + USF_OP_NAME)); l < w; l++)
+            sink(ctx, ' ');
+        usf__lit("  ", sink, ctx);
+        usf__puts(usf__off(row + USF_OP_NAME + USF_OFF_BYTES), sink, ctx);
+#if USF_HAVE_SOURCES
+        usf__lit("  [", sink, ctx);
+        usf__srclist(item[1], ", ", sink, ctx);
+        sink(ctx, ']');
+#endif
+    }
+#endif
+}
+
+void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink, void *ctx)
+{
+    uint8_t i;
+    for (i = 0; i < n; i++) {
+        if (i)
+            usf__lit("\n\n", sink, ctx);
+        usf__describe(&chips[i], flags, sink, ctx);
+    }
+    sink(ctx, '\n');
+}
+#endif
+
+#if USF_HAVE_JSON
+/* A tiny writer for Python's json.dumps(indent=1) layout. */
+typedef struct usf__json {
+    usf_putc_fn sink;
+    void *ctx;
+    uint8_t depth;
+    uint8_t first;
+} usf__json;
+
+static void usf__jnl(usf__json *j)
+{
+    uint8_t i;
+    j->sink(j->ctx, '\n');
+    for (i = 0; i < j->depth; i++)
+        j->sink(j->ctx, ' ');
+}
+
+static void usf__jitem(usf__json *j)
+{
+    if (!j->first)
+        j->sink(j->ctx, ',');
+    usf__jnl(j);
+    j->first = 0;
+}
+
+static void usf__jopen(usf__json *j, char ch)
+{
+    j->sink(j->ctx, ch);
+    j->depth++;
+    j->first = 1;
+}
+
+static void usf__jclose(usf__json *j, char ch)
+{
+    j->depth--;
+    if (!j->first)
+        usf__jnl(j);
+    j->sink(j->ctx, ch);
+    j->first = 0;
+}
+
+static void usf__jkey(usf__json *j, const char *key)
+{
+    usf__jitem(j);
+    j->sink(j->ctx, '"');
+    usf__lit(key, j->sink, j->ctx);
+    usf__lit("\": ", j->sink, j->ctx);
+}
+#endif
+
+#if USF_HAVE_JSON
+static void usf__jpool(usf__json *j, usf__off_t off)   /* "pool string" */
+{
+    j->sink(j->ctx, '"');
+    usf__puts(off, j->sink, j->ctx);
+    j->sink(j->ctx, '"');
+}
+
+static void usf__jname(usf__json *j, usf__p names, uint8_t i)   /* "names[i]" */
+{
+    usf__jpool(j, usf__off(names + USF_OFF_BYTES * i));
+}
+
+static void usf__jint(usf__json *j, uint32_t v) { usf__dec(v, j->sink, j->ctx); }
+
+static void usf__jnull(usf__json *j) { usf__lit("null", j->sink, j->ctx); }
+
+static void usf__jintornull(usf__json *j, uint32_t v)   /* 0 means unknown */
+{
+    if (v)
+        usf__jint(j, v);
+    else
+        usf__jnull(j);
+}
+
+static void usf__jpair(usf__json *j, uint16_t lo, uint16_t hi)   /* [lo, hi] */
+{
+    usf__jopen(j, '[');
+    usf__jitem(j);
+    usf__jint(j, lo);
+    usf__jitem(j);
+    usf__jint(j, hi);
+    usf__jclose(j, ']');
+}
+
+static void usf__jsources(usf__json *j, uint8_t mask)   /* ["flashrom", ...] */
+{
+    uint8_t i;
+    usf__jopen(j, '[');
+    for (i = 0; mask; i++, mask >>= 1)
+        if (mask & 1) {
+            usf__jitem(j);
+            usf__jname(j, usf__srcnames, i);
+        }
+    usf__jclose(j, ']');
+}
+
+static void usf__jidhex(usf__json *j, const usf_chip *c, uint8_t bank)
+{
+    j->sink(j->ctx, '"');
+    usf__idhex(c, bank, j->sink, j->ctx);
+    j->sink(j->ctx, '"');
+}
+
+#if USF_HAVE_DATASHEETS && USF_DS_COUNT
+/* Two decimal digits (a month or a day), without division. */
+static void usf__dec2(uint8_t v, usf_putc_fn sink, void *ctx)
+{
+    char tens = '0';
+    while (v >= 10) {
+        v = (uint8_t)(v - 10);
+        tens++;
+    }
+    sink(ctx, tens);
+    sink(ctx, (char)('0' + v));
+}
+#endif
+
+#if USF_CONF_COUNT
+/* Conflict value `i` of attribute `attr` (0 size, 1 page, 2 sector,
+ * 3 voltage): an int, or [min, max] for voltage. */
+static void usf__jvalue(usf__json *j, uint8_t attr, uint8_t i)
+{
+#if USF_VOLT_COUNT
+    if (attr == 3) {
+        usf__jpair(j, usf__u16(usf__volts + 4 * i), usf__u16(usf__volts + 4 * i + 2));
+        return;
+    }
+#endif
+    usf__jint(j, usf__confint(attr, i));
+}
+#endif
+
+static void usf__jchip(usf__json *j, const usf_chip *c)
+{
+    uint8_t i, n;
+    uint16_t lo, hi;
+    usf__p p;
+#if USF_OP_COUNT
+    usf__p item, row;
+#endif
+#if USF_CONF_COUNT
+    uint16_t off;
+#endif
+
+    usf__jopen(j, '{');
+    usf__jkey(j, "id");
+    usf__jidhex(j, c, 0);
+    usf__jkey(j, "jedec_id");
+    usf__jidhex(j, c, usf_bank(c));
+    usf__jkey(j, "id_family");
+    usf__jname(j, usf__famnames, usf_family(c));
+    usf__jkey(j, "type");
+    usf__jname(j, usf__typenames, usf_type(c));
+    usf__jkey(j, "manufacturer");
+#if USF_MFR_COUNT
+    i = usf__row(c)[USF_E_MFR];
+    if (i != 0xFF)
+        usf__jname(j, usf__mfrs, i);
+    else
+#endif
+        usf__jnull(j);
+
+    usf__jkey(j, "names");
+    p = usf__namelists + usf__u16(usf__row(c) + USF_E_NAMES);
+    usf__jopen(j, '[');
+    for (i = 0, n = *p; i < n; i++) {
+        usf__jitem(j);
+        usf__jpool(j, usf__off(p + 1 + USF_OFF_BYTES * i));
+    }
+    usf__jclose(j, ']');
+
+    usf__jkey(j, "size");
+    usf__jintornull(j, usf_size(c));
+    usf__jkey(j, "page_size");
+    usf__jintornull(j, usf_page_size(c));
+    usf__jkey(j, "sector_size");
+    usf__jintornull(j, usf_sector_size(c));
+    usf__jkey(j, "voltage");
+    if (usf_voltage(c, &lo, &hi))
+        usf__jpair(j, lo, hi);
+    else
+        usf__jnull(j);
+
+    usf__jkey(j, "features");
+    usf__jopen(j, '[');
+    for (i = 0; i < USF_FEATURE_COUNT; i++)
+        if (usf_has_feature(c, i)) {
+            usf__jitem(j);
+            usf__jname(j, usf__featnames, i);
+        }
+    usf__jclose(j, ']');
+
+    usf__jkey(j, "opcodes");
+    usf__jopen(j, '[');
+#if USF_OP_COUNT
+    for (i = 0, n = usf_op_count(c); i < n; i++) {
+        item = usf__opitem(c, i);
+        row = usf__oprow(item);
+        usf__jitem(j);
+        usf__jopen(j, '{');
+        usf__jkey(j, "op");
+        usf__jpool(j, usf__off(row + USF_OP_NAME));
+        usf__jkey(j, "opcode");
+        usf__jint(j, row[1]);
+        usf__jkey(j, "kind");
+        usf__jname(j, usf__kindnames, row[2]);
+        usf__jkey(j, "description");
+        usf__jpool(j, usf__off(row + USF_OP_NAME + USF_OFF_BYTES));
+        usf__jkey(j, "sources");
+        usf__jsources(j, item[1]);
+        usf__jclose(j, '}');
+    }
+#endif
+    usf__jclose(j, ']');
+
+    usf__jkey(j, "sources");
+    usf__jsources(j, usf_sources(c));
+
+    usf__jkey(j, "conflicts");
+    usf__jopen(j, '{');
+#if USF_CONF_COUNT
+    off = usf__u16(usf__row(c) + USF_E_CONF);
+    if (off != 0xFFFF)
+        for (p = usf__conflicts + off; *p != 0xFF;) {
+            uint8_t attr = *p++, k = *p++;
+            usf__jitem(j);                      /* "<attr>": [ ... ] */
+            usf__jname(j, usf__attrnames, attr);
+            usf__lit(": ", j->sink, j->ctx);
+            usf__jopen(j, '[');
+            for (i = 0; i < k; i++, p += 2) {
+                usf__jitem(j);
+                usf__jopen(j, '{');
+                usf__jkey(j, "value");
+                usf__jvalue(j, attr, p[0]);
+                usf__jkey(j, "sources");
+                usf__jsources(j, p[1]);
+                usf__jclose(j, '}');
+            }
+            usf__jclose(j, ']');
+        }
+#endif
+    usf__jclose(j, '}');
+
+#if USF_HAVE_DATASHEETS
+    usf__jkey(j, "datasheets");
+    usf__jopen(j, '[');
+#if USF_DS_COUNT
+    p = usf__dslist(c);
+    for (n = *p++; n; n--, p += USF_DS_ITEM) {
+        usf__p ds = usf__dsrow(p);
+        usf__p when = ds + 3 * USF_OFF_BYTES;   /* year u16, month, day, official */
+        uint16_t year = usf__u16(when);
+        usf__jitem(j);
+        usf__jopen(j, '{');
+        usf__jkey(j, "url");
+        usf__jpool(j, usf__off(ds));
+        usf__jkey(j, "title");
+        usf__jpool(j, usf__off(ds + USF_OFF_BYTES));
+        usf__jkey(j, "revision");
+        if (usf__off(ds + 2 * USF_OFF_BYTES) == USF_NONE_OFF)
+            usf__jnull(j);
+        else
+            usf__jpool(j, usf__off(ds + 2 * USF_OFF_BYTES));
+        usf__jkey(j, "date");
+        if (!year) {
+            usf__jnull(j);
+        } else {
+            j->sink(j->ctx, '"');
+            usf__dec(year, j->sink, j->ctx);
+            j->sink(j->ctx, '-');
+            usf__dec2(when[2], j->sink, j->ctx);
+            j->sink(j->ctx, '-');
+            usf__dec2(when[3], j->sink, j->ctx);
+            j->sink(j->ctx, '"');
+        }
+        usf__jkey(j, "official");
+        usf__lit(when[4] ? "true" : "false", j->sink, j->ctx);
+        usf__jkey(j, "id_confirmed");
+        usf__lit(p[2] ? "true" : "false", j->sink, j->ctx);
+        usf__jclose(j, '}');
+    }
+#endif
+    usf__jclose(j, ']');
+#endif
+
+#if USF_HAVE_RECORDS
+    usf__jkey(j, "records");
+    p = usf__records + usf__u16(usf__row(c) + USF_E_RECS);
+    usf__jopen(j, '[');
+    for (n = *p++; n; n--) {
+        uint8_t len;
+        usf__jitem(j);
+        usf__jopen(j, '{');
+        usf__jkey(j, "source");
+        usf__jname(j, usf__srcnames, *p++);
+        usf__jkey(j, "name");
+        usf__jpool(j, usf__off(p));
+        p += USF_OFF_BYTES;
+        len = *p++;
+#if USF_HAVE_PROVENANCE
+        usf__jkey(j, "at");
+        usf__jpool(j, usf__off(p + len));
+#endif
+        usf__jkey(j, "ext_id");
+        if (!len) {
+            usf__jnull(j);
+        } else {
+            j->sink(j->ctx, '"');
+            for (i = 0; i < len; i++)
+                usf__hex8(p[i], j->sink, j->ctx);
+            j->sink(j->ctx, '"');
+        }
+        p += len;
+#if USF_HAVE_PROVENANCE
+        p += USF_OFF_BYTES;
+#endif
+        usf__jclose(j, '}');
+    }
+    usf__jclose(j, ']');
+#endif
+    usf__jclose(j, '}');
+}
+
+void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ctx)
+{
+    usf__json j;
+    uint8_t i;
+    j.sink = sink;
+    j.ctx = ctx;
+    j.depth = 0;
+    j.first = 1;
+    usf__jopen(&j, '[');
+    for (i = 0; i < n; i++) {
+        usf__jitem(&j);
+        usf__jchip(&j, &chips[i]);
+    }
+    usf__jclose(&j, ']');
+    sink(ctx, '\n');
+}
+#endif
+
+#if USF_HAVE_PROBE
+/* Which steps some chip in this file answers (the M1 index's single-type
+ * rules): RES wakes NOR chips, so it goes out whenever there is one. */
+#define USF__PROBE_RES (USF_HAVE_NOR || USF_HAVE_FAMILY_RES1 || USF_HAVE_FAMILY_RES2)
+#define USF__PROBE_LEGACY (USF_HAVE_FAMILY_REMS || USF_HAVE_FAMILY_RES1 \
+    || USF_HAVE_FAMILY_RES2 || USF_HAVE_FAMILY_AT25F || USF_HAVE_FAMILY_ST95)
+
+/* Whether n bytes are all 0x00 or all 0xFF: nothing answered. */
+static uint8_t usf__blank(const uint8_t *b, uint8_t n)
+{
+    uint8_t i, any = 0, all = 0xFF;
+    for (i = 0; i < n; i++) {
+        any |= b[i];
+        all &= b[i];
+    }
+    return any == 0 || all == 0xFF;
+}
+
+/* Send `tx`, keep the `rxlen` bytes that come back in r, and look them up
+ * as `family` unless the bus stayed blank. Returns r->count. */
+static uint8_t usf__ask(usf_bus *bus, usf_probe_result *r, uint8_t family,
+                        const uint8_t *tx, uint8_t txlen, uint8_t rxlen)
+{
+    USF_XFER(bus, tx, txlen, r->id, rxlen);
+    r->family = family;
+    r->len = rxlen;
+    r->count = usf__blank(r->id, rxlen) ? 0 : usf_lookup(family, r->id, rxlen, r->chip);
+    return r->count;
+}
+
+uint8_t usf_probe(usf_bus *bus, usf_probe_result *r)
+{
+    uint8_t tx[4], saved = 0;
+#if USF__PROBE_RES
+    uint8_t res[2];
+#endif
+#if USF_HAVE_FAMILY_JEDEC
+    uint8_t rdid[USF_RDID_LEN], i;
+#endif
+
+    tx[1] = 0;                          /* address or dummy bytes */
+    tx[2] = 0;
+    tx[3] = 0;
+#if USF__PROBE_RES
+    tx[0] = 0xAB;                       /* RES: also wakes from deep power-down */
+    USF_XFER(bus, tx, 4, res, 2);
+    USF_DELAY_US(30);                   /* tRES1: the chip is waking up */
+#endif
+
+    tx[0] = 0x9F;                       /* JEDEC read-id */
+#if USF_HAVE_FAMILY_JEDEC
+    if (usf__ask(bus, r, USF_FAMILY_JEDEC, tx, 1, USF_RDID_LEN))
+        return r->count;
+    if (!usf__blank(r->id, USF_RDID_LEN)) {
+        saved = 1;
+        for (i = 0; i < USF_RDID_LEN; i++)
+            rdid[i] = r->id[i];
+    }
+#endif
+#if USF_HAVE_NAND
+    /* SPI NAND: read-id after one dummy (or address) byte. The same command,
+     * so it is safe for any chip; a NAND chip answers plain 0x9F with a
+     * dummy byte first, which is why the first answer can be non-blank. */
+    usf__ask(bus, r, USF_FAMILY_JEDEC, tx, 2, USF_RDID_LEN - 1);
+#if USF_HAVE_NOR
+    /* A NOR chip answers this with its id shifted by one byte: looked up as
+     * NOR, that could name a chip that isn't there. Only NAND answers count
+     * (a lookup gives NOR first, then NAND, at most one of each). */
+    if (r->count && usf_type(&r->chip[r->count - 1]) == USF_TYPE_NAND) {
+        r->chip[0] = r->chip[r->count - 1];
+        r->count = 1;
+    } else {
+        r->count = 0;
+    }
+#endif
+    if (r->count)
+        return r->count;
+#endif
+
+#if USF__PROBE_LEGACY
+    /* Legacy id commands go only to a chip that ignored read-id: one that
+     * answered it but isn't in the database is sent nothing else. */
+    if (!saved) {
+#if USF_HAVE_FAMILY_REMS
+        tx[0] = 0x90;                   /* REMS: 3 address bytes */
+        if (usf__ask(bus, r, USF_FAMILY_REMS, tx, 4, 2))
+            return r->count;
+#endif
+#if USF_HAVE_FAMILY_RES2 || USF_HAVE_FAMILY_RES1
+        if (!usf__blank(res, 2)) {      /* the RES answer: two bytes, then one */
+            /* Looked up from r->id, not res: inlined at -O3, gcc cannot see
+             * that narrowing stays inside a two-byte array. */
+            r->id[0] = res[0];
+            r->id[1] = res[1];
+#if USF_HAVE_FAMILY_RES2
+            r->family = USF_FAMILY_RES2;
+            r->len = 2;
+            if ((r->count = usf_lookup(USF_FAMILY_RES2, r->id, 2, r->chip)) != 0)
+                return r->count;
+#endif
+#if USF_HAVE_FAMILY_RES1
+            r->family = USF_FAMILY_RES1;
+            r->len = 1;
+            if ((r->count = usf_lookup(USF_FAMILY_RES1, r->id, 1, r->chip)) != 0)
+                return r->count;
+#endif
+        }
+#endif
+#if USF_HAVE_FAMILY_AT25F
+        tx[0] = 0x15;                   /* Atmel AT25F read-id */
+        if (usf__ask(bus, r, USF_FAMILY_AT25F, tx, 1, 2))
+            return r->count;
+#endif
+#if USF_HAVE_FAMILY_ST95
+        tx[0] = 0x83;                   /* ST M95 read-id: 2 address bytes */
+        if (usf__ask(bus, r, USF_FAMILY_ST95, tx, 3, 3))
+            return r->count;
+#endif
+    }
+#endif
+
+    /* Nothing known answered: report the JEDEC bytes, if there were any. */
+    r->family = USF_FAMILY_JEDEC;
+    r->count = 0;
+    r->len = 0;
+#if USF_HAVE_FAMILY_JEDEC
+    if (saved) {
+        r->len = USF_RDID_LEN;
+        for (i = 0; i < USF_RDID_LEN; i++)
+            r->id[i] = rdid[i];
+    }
+#endif
+    return 0;
+}
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* USF_IMPLEMENTATION */

@@ -103,6 +103,8 @@ def _value(lay: Layout, table: str, i: int) -> object:
 
 
 def _operations(lay: Layout, offset: int) -> list[tuple[str, list[Source] | None]]:
+    if not lay.defines["OP_COUNT"]:  # no operation stored: no opsets either
+        return []
     b, ops = lay.tables["opsets"], lay.tables["ops"]
     with_sources = bool(lay.defines["HAVE_SOURCES"])
     step = 2 if with_sources else 1
@@ -159,6 +161,22 @@ def entry(lay: Layout, index: int) -> dict[str, object]:
         out["operations"] = _operations(lay, _u16(row, d["E_OPS"]))
     if "E_CONF" in d:
         out["conflicts"] = _conflicts(lay, _u16(row, d["E_CONF"]))
+    if "E_DS" in d:
+        out["datasheets"] = _datasheets(lay, _u16(row, d["E_DS"]))
+    return out
+
+
+def _datasheets(lay: Layout, offset: int) -> list[tuple[str, bool | None]]:
+    """A ``dslists`` blob: (URL, id confirmed, or ``None`` without DATASHEETS)."""
+    d = lay.defines
+    if not d["DS_COUNT"]:  # no chip has a datasheet: no dslists either
+        return []
+    b, rows, step = lay.tables["dslists"], lay.tables["dsrows"], d["DS_ITEM"]
+    out: list[tuple[str, bool | None]] = []
+    for j in range(b[offset]):
+        at = offset + 1 + j * step
+        url = string(lay, _off(lay, rows, _u16(b, at) * d["DS_ROW"]))
+        out.append((url, bool(b[at + 2]) if d["HAVE_DATASHEETS"] else None))
     return out
 
 

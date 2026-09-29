@@ -12,7 +12,9 @@ Usage::
 
     uv run python -m uspiflash.sandbox -- uv run pytest -n {jobs}
 
-``{jobs}`` becomes the CPU count the limits allow.
+``{jobs}`` becomes the CPU count the limits allow. The command runs with
+``TMPDIR`` set to ``tmp/`` in the current directory (created if need be), so
+its temporary files, and compilers' crash reproducers, stay out of ``/tmp``.
 """
 
 from __future__ import annotations
@@ -139,7 +141,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         msg = "systemd-run is not available: refusing to run unsandboxed"
         raise SystemExit(msg)
     unit = f"uspiflash-sandbox-{os.getpid()}"
-    proc = subprocess.Popen(wrap(cmd, limits, args.timeout, unit))
+    scratch = Path.cwd() / "tmp"
+    scratch.mkdir(exist_ok=True)
+    env = {**os.environ, "TMPDIR": str(scratch)}
+    proc = subprocess.Popen(wrap(cmd, limits, args.timeout, unit), env=env)
     try:
         return proc.wait()
     except KeyboardInterrupt:

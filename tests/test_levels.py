@@ -43,6 +43,22 @@ def test_with_pulls_in_requirements() -> None:
     assert REQUIRES[Field.TEXT] <= sel.fields
 
 
+def test_conflicts_bring_the_sources_they_print() -> None:
+    # spiflash prints the sources on each side of every conflict.
+    assert Selection.make("describe", with_=["conflicts"]).has(Field.SOURCES)
+    with pytest.raises(ValueError, match="conflicts needs sources"):
+        Selection.make("full", without=["sources"])
+
+
+def test_conflicts_do_not_bring_a_printer() -> None:
+    # Conflicts without a printer are selectable (and add nothing, see
+    # test_layout); JSON, which needs CONFLICTS, is selectable without TEXT.
+    assert not Selection.make("write", with_=["conflicts"]).has(Field.TEXT)
+    json_only = Selection.make("write", with_=["json"])
+    assert json_only.has(Field.CONFLICTS)
+    assert not json_only.has(Field.TEXT)
+
+
 def test_without_refuses_to_break_a_requirement() -> None:
     with pytest.raises(ValueError, match="text needs names"):
         Selection.make("full", without=["names"])

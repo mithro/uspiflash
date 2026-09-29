@@ -9,6 +9,38 @@ RISC-V (down to WCH's CH32V003), and Linux spidev.
 Every byte the library puts on a device is measured, across a wide range of
 GCC, LLVM and SDCC versions.
 
+## Size
+
+<!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->
+For SPI NOR flash (`--type nor`), compiled for `cortex-m0` with
+Debian clang version 19.1.7 (3+b1) at `-Os`, the `read` level costs
+**11,275 bytes** of flash and `full` **53,662 bytes**, code and tables
+together, with no static RAM. Every configuration (all chip types, and
+NAND), every target, and how they are measured:
+[`sizes/README.md`](https://github.com/mithro/uspiflash/blob/main/sizes/README.md).
+<!-- sizes: end -->
+
+## Output
+
+A generated file's `usf_print()` and `usf_print_json()` print exactly what
+`spiflash id` and `spiflash id --json` print, byte for byte, less what the
+file was generated without: the `from:` line and per-opcode sources without
+`sources`, conflicts without `conflicts`, the datasheet line without
+`datasheet`, and the JSON `datasheets`, `records` and records' `at` without
+`datasheets`, `records` and `provenance`. The tests check this against
+spiflash 0.0.post74 (`uspiflash.VERIFIED_SPIFLASH`).
+
+One known gap: spiflash's SFDP dumps (the `sfdp:` line of `spiflash id`, and
+the JSON `sfdp` key) are not in the generated file yet. The SFDP milestone
+adds them (until then `uspiflash generate` refuses `--with sfdp`).
+
+On 16-bit targets (AVR, msp430, the 8051) the levels `id` to `full` fit, if
+the part has the flash (`full` is about 59 KB of code and tables); the
+`datasheet`, `datasheets`, `records`, `provenance` and `jep106` extras do
+not, as their tables pass the 64 KiB a 16-bit pointer can address. On AVR,
+define `USF_ROM` as a flash address space (avr-gcc's `__flash`) to keep the
+tables in flash rather than copied to RAM.
+
 ## Install
 
 ```sh

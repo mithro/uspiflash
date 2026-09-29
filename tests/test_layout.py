@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import random
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
@@ -49,11 +50,15 @@ def expected(sel: Selection, flash: Flash) -> dict[str, object]:
         out["operations"] = [
             (o.name, list(o.sources)) if sel.has(Field.SOURCES) else (o.name, None) for o in ops
         ]
-    if sel.has(Field.CONFLICTS):
+    if layout.stores_conflicts(sel):
         out["conflicts"] = {
             a: [(tuple(v) if isinstance(v, tuple) else v, list(s)) for v, s in vals.items()]
             for a, vals in flash.conflicts.items()
         }
+    if sel.has(Field.DATASHEET) or sel.has(Field.DATASHEETS):
+        every = sel.has(Field.DATASHEETS)
+        ds = flash.datasheets if every else flash.datasheets[:1]
+        out["datasheets"] = [(d.url, flash.key in d.confirmed if every else None) for d in ds]
     return out
 
 
@@ -69,6 +74,60 @@ def test_every_entry_round_trips(snap: Snapshot, level: str) -> None:
     lay = layout.build(snap, sel)
     for i, e in enumerate(snap.entries):
         assert ordered(decode.entry(lay, i)) == ordered(expected(sel, e.flash)), (level, i)
+
+
+@pytest.mark.parametrize(
+    "extras", [["datasheet"], ["datasheets"], ["datasheet", "datasheets"]], ids="+".join
+)
+def test_every_entry_round_trips_with_datasheets(snap: Snapshot, extras: list[str]) -> None:
+    sel = Selection.make("full", with_=extras)
+    lay = layout.build(snap, sel)
+    for i, e in enumerate(snap.entries):
+        assert ordered(decode.entry(lay, i)) == ordered(expected(sel, e.flash)), (extras, i)
+    assert any(e.flash.datasheets for e in snap.entries)
+
+
+def test_datasheet_alone_stores_only_the_best(snap: Snapshot) -> None:
+    """The text line prints a chip's best datasheet only, so without
+    DATASHEETS the others (and their URLs) are not stored."""
+    best = {e.flash.datasheets[0].url for e in snap.entries if e.flash.datasheets}
+    every = {d.url for e in snap.entries for d in e.flash.datasheets}
+    one = layout.build(snap, Selection.make("full", with_=["datasheet"]))
+    assert one.defines["DS_COUNT"] == len(best) < len(every)
+    assert one.defines["DS_ROW"] == one.off_bytes
+    assert one.defines["DS_ITEM"] == 2
+    pool = set(one.tables["str"].split(b"\0"))
+    assert {u.encode() for u in best} <= pool
+    assert not {u.encode() for u in every - best} & pool
+    both = layout.build(snap, Selection.make("full", with_=["datasheet", "datasheets"]))
+    assert both.defines["DS_COUNT"] == len(every)
+    assert both.defines["DS_ROW"] == 3 * both.off_bytes + 5
+    assert both.defines["DS_ITEM"] == 3
+    assert len(both.tables["dsrows"]) == both.defines["DS_ROW"] * len(every)
+    assert both.defines["NONE_OFF"] == (1 << 8 * both.off_bytes) - 1
+    assert len(both.tables["str"]) < both.defines["NONE_OFF"]
+
+
+def test_datasheet_tables_are_left_out_when_no_chip_has_one() -> None:
+    """``dsrows`` and ``dslists`` are counted tables: with no datasheet among
+    the chips both go, and DS_COUNT is 0; ``E_DS`` stays, as ``E_OPS`` does."""
+    bare = next(f for f in database().flashes if not f.datasheets)
+    chips = ChipFilter(ids=(bare.id,), types=(bare.type,), families=(bare.family,))
+    one = Snapshot.build(chips.apply(database()))
+    lay = layout.build(one, Selection.make("full", with_=["datasheet", "datasheets"]))
+    assert lay.defines["DS_COUNT"] == 0
+    assert not {"dsrows", "dslists"} & lay.tables.keys()
+    assert "E_DS" in lay.defines
+    assert all(decode.entry(lay, i)["datasheets"] == [] for i in range(len(one.entries)))
+
+
+def test_without_datasheets_no_datasheet_is_stored(snap: Snapshot) -> None:
+    lay = layout.build(snap, Selection.make("full", with_=["records"]))
+    assert lay.defines["DS_COUNT"] == 0
+    assert "E_DS" not in lay.defines
+    assert not {"DS_ROW", "DS_ITEM", "NONE_OFF"} & lay.defines.keys()
+    urls = {d.url.encode() for e in snap.entries for d in e.flash.datasheets}
+    assert not urls & set(lay.tables["str"].split(b"\0"))
 
 
 @pytest.mark.parametrize("level", ["read", "full"])
@@ -170,6 +229,21 @@ _FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrna
         ("id", ["jep106"], _ID_TABLES | {"jep106", "str"}),
         # TEXT with SOURCES: srcnames, still no kindnames (JSON only).
         ("describe", ["sources"], _DESCRIBE_TABLES | {"srcnames"}),
+        # CONFLICTS brings SOURCES, whose names its lines print.
+        ("describe", ["conflicts"], _DESCRIBE_TABLES | {"conflicts", "srcnames", "attrnames"}),
+        # DESCRIPTIONS alone: usf_op_name and usf_op_description read the pool.
+        ("write", ["descriptions"], _WRITE_TABLES | {"str"}),
+        # JSON without TEXT (write has no TEXT): JSON brings every field full
+        # has and prints the conflicts, so the tables are full's, conflicts
+        # included.
+        ("write", ["json"], _FULL_TABLES),
+        # CONFLICTS without a printer adds nothing itself (no conflicts, no
+        # attrnames); only VOLTAGE, which it requires, adds volts.
+        ("write", ["conflicts"], _WRITE_TABLES | {"volts"}),
+        # Datasheets: the text line and the JSON list each read both tables.
+        ("full", ["datasheet"], _FULL_TABLES | {"dsrows", "dslists"}),
+        ("full", ["datasheets"], _FULL_TABLES | {"dsrows", "dslists"}),
+        ("describe", ["datasheet"], _DESCRIBE_TABLES | {"dsrows", "dslists"}),
     ],
 )
 def test_exactly_the_tables_compiled_code_reads(
@@ -225,6 +299,10 @@ def test_every_entry_field_has_an_offset_define(snap: Snapshot) -> None:
         "HAVE_NAND": 1,
     }
     assert len(lay.tables["entries"]) == d["ENTRY_SIZE"] * d["ENTRY_COUNT"]
+    assert d["LOOKUP_MAX"] == 2
+    for table, count, width in _ROWS:
+        assert len(lay.tables[table]) == width * d[count], table
+    assert len(lay.tables["ops"]) == d["OP_SIZE"] * d["OP_COUNT"]
     idl = layout.build(snap, Selection.make("id")).defines
     assert {k for k in idl if k.startswith("E_")} == {"E_BANK"}
     assert idl["ENTRY_SIZE"] == 1
@@ -243,6 +321,59 @@ def test_single_type_selections(keep: FlashType, other: str) -> None:
     }
     for i, e in enumerate(one.entries):
         assert ordered(decode.entry(lay, i)) == ordered(expected(sel, e.flash)), (keep, i)
+
+
+#: Counted value tables: (table, count define, row width).
+_ROWS = (
+    ("sizes", "SIZE_COUNT", 4),
+    ("pages", "PAGE_COUNT", 2),
+    ("sectors", "SECTOR_COUNT", 4),
+    ("volts", "VOLT_COUNT", 4),
+)
+_COUNTED = {
+    "SIZE_COUNT": "sizes",
+    "PAGE_COUNT": "pages",
+    "SECTOR_COUNT": "sectors",
+    "VOLT_COUNT": "volts",
+    "MFR_COUNT": "mfrs",
+    "OP_COUNT": "ops",
+    "EXT_COUNT": "ext",
+    "CONF_COUNT": "conflicts",
+    "DS_COUNT": "dsrows",
+}
+
+
+@pytest.mark.parametrize("keep", [FlashType.NOR, FlashType.NAND])
+def test_a_counted_table_without_rows_is_left_out(keep: FlashType) -> None:
+    """Code indexing a counted table is compiled only when it has rows, so
+    an empty one (and what only that code reads) is not emitted."""
+    one = Snapshot.build(ChipFilter(types=(keep,)).apply(database()))
+    lay = layout.build(one, Selection.make("full", with_=["records", "jep106", "datasheets"]))
+    d = lay.defines
+    assert d["LOOKUP_MAX"] == 1
+    for count, table in _COUNTED.items():
+        assert (table in lay.tables) == (d[count] > 0), count
+    assert ("opsets" in lay.tables) == ("kindnames" in lay.tables) == (d["OP_COUNT"] > 0)
+    assert ("attrnames" in lay.tables) == (d["CONF_COUNT"] > 0)
+    assert ("dslists" in lay.tables) == (d["DS_COUNT"] > 0)
+    if keep is FlashType.NAND:
+        # No NAND chip has a voltage, an operation, an extended id or a conflict.
+        assert [d[c] for c in ("VOLT_COUNT", "OP_COUNT", "EXT_COUNT", "CONF_COUNT")] == [0] * 4
+
+
+def test_conflicts_are_stored_only_with_a_printer(snap: Snapshot) -> None:
+    """Conflicts are only ever printed, so without TEXT or JSON there is no
+    ``conflicts`` table and no ``E_CONF`` (HAVE_CONFLICTS is still the flag)."""
+    bare = layout.build(snap, Selection.make("write", with_=["conflicts"]))
+    assert bare.defines["HAVE_CONFLICTS"] == 1
+    assert "E_CONF" not in bare.defines
+    assert bare.defines["CONF_COUNT"] == 0
+    assert "conflicts" not in bare.tables
+    for extras in (["json"], ["conflicts", "text"]):
+        lay = layout.build(snap, Selection.make("write", with_=extras))
+        assert "E_CONF" in lay.defines, extras
+        assert lay.defines["CONF_COUNT"] > 0, extras
+        assert "conflicts" in lay.tables, extras
 
 
 def test_full_database_has_both_types_and_every_family(snap: Snapshot) -> None:
@@ -302,3 +433,25 @@ def test_more_than_254_distinct_values_is_refused() -> None:
     records = [replace(r, id=bytes([0xEF, i >> 8, i & 0xFF]), size=i + 1) for i in range(300)]
     with pytest.raises(ValueError, match="more than 254 distinct values"):
         _build(records, "read")
+
+
+def test_the_source_mask_holds_every_source() -> None:
+    """spiflash 0.0.post74 has eight sources, which fill a one-byte mask; a
+    ninth must fail loudly, not wrap or overflow."""
+    layout.check_sources()
+    assert len(layout.SOURCES) <= 8
+    nine = (*layout.SOURCES, *layout.SOURCES)[:9]
+    with pytest.raises(ValueError, match=r"has 9 sources .* a source mask is one byte"):
+        layout.check_sources(nine)
+
+
+def test_a_datasheet_before_the_year_1000_is_refused() -> None:
+    """The C prints a year with usf__dec, which does not zero-pad."""
+    db = database()
+    dated = [replace(d, date=datetime.date(999, 1, 2)) if d.date else d for d in db.datasheets]
+    small = Database(list(db.records), db.manufacturers, db.sources, dated)
+    snap = Snapshot.build(small)
+    with pytest.raises(ValueError, match=r"is dated 0999-01-02: .* none before 1000"):
+        layout.build(snap, Selection.make("full", with_=["datasheets"]))
+    # With the text line alone no date is stored, so nothing to refuse.
+    layout.build(snap, Selection.make("full", with_=["datasheet"]))

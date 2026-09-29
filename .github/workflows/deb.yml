@@ -81,6 +81,47 @@ jobs:
       - name: Tests + coverage gate
         run: uv run pytest
 
+  # The size ledger (sizes/ledger.json) must match a fresh measurement. The
+  # numbers only reproduce with the tools that made them, so this runs in the
+  # environment the ledger is made in: Debian trixie (linux/amd64) pinned by
+  # digest, with clang-19, llvm-19 and gcc installed from snapshot.debian.org
+  # at a fixed timestamp, not the live mirror. The digest and the timestamp
+  # must equal uspiflash.ledger.IMAGE and SNAPSHOT (a test checks);
+  # RELEASING.md says how to bump them.
+  # `measure --check` exits 2 if the tools' version lines differ from the
+  # ledger's, and 1 (with a diff) if the sizes do.
+  sizes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674
+    steps:
+      # git before checkout, so actions/checkout makes a real clone: hatch-vcs
+      # derives the version from its history and tags.
+      - name: Install the pinned tools
+        run: |
+          rm -f /etc/apt/sources.list.d/debian.sources
+          echo "deb http://snapshot.debian.org/archive/debian/20260918T000000Z/ trixie main" > /etc/apt/sources.list
+          echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends \
+            clang-19 llvm-19 gcc libc6-dev python3 ca-certificates git
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # The workspace belongs to the runner's user, not the container's root.
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Tool versions
+        run: clang-19 --version && llvm-readobj-19 --version && gcc --version
+
+      - name: Check the size ledger
+        run: uv run uspiflash measure --check
+
   build-deb:
     name: build-deb (${{ matrix.suite }} ${{ matrix.arch }})
     needs: test
@@ -121,7 +162,7 @@ jobs:
             "docker.io/library/debian:$SUITE" \
             sh -ec 'sh /apt-sources/install.sh
                     apt-get update -q
-                    apt-get install -y -q --no-install-recommends /debs/*.deb
+                    apt-get install -y -q --no-install-recommends /debs/*.deb gcc libc6-dev
                     sh /packaging/install-test.sh'
 
       - name: Upload

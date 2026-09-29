@@ -9,7 +9,7 @@ Build-Depends: debhelper-compat (= 13),
                python3-hatchling,
                python3-hatch-vcs,
                python3-setuptools-scm,
-               python3-spiflash (>= 0.0.post38~),
+               python3-spiflash (>= 0.0.post74~),
                python3-pytest <!nocheck>,
                gcc <!nocheck>,
 Standards-Version: 4.7.0
@@ -21,7 +21,7 @@ Rules-Requires-Root: no
 Package: python3-uspiflash
 Architecture: all
 Depends: python3 (>= 3.11),
-         python3-spiflash (>= 0.0.post38~),
+         python3-spiflash (>= 0.0.post74~),
          ${python3:Depends},
          ${misc:Depends}
 Provides: uspiflash

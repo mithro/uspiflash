@@ -100,19 +100,79 @@ on every push, same as the `sphinx` job in `docs.yml` checks in CI.
 
 ## A data update
 
-A `spiflash` version bump is a commit like any other. Refresh `uv.lock` to the
-latest release without pinning an exact version:
+The generated C's output is verified byte-identical to one spiflash release,
+`VERIFIED_SPIFLASH` in `src/uspiflash/__init__.py`; `uv.lock` pins exactly that
+release (a test checks), so every CI job runs the parity tests in full. With
+any other spiflash installed (a Debian build takes the newest
+`python3-spiflash`), the parity tests are skipped and `uspiflash generate`
+warns. The daily "Newest spiflash" workflow
+([`.github/workflows/spiflash-latest.yml`](https://github.com/mithro/uspiflash/blob/main/.github/workflows/spiflash-latest.yml))
+runs the suite against the newest release with parity forced on
+(`USPIFLASH_FORCE_PARITY=1`): when it fails, spiflash has moved and it is time
+for a catch-up.
+
+A catch-up is a commit like any other. Refresh `uv.lock` to the latest
+release without pinning an exact version:
 
 ```sh
 uv lock --upgrade-package spiflash
 ```
 
-Raise the minimum only when a change actually needs it, by editing the `>=`
-bound in `pyproject.toml`'s `dependencies` — never an exact `==` pin, which
-would contradict the `>=` policy and `debian/control`'s own bound. When the
-minimum changes, also bump both `python3-spiflash (>= …~)` bounds in
-`debian/control` (keeping the trailing `~`) to match. Review, commit, merge.
-The next green run publishes it.
+Then make the parity tests pass against it (a mismatch is a bug to find, in
+the generator or the oracle, `src/uspiflash/oracle.py`), and move
+`VERIFIED_SPIFLASH` to it. Raise the minimum only when a change actually needs
+it, by editing the `>=` bound in `pyproject.toml`'s `dependencies` — never an
+exact `==` pin, which would contradict the `>=` policy and `debian/control`'s
+own bound. When the minimum changes, also bump both `python3-spiflash (>= …~)`
+bounds in `debian/control` (keeping the trailing `~`) to match. Review,
+commit, merge. The next green run publishes it.
+
+A new spiflash changes the generated tables, so it changes the size ledger
+too: regenerate it (`uv run uspiflash measure --write`, see below) in the
+same commit, or the `sizes` job fails; and rerun the database-statistics
+experiment (`uv run uspiflash research run 2026-09-28-database-statistics`)
+and update its README's numbers.
+
+## The size ledger's image
+
+`sizes/ledger.json` is made and checked in one container image, Debian
+trixie for linux/amd64 pinned by digest, with its tools installed from
+snapshot.debian.org at a fixed timestamp (so a trixie point release on the
+live mirror cannot change them). The digest appears in exactly two places,
+which a test keeps equal: `IMAGE` in `src/uspiflash/ledger.py` and the
+`sizes` job's `container:` in `.github/workflows/deb.yml`; the timestamp is
+`SNAPSHOT` there, and in the `sizes` job's apt source and the command below
+(tests check both). The ledger records the image and the timestamp too, so
+changing either without regenerating fails `measure --check`.
+
+The pins move only deliberately (for example to take a trixie point
+release's clang or gcc). To move them:
+
+1. Find the new digest of the linux/amd64 image:
+   `docker buildx imagetools inspect debian:trixie` lists it under
+   `Platform: linux/amd64`. The image's `/etc/apt/sources.list.d/debian.sources`
+   names the snapshot it was built from (a `# http://snapshot.debian.org/...`
+   comment): use that timestamp.
+2. Put the digest and the timestamp in the places above.
+3. Regenerate the ledger in that image, from the repository's root:
+
+   ```sh
+   IMAGE=debian:trixie@sha256:<digest>
+   docker run --rm -v "$PWD:/w" -w /w -e UV_PROJECT_ENVIRONMENT=/venv "$IMAGE" bash -ec '
+     rm -f /etc/apt/sources.list.d/debian.sources
+     echo "deb http://snapshot.debian.org/archive/debian/20260918T000000Z/ trixie main" > /etc/apt/sources.list
+     echo "Acquire::Check-Valid-Until \"false\";" > /etc/apt/apt.conf.d/99snapshot
+     apt-get update -q
+     apt-get install -y -q --no-install-recommends \
+       clang-19 llvm-19 gcc libc6-dev python3 ca-certificates git curl
+     curl -LsSf https://astral.sh/uv/install.sh | sh
+     git config --global --add safe.directory /w
+     ~/.local/bin/uv run --locked uspiflash measure --write
+     chown -R "$(stat -c %u:%g /w)" /w'
+   ```
+
+4. Commit the digest, the timestamp and the regenerated `sizes/` and
+   `README.md` together.
 
 ## Verifying a release
 
