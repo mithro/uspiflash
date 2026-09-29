@@ -1128,11 +1128,11 @@ wheels = [
 
 [[package]]
 name = "spiflash"
-version = "0.0.post74"
+version = "0.0.post92"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/aa/2f/f2c7e8bbfb09a73e665b4008d7560e96a40cbcbc8fa03a48a0e36e6efac1/spiflash-0.0.post74.tar.gz", hash = "sha256:578199a7d5fac1b0b9ef4d4627422566f7ca4d6ec712af9915ecb25ccfe12bd8", size = 355874, upload-time = "2026-09-29T06:03:31.787Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d1/5a/4b4173b0da0d9353a3bec90b6ae55ff7c5e58c805235c682803f68e75c70/spiflash-0.0.post92.tar.gz", hash = "sha256:9e3476ac347e8ebe698d36841a4f602878bff11bfda47dd586227f7be5d94fdb", size = 362279, upload-time = "2026-09-29T08:41:06.992Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f9/88/7610ca8169a436e244a9a36f015c2997092880b7a53cf83ee4fd9d088296/spiflash-0.0.post74-py3-none-any.whl", hash = "sha256:f89b1ebb6de2a02ffe898f695437073399e80bc98a90171c53d91c3cf1a7ac4d", size = 247885, upload-time = "2026-09-29T06:03:30.109Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/d0/c0fd3f596c4a133e0e84f543cb63f6e942d24c73382d3d7fc3f16b69eed6/spiflash-0.0.post92-py3-none-any.whl", hash = "sha256:722b871a9eb41398aaf7de94ea2d157610cb1dd8b2773971b6a760db9f1cf4a2", size = 247612, upload-time = "2026-09-29T08:41:05.679Z" },
 ]
 
 [[package]]

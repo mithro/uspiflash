@@ -28,7 +28,7 @@ file was generated without: the `from:` line and per-opcode sources without
 `sources`, conflicts without `conflicts`, the datasheet line without
 `datasheet`, and the JSON `datasheets`, `records` and records' `at` without
 `datasheets`, `records` and `provenance`. The tests check this against
-spiflash 0.0.post74 (`uspiflash.VERIFIED_SPIFLASH`).
+spiflash 0.0.post92 (`uspiflash.VERIFIED_SPIFLASH`).
 
 One known gap: spiflash's SFDP dumps (the `sfdp:` line of `spiflash id`, and
 the JSON `sfdp` key) are not in the generated file yet. The SFDP milestone

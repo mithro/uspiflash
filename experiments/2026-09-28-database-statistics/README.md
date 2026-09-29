@@ -19,13 +19,15 @@ See `run.py`'s `collect()`. `results/stats.json` also records the
 implementation, OS and machine it ran on. Two runs on the same inputs give
 byte-identical results.
 
-**Result.** From `results/stats.json`, against `spiflash` **0.0.post74**.
+**Result.** From `results/stats.json`, against `spiflash` **0.0.post92**.
 Spec §3 recorded its table from spiflash at commit `0556ad6` (2026-09-27)
 with a throwaway script. **Every §3 number reproduced exactly** from the
 live package at spiflash 0.0.post39 (this experiment's first run, commit
 `bf516da`). spiflash 0.0.post74 added two sources, QEMU and Zephyr, and
 spells out flashrom's suffix-group part names (`S25FL032(A/P)` is
-`S25FL032A` and `S25FL032P`), which moves the counts:
+`S25FL032A` and `S25FL032P`), which moves the counts. The 2026-09-29
+catch-up from 0.0.post74 to 0.0.post92 (the SFDP decoder among other
+changes) moves none of them: every count below is unchanged:
 
 | Quantity | §3 (0.0.post39) | 0.0.post74 | `stats.json` key(s) |
 |---|---|---|---|
