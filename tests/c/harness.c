@@ -7,7 +7,12 @@
 #include USF_HEADER
 #include "harness_names.h"
 
-/* Task 12 replaces this with simchip.h's identical sim_hex. */
+/* The most bytes one command carries (a 256-byte SFDP read, in part D). */
+#define DATA_MAX 256u
+
+/* Parses hex pairs from `s` into `buf`, which holds `max` bytes; returns how
+ * many it wrote, never more than `max`. Task 12 replaces this with
+ * simchip.h's identical sim_hex. */
 static unsigned parse_hex(const char *s, uint8_t *buf, unsigned max)
 {
     unsigned n = 0, v;
@@ -138,12 +143,16 @@ int main(void)
         if (strchr("LATtJ", cmd)) {
             unsigned fam = 0, k;
             static char hex[1024];
-            uint8_t data[256], n, len;
+            uint8_t data[DATA_MAX], n;
+            unsigned len;
             usf_chip chips[USF_LOOKUP_MAX];
             if (sscanf(line + 2, "%u %1023s", &fam, hex) != 2)
                 return 2;
-            len = (uint8_t)parse_hex(hex, data, sizeof data);
-            n = usf_lookup((uint8_t)fam, data, len, chips);
+            len = parse_hex(hex, data, DATA_MAX);
+            /* usf_lookup takes a uint8_t length: pass at most 255 bytes. No
+             * id and extended id together come near that, so the bytes left
+             * out cannot change spiflash's answer. */
+            n = usf_lookup((uint8_t)fam, data, (uint8_t)(len < 255u ? len : 255u), chips);
             if (cmd == 'L') {
                 printf("%u\n", n);
                 for (k = 0; k < n; k++)

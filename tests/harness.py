@@ -87,15 +87,23 @@ def snapshot(config: Config) -> Snapshot:
 
 
 def queries(snap: Snapshot, seed: int = 20260928) -> list[tuple[int, bytes]]:
-    """Every chip id, every extended-id probe, and random near-misses."""
+    """Every chip id, every extended-id probe (also after continuation
+    codes), each id padded to the 255 bytes ``usf_lookup`` takes and to the
+    256 the harness reads, and random near-misses."""
     rng = random.Random(seed)
     out: list[tuple[int, bytes]] = []
     for i in range(snap.n_base):
         f = snap.entries[i].flash
         fam = FAMILIES.index(f.family)
+        cont = b"\x7f" * f.bank
         out.append((fam, f.id))
         out.extend((fam, f.id + p) for p in reaching_probes(snap.ext.get(i, ())))
-        out.append((fam, b"\x7f" * f.bank + f.id))
+        out.append((fam, cont + f.id))
+        if i in snap.ext:
+            # At least one code, so bank-0 chips strip one before narrowing too.
+            lead = cont or b"\x7f"
+            out.extend((fam, lead + f.id + p) for p in reaching_probes(snap.ext[i]))
+        out.extend((fam, f.id.ljust(n, b"\x00")) for n in (255, 256))
     out.extend(
         (rng.randrange(len(FAMILIES)), bytes(rng.randrange(256) for _ in range(rng.randint(1, 6))))
         for _ in range(3000)
