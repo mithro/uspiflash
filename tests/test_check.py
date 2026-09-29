@@ -2,17 +2,34 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import json
+import re
+from typing import TYPE_CHECKING, Any
 
 import spiflash
 
-from uspiflash import __version__
+from uspiflash import VERIFIED_SPIFLASH, __version__
 from uspiflash.cli import main
+from uspiflash.provenance import CONFIG_RE, Config
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     import pytest
+
+
+def _retagged(text: str, data: dict[str, Any]) -> str:
+    """``text``, with its ``uspiflash-config`` JSON replaced by ``data`` and
+    its checksum line recomputed to match: a config that is merely
+    unsupported (not a damaged file), as a genuinely generated one would be."""
+    config = Config.from_json(data)
+    old_config = CONFIG_RE.search(text)
+    assert old_config is not None
+    new_json = json.dumps(config.to_json(), sort_keys=True)
+    text = text[: old_config.start(1)] + new_json + text[old_config.end(1) :]
+    old_digest = re.search(r"sha256 [0-9a-f]{64}", text)
+    assert old_digest is not None
+    return text[: old_digest.start()] + f"sha256 {config.digest()}" + text[old_digest.end() :]
 
 
 def test_a_fresh_file_passes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -56,9 +73,78 @@ def test_every_file_is_checked(tmp_path: Path, capsys: pytest.CaptureFixture[str
 def test_a_config_it_cannot_regenerate_is_an_error(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """A config whose checksum matches it (so it was genuinely produced this
+    way, not tampered with) but names a level this uspiflash no longer
+    knows."""
     out = tmp_path / "uspiflash.h"
     main(["generate", "-o", str(out), "--level", "id"])
-    out.write_text(out.read_text().replace('"level": "id"', '"level": "nonsense"', 1))
+    text = out.read_text()
+    m = CONFIG_RE.search(text)
+    assert m is not None
+    data = json.loads(m.group(1))
+    data["selection"]["level"] = "nonsense"
+    out.write_text(_retagged(text, data))
     capsys.readouterr()
     assert main(["check", str(out)]) == 2
     assert "cannot be regenerated" in capsys.readouterr().out
+
+
+def test_an_ill_typed_config_is_an_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``"fields": 5`` is syntactically valid JSON but not a list: this must
+    not escape as an uncaught ``TypeError``."""
+    out = tmp_path / "uspiflash.h"
+    main(["generate", "-o", str(out), "--level", "id"])
+    text = out.read_text()
+    m = CONFIG_RE.search(text)
+    assert m is not None
+    data = json.loads(m.group(1))
+    data["selection"]["fields"] = 5
+    out.write_text(text.replace(m.group(1), json.dumps(data, sort_keys=True), 1))
+    capsys.readouterr()
+    assert main(["check", str(out)]) == 2
+    assert "cannot be regenerated" in capsys.readouterr().out
+
+
+def test_a_damaged_checksum_is_an_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The embedded JSON was edited (to another perfectly valid level) but
+    the sha256 tag above it was not: that is damage, not staleness."""
+    out = tmp_path / "uspiflash.h"
+    main(["generate", "-o", str(out), "--level", "id"])
+    out.write_text(out.read_text().replace('"level": "id"', '"level": "read"', 1))
+    capsys.readouterr()
+    assert main(["check", str(out)]) == 2
+    assert "checksum mismatch" in capsys.readouterr().out
+
+
+def test_a_missing_file_is_an_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    missing = tmp_path / "missing.h"
+    capsys.readouterr()
+    assert main(["check", str(missing)]) == 2
+    assert f"{missing}: cannot read it" in capsys.readouterr().out
+
+
+def test_a_non_ascii_file_is_an_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    bad = tmp_path / "bad.h"
+    bad.write_bytes(b"/* \xff not ascii */\n")
+    capsys.readouterr()
+    assert main(["check", str(bad)]) == 2
+    assert f"{bad}: cannot read it" in capsys.readouterr().out
+
+
+def test_check_warns_once_when_spiflash_is_not_the_verified_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(spiflash, "__version__", "9.9.post9")
+    a, b = tmp_path / "a.h", tmp_path / "b.h"
+    main(["generate", "-o", str(a), "--level", "id"])
+    main(["generate", "-o", str(b), "--level", "id"])
+    capsys.readouterr()
+    assert main(["check", str(a), str(b)]) == 0
+    captured = capsys.readouterr()
+    assert captured.err == (
+        f"uspiflash: warning: output is verified byte-identical to spiflash "
+        f"{VERIFIED_SPIFLASH}; spiflash 9.9.post9 is installed\n"
+    )
+    assert captured.out == f"{a}: up to date\n{b}: up to date\n"
