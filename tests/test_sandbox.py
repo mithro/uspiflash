@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import shutil
+import subprocess
 
+import pytest
+
+from uspiflash import sandbox
 from uspiflash.sandbox import GIB, Limits, compute_limits, current_limits, main, wrap
-
-if TYPE_CHECKING:
-    import pytest
 
 MEMINFO = "MemTotal:       32000000 kB\nMemAvailable:   20000000 kB\n"
 CALM = "some avg10=0.00 avg60=0.00 avg300=0.00 total=0\n"
@@ -62,6 +63,38 @@ def test_main_with_no_command_does_not_run_anything() -> None:
     assert main([]) == 0
 
 
-def test_main_runs_a_wrapped_command(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["--timeout", "10", "--", "true"]) == 0
-    capsys.readouterr()
+class _FakeCompletedProcess:
+    """A stand-in for ``subprocess.CompletedProcess``: only ``returncode``
+    is read by ``sandbox.main``."""
+
+    def __init__(self, returncode: int) -> None:
+        self.returncode = returncode
+
+
+def test_main_runs_the_wrapped_command_without_starting_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    limits = Limits(2 * GIB, 3)
+    calls: list[list[str]] = []
+
+    def fake_run(argv: list[str], *, check: bool) -> _FakeCompletedProcess:
+        assert check is False
+        calls.append(list(argv))
+        return _FakeCompletedProcess(42)
+
+    monkeypatch.setattr(sandbox, "current_limits", lambda: limits)
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/systemd-run")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assert main(["--timeout", "10", "--", "make", "-j", "{jobs}"]) == 42
+    assert calls == [wrap(["make", "-j", "{jobs}"], limits, 10)]
+
+
+def test_main_refuses_to_run_unsandboxed_when_systemd_run_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sandbox, "current_limits", lambda: Limits(GIB, 1))
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+
+    with pytest.raises(SystemExit):
+        main(["--", "true"])
