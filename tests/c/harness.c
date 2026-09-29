@@ -161,7 +161,10 @@ int main(void)
                 for (k = 0; k < n; k++)
                     dump(&chips[k]);
             }
-            /* Task 10: T/t. */
+#if USF_HAVE_TEXT
+            else if (cmd == 'T' || cmd == 't')
+                usf_print(chips, n, cmd == 'T' ? USF_PRINT_OPCODES : 0, out, NULL);
+#endif
             /* Task 11: J. */
         }
         /* Task 12: P. */

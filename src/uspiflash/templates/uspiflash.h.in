@@ -133,7 +133,15 @@ uint8_t usf_sources(const usf_chip *c);
 uint8_t usf_jep106(uint8_t bank, uint8_t id, usf_putc_fn sink, void *ctx);
 #endif
 
-/* @@API_TEXT@@ @@API_JSON@@ @@API_PROBE@@  (Tasks 10-12 insert here) */
+#if USF_HAVE_TEXT
+/* usf_print's flags: also list the operations, as `spiflash id --opcodes`. */
+#define USF_PRINT_OPCODES 1
+/* Prints exactly what `spiflash id` prints for these answers (n of them,
+ * as usf_lookup() or usf_probe() gave them), trailing newline included. */
+void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink, void *ctx);
+#endif
+
+/* @@API_JSON@@ @@API_PROBE@@  (Tasks 11-12 insert here) */
 
 #ifdef USF_IMPLEMENTATION
 
@@ -536,7 +544,301 @@ uint8_t usf_jep106(uint8_t bank, uint8_t id, usf_putc_fn sink, void *ctx)
 }
 #endif
 
-/* @@IMPL_TEXT@@ @@IMPL_JSON@@ @@IMPL_PROBE@@  (Tasks 10-12 insert here) */
+/* Formatting helpers for the printers. Only the text printer reads them so far:
+ * an unused static function fails -Werror. */
+#if USF_HAVE_TEXT
+static void usf__lit(const char *s, usf_putc_fn sink, void *ctx)
+{
+    while (*s)
+        sink(ctx, *s++);
+}
+
+/* Decimal without division: subtract powers of ten, so CPUs with no divide
+ * instruction pull in no libgcc helper. */
+static const USF_ROM uint32_t usf__p10[10] = {
+    1000000000UL, 100000000UL, 10000000UL, 1000000UL, 100000UL,
+    10000UL, 1000UL, 100UL, 10UL, 1UL,
+};
+
+static void usf__dec(uint32_t v, usf_putc_fn sink, void *ctx)
+{
+    uint8_t i, started = 0;
+    char d;
+    for (i = 0; i < 10; i++) {
+        for (d = '0'; v >= usf__p10[i]; d++)
+            v -= usf__p10[i];
+        if (d != '0' || started || i == 9) {
+            sink(ctx, d);
+            started = 1;
+        }
+    }
+}
+
+static void usf__hex8(uint8_t v, usf_putc_fn sink, void *ctx)
+{
+    static const USF_ROM char digits[] = "0123456789abcdef";
+    sink(ctx, digits[v >> 4]);
+    sink(ctx, digits[v & 15]);
+}
+
+/* <ident> as the text header shows it, or `id`/`jedec_id` for JSON. */
+static void usf__idhex(const usf_chip *c, uint8_t bank, usf_putc_fn sink, void *ctx)
+{
+    uint8_t buf[USF_ID_MAX], i, n = usf_id(c, buf);
+    for (; bank; bank--)
+        usf__lit("7f", sink, ctx);
+    for (i = 0; i < n; i++)
+        usf__hex8(buf[i], sink, ctx);
+}
+
+#if USF_CONF_COUNT
+/* Conflict value `i` of integer attribute `attr` (0 size, 1 page, 2 sector).
+ * A value table with no rows has no conflicts either. */
+static uint32_t usf__confint(uint8_t attr, uint8_t i)
+{
+#if USF_SIZE_COUNT
+    if (attr == 0)
+        return usf__u32(usf__sizes + 4 * i);
+#endif
+#if USF_PAGE_COUNT
+    if (attr == 1)
+        return usf__u16(usf__pages + 2 * i);
+#endif
+#if USF_SECTOR_COUNT
+    if (attr == 2)
+        return usf__u32(usf__sectors + 4 * i);
+#endif
+    (void)attr;
+    (void)i;
+    return 0;
+}
+#endif
+#endif
+
+#if USF_HAVE_TEXT
+/* Writes the i-th pool string of a fixed OFF array (featnames, ...). */
+static void usf__name(usf__p names, uint8_t i, usf_putc_fn sink, void *ctx)
+{
+    usf__puts(usf__off(names + USF_OFF_BYTES * i), sink, ctx);
+}
+
+#if USF_HAVE_SOURCES
+static void usf__srclist(uint8_t mask, const char *sep, usf_putc_fn sink, void *ctx)
+{
+    uint8_t i, first = 1;
+    for (i = 0; mask; i++, mask >>= 1)
+        if (mask & 1) {
+            if (!first)
+                usf__lit(sep, sink, ctx);
+            usf__name(usf__srcnames, i, sink, ctx);
+            first = 0;
+        }
+}
+#endif
+
+static void usf__human(uint32_t n, usf_putc_fn sink, void *ctx)
+{
+    static const USF_ROM char units[] = "GMK";
+    uint8_t u, shift = 30;
+    for (u = 0; u < 3; u++, shift = (uint8_t)(shift - 10)) {
+        uint32_t scale = (uint32_t)1 << shift;
+        if (n >= scale && !(n & (scale - 1))) {
+            usf__dec(n >> shift, sink, ctx);
+            sink(ctx, ' ');
+            sink(ctx, units[u]);
+            usf__lit("iB", sink, ctx);
+            return;
+        }
+    }
+    usf__dec(n, sink, ctx);
+    usf__lit(" B", sink, ctx);
+}
+
+/* Millivolts as Python's "%g" of volts: 2700 -> 2.7, 3000 -> 3. */
+static void usf__volt(uint16_t mv, usf_putc_fn sink, void *ctx)
+{
+    uint8_t whole = 0;
+    char d;
+    while (mv >= 1000) {
+        mv = (uint16_t)(mv - 1000);
+        whole++;
+    }
+    usf__dec(whole, sink, ctx);
+    if (mv)
+        sink(ctx, '.');
+    while (mv) {           /* hundreds, tens, units, stopping at trailing zeros */
+        for (d = '0'; mv >= 100; d++)
+            mv = (uint16_t)(mv - 100);
+        sink(ctx, d);
+        mv = (uint16_t)(mv * 10);
+    }
+}
+#endif
+
+#if USF_HAVE_TEXT
+#if USF_OP_COUNT
+/* strlen of a pool string (op names are at most 18 characters). */
+static uint8_t usf__len(usf__off_t off)
+{
+    usf__p s = usf__str + off;
+    uint8_t n = 0;
+    while (s[n])
+        n++;
+    return n;
+}
+#endif
+
+#if USF_CONF_COUNT
+/* Conflict value `i` of attribute `attr` (0 size, 1 page, 2 sector, 3 voltage). */
+static void usf__value(uint8_t attr, uint8_t i, usf_putc_fn sink, void *ctx)
+{
+#if USF_VOLT_COUNT
+    if (attr == 3) {
+        sink(ctx, '(');
+        usf__dec(usf__u16(usf__volts + 4 * i), sink, ctx);
+        usf__lit(", ", sink, ctx);
+        usf__dec(usf__u16(usf__volts + 4 * i + 2), sink, ctx);
+        sink(ctx, ')');
+        return;
+    }
+#endif
+    usf__dec(usf__confint(attr, i), sink, ctx);
+}
+#endif
+
+static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, void *ctx)
+{
+    uint8_t i, n;
+    uint16_t lo, hi;
+    uint32_t v;
+#if USF_OP_COUNT
+    uint8_t w;
+    usf__p item, row;
+#endif
+#if USF_CONF_COUNT
+    usf__p p;
+    uint16_t off;
+#endif
+
+    /* <ident>  <manufacturer>  <names>  (<type>) */
+    if (usf_family(c) == USF_FAMILY_JEDEC) {
+        usf__idhex(c, usf_bank(c), sink, ctx);
+    } else {
+        usf__name(usf__famnames, usf_family(c), sink, ctx);
+        sink(ctx, ':');
+        usf__idhex(c, 0, sink, ctx);
+    }
+    usf__lit("  ", sink, ctx);
+    if (!usf_manufacturer(c, sink, ctx))
+        sink(ctx, '?');
+    usf__lit("  ", sink, ctx);
+    for (i = 0, n = usf_name_count(c); i < n; i++) {
+        if (i)
+            usf__lit(", ", sink, ctx);
+        usf_name(c, i, sink, ctx);
+    }
+    usf__lit("  (", sink, ctx);
+    usf__name(usf__typenames, usf_type(c), sink, ctx);
+
+    /* size, page, sector, voltage */
+    usf__lit(")\n    size ", sink, ctx);
+    if ((v = usf_size(c)) != 0)
+        usf__human(v, sink, ctx);
+    else
+        sink(ctx, '?');
+    if ((v = usf_page_size(c)) != 0) {
+        usf__lit(", page ", sink, ctx);
+        usf__human(v, sink, ctx);
+    }
+    if ((v = usf_sector_size(c)) != 0) {
+        usf__lit(", sector ", sink, ctx);
+        usf__human(v, sink, ctx);
+    }
+    if (usf_voltage(c, &lo, &hi)) {
+        usf__lit(", ", sink, ctx);
+        usf__volt(lo, sink, ctx);
+        sink(ctx, '-');
+        usf__volt(hi, sink, ctx);
+        usf__lit(" V", sink, ctx);
+    }
+
+    /* features: in FEATURES order, which is sorted by name */
+    for (i = 0, n = 0; i < USF_FEATURE_COUNT; i++)
+        if (usf_has_feature(c, i)) {
+            usf__lit(n++ ? " " : "\n    features: ", sink, ctx);
+            usf__name(usf__featnames, i, sink, ctx);
+        }
+
+#if USF_CONF_COUNT
+    /* sources disagree on <attr>: <v> (<srcs>); ... (CONFLICTS needs SOURCES) */
+    off = usf__u16(usf__row(c) + USF_E_CONF);
+    if (off != 0xFFFF)
+        for (p = usf__conflicts + off; *p != 0xFF;) {
+            uint8_t attr = *p++, k = *p++;
+            usf__lit("\n    sources disagree on ", sink, ctx);
+            usf__name(usf__attrnames, attr, sink, ctx);
+            usf__lit(": ", sink, ctx);
+            for (i = 0; i < k; i++, p += 2) {
+                if (i)
+                    usf__lit("; ", sink, ctx);
+                usf__value(attr, p[0], sink, ctx);
+                usf__lit(" (", sink, ctx);
+                usf__srclist(p[1], ", ", sink, ctx);
+                sink(ctx, ')');
+            }
+        }
+#endif
+#if USF_HAVE_SOURCES
+    usf__lit("\n    from: ", sink, ctx);
+    usf__srclist(usf_sources(c), ", ", sink, ctx);
+#endif
+
+    if (!(flags & USF_PRINT_OPCODES))
+        return;
+    usf__lit("\n    opcodes:", sink, ctx);
+    n = usf_op_count(c);
+    if (!n)
+        usf__lit("\n    no opcodes known (the sources describe none for this part)", sink, ctx);
+#if USF_OP_COUNT
+    for (i = 0, w = 0; i < n; i++) {             /* the name column's width */
+        uint8_t l = usf__len(usf__off(usf__oprow(usf__opitem(c, i)) + USF_OP_NAME));
+        if (l > w)
+            w = l;
+    }
+    for (i = 0; i < n; i++) {
+        uint8_t l;
+        item = usf__opitem(c, i);
+        row = usf__oprow(item);
+        usf__lit("\n    0x", sink, ctx);
+        usf__hex8(row[1], sink, ctx);
+        usf__lit("  ", sink, ctx);
+        usf__puts(usf__off(row + USF_OP_NAME), sink, ctx);
+        for (l = usf__len(usf__off(row + USF_OP_NAME)); l < w; l++)
+            sink(ctx, ' ');
+        usf__lit("  ", sink, ctx);
+        usf__puts(usf__off(row + USF_OP_NAME + USF_OFF_BYTES), sink, ctx);
+#if USF_HAVE_SOURCES
+        usf__lit("  [", sink, ctx);
+        usf__srclist(item[1], ", ", sink, ctx);
+        sink(ctx, ']');
+#endif
+    }
+#endif
+}
+
+void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink, void *ctx)
+{
+    uint8_t i;
+    for (i = 0; i < n; i++) {
+        if (i)
+            usf__lit("\n\n", sink, ctx);
+        usf__describe(&chips[i], flags, sink, ctx);
+    }
+    sink(ctx, '\n');
+}
+#endif
+
+/* @@IMPL_JSON@@ @@IMPL_PROBE@@  (Tasks 11-12 insert here) */
 
 #endif /* USF_IMPLEMENTATION */
 

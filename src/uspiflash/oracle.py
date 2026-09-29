@@ -6,12 +6,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from spiflash.cli import describe
 from spiflash.enums import DataPhase
 
 from . import layout
 from .levels import Field
 
 if TYPE_CHECKING:
+    from spiflash.db import Database
+    from spiflash.enums import IdFamily
     from spiflash.model import Flash
 
     from .levels import Selection
@@ -54,3 +57,24 @@ def accessors(flash: Flash, sel: Selection) -> str:
                 f"bytes={op.data_bytes or 0} src={src}{desc}"
             )
     return "\n".join(out) + "\n"
+
+
+def text(db: Database, family: IdFamily, data: bytes, sel: Selection, *, opcodes: bool) -> str:
+    """What `spiflash id <data> --method <family> [--opcodes]` prints, less
+    what ``sel`` leaves out."""
+    blocks = []
+    for f in db.lookup(data, method=family):
+        lines = []
+        for line in describe(f, opcodes=opcodes).split("\n"):
+            if line.startswith("    from: ") and not sel.has(Field.SOURCES):
+                continue
+            if line.startswith("    sources disagree on ") and not sel.has(Field.CONFLICTS):
+                continue
+            if line.startswith("    datasheet: ") and not sel.has(Field.DATASHEET):
+                continue
+            kept = line
+            if line.startswith("    0x") and not sel.has(Field.SOURCES):
+                kept = line[: line.rindex("  [")]
+            lines.append(kept)
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks) + "\n"
