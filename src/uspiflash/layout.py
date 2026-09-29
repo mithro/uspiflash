@@ -16,16 +16,17 @@ Conventions
   (:data:`SOURCES`: flashrom, flashprog, linux, u-boot, openocd,
   openfpgaloader, spiflash's priority order).
 - A **blob table** (``opsets``, ``namelists``, ``conflicts``, ``ext``,
-  ``records``) is a run of variable-length blobs, each stored once however
+  ``records``, ``dslists``) is a run of variable-length blobs, each stored once however
   many entries share it; entries point at a blob by its ``u16`` offset.
 - A table is present (a key of :attr:`Layout.tables`) exactly when the
   code compiled for the selection reads it: with the field(s) in parentheses
   after its name. So the C file never holds a table nothing uses (which
   ``-Wunused-const-variable`` would reject).
 - **Counted tables.** ``sizes``, ``pages``, ``sectors``, ``volts``,
-  ``mfrs``, ``ops`` (with ``opsets``), ``ext`` and ``conflicts`` can have no
-  rows in a filtered snapshot (a ``--type nand`` one has no voltages,
-  operations, extended ids or conflicts). The C code that indexes such a
+  ``mfrs``, ``ops`` (with ``opsets``), ``ext``, ``conflicts`` and
+  ``dsrows`` (with ``dslists``) can have no rows in a filtered snapshot (a
+  ``--type nand`` one has no voltages, operations, extended ids or
+  conflicts; a chip may have no datasheet). The C code that indexes such a
   table is compiled only when it has rows (``<NAME>_COUNT``, below), so a
   table with none is left out: nothing reads it, and no compiler sees an
   index into an empty array. The C emitter still pads any 0-byte table to
@@ -90,11 +91,27 @@ Tables
 ``jep106`` (JEP106)
     ``JEP106_COUNT`` rows, sorted by (bank, id): bank, id (with its parity
     bit, as a chip sends it), name ``OFF``.
+``dsrows`` (DATASHEET or DATASHEETS)
+    ``DS_ROW`` bytes per stored datasheet, sorted by URL: URL ``OFF``; then,
+    with DATASHEETS, title ``OFF``, revision ``OFF`` (``NONE_OFF`` = none),
+    ``u16`` year (0 = no date), month, day, and official (0 or 1). Title and
+    revision are stored JSON-escaped (below). ``DS_COUNT`` rows: with
+    DATASHEETS every datasheet of a chip, with DATASHEET alone only each
+    chip's best (the one the text line prints).
+``dslists`` (DATASHEET or DATASHEETS)
+    Blobs: ``n``, then ``n x`` (``u16`` row index in ``dsrows``, and with
+    DATASHEETS id confirmed, 0 or 1: whether the document gives the chip's
+    id), best first as spiflash ranks them. With DATASHEET alone ``n`` is at
+    most 1.
 ``str`` (whenever compiled code reads a string, :func:`reads_strings`)
     NUL-terminated printable-ASCII strings with no ``"`` or ``\\``, each
     stored once. The readers are MANUFACTURER (with ``mfrs``), NAMES,
-    DESCRIPTIONS (with ``ops``), TEXT, JSON (so RECORDS and PROVENANCE) and
-    JEP106.
+    DESCRIPTIONS (with ``ops``), TEXT (so DATASHEET), JSON (so RECORDS,
+    PROVENANCE and DATASHEETS) and JEP106. The one exception to the
+    character rule: datasheet titles and revisions, which only JSON prints,
+    are stored as ``json.dumps`` writes them between the quotes (ASCII, with
+    ``\\u00d7``-style escapes; :meth:`StringPool.add_json`). URLs follow the
+    rule.
 Name arrays
     ``OFF`` arrays holding each member's value (``str(member)``: ``"nor"``,
     ``"u-boot"``, ``"erase_4k"``), for the printers (:func:`name_arrays`):
@@ -117,19 +134,22 @@ Present only with their table, in this order, packed:
   indices into ``sizes``, ``pages``, ``sectors``, ``volts``, ``featsets`` and
   ``mfrs``; ``0xFF`` = unknown (``E_FEAT`` is never ``0xFF``).
 - ``E_SRCS``: a source mask (who has an entry for the chip).
-- ``E_NAMES``, ``E_OPS``, ``E_CONF``, ``E_EXT`` and ``E_RECS``: ``u16``
-  offsets into ``namelists``, ``opsets``, ``conflicts``, ``ext`` and
-  ``records``; ``0xFFFF`` = none. ``E_CONF`` is present exactly when the
+- ``E_NAMES``, ``E_OPS``, ``E_CONF``, ``E_EXT``, ``E_RECS`` and ``E_DS``:
+  ``u16`` offsets into ``namelists``, ``opsets``, ``conflicts``, ``ext``,
+  ``records`` and ``dslists``; ``0xFFFF`` = none. ``E_DS`` is present with
+  DATASHEET or DATASHEETS (even when ``DS_COUNT`` is 0 and nothing reads
+  it, as ``E_OPS`` is when ``OP_COUNT`` is). ``E_CONF`` is present exactly when the
   ``conflicts`` table is: conflicts are only ever printed, so selecting
   CONFLICTS without a printer adds nothing. It is none for a chip without
   conflicts, ``E_EXT`` for a chip without extended ids and for every variant;
   the others always point at a blob (an empty list is a blob with count 0).
 
 The generator raises :exc:`ValueError` if any index exceeds 254, any offset
-exceeds 0xFFFE, any value overflows its field, or ``entries`` or ``ops`` is
-over 65,535 bytes (the C computes a row's offset as ``(uint16_t)(entry *
-ENTRY_SIZE)``, and likewise with ``OP_SIZE``). M4 revisits widths with
-measurements.
+exceeds 0xFFFE, any value overflows its field, the pool reaches
+``NONE_OFF`` bytes, two datasheets share a URL, or ``entries``, ``ops`` or
+``dsrows`` is over 65,535 bytes (the C computes a row's offset as
+``(uint16_t)(entry * ENTRY_SIZE)``, and likewise with ``OP_SIZE`` and
+``DS_ROW``). M4 revisits widths with measurements.
 
 Lookup
 ------
@@ -163,7 +183,12 @@ Constants for the C template, in :attr:`Layout.defines`:
 - the row counts of the counted tables, 0 when the table is absent:
   ``SIZE_COUNT``, ``PAGE_COUNT``, ``SECTOR_COUNT``, ``VOLT_COUNT``,
   ``MFR_COUNT``, ``OP_COUNT`` (rows of ``ops``), ``EXT_COUNT`` and
-  ``CONF_COUNT`` (blobs of ``ext`` and ``conflicts``);
+  ``CONF_COUNT`` (blobs of ``ext`` and ``conflicts``) and ``DS_COUNT``
+  (rows of ``dsrows``);
+- with DATASHEET or DATASHEETS: ``DS_ROW`` (the ``dsrows`` row size),
+  ``DS_ITEM`` (a ``dslists`` item's size: 2, or 3 with DATASHEETS) and
+  ``NONE_OFF`` (``2 ** (8 * OFF_BYTES) - 1``, which no real offset
+  reaches: the generator refuses a pool that large);
 - ``LOOKUP_MAX``: ``HAVE_NOR + HAVE_NAND``, the most answers a lookup can
   give (the size of ``usf_lookup``'s output array);
 - ``RDID_LEN``: the bytes the probe reads for RDID: max(6, the longest bank +
@@ -180,6 +205,7 @@ Constants for the C template, in :attr:`Layout.defines`:
 
 from __future__ import annotations
 
+import json
 import string
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -193,7 +219,7 @@ from .model import FAMILIES
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from spiflash.model import Flash
+    from spiflash.model import Datasheet, Flash
 
     from .levels import Selection
     from .model import Snapshot
@@ -233,9 +259,20 @@ class StringPool:
             raise ValueError(msg)
 
     def add(self, s: str) -> int:
-        """The offset of ``s``, adding it if new."""
+        """The offset of ``s``, adding it if new. Checked every time, so an
+        escaped string :meth:`add_json` stored is never handed out as raw text."""
+        self.check(s)
+        return self._store(s)
+
+    def add_json(self, s: str) -> int:
+        """The offset of ``s`` as a JSON string's body (``json.dumps(s)``
+        without its quotes: ASCII, already escaped), adding it if new. For
+        strings that only ever appear inside JSON quotes; plain printable
+        ASCII is its own body, so it shares :meth:`add`'s copy."""
+        return self._store(json.dumps(s)[1:-1])
+
+    def _store(self, s: str) -> int:
         if s not in self._at:
-            self.check(s)
             self._at[s] = len(self._data)
             self._data += s.encode("ascii") + b"\0"
         return self._at[s]
@@ -363,7 +400,13 @@ def name_arrays(
 
 
 def _strings(
-    snap: Snapshot, sel: Selection, pool: StringPool, ops: tuple[str, ...], *, conflicts: bool
+    snap: Snapshot,
+    sel: Selection,
+    pool: StringPool,
+    ops: tuple[str, ...],
+    sheets: tuple[Datasheet, ...],
+    *,
+    conflicts: bool,
 ) -> None:
     """Pass 1: every string, so the pool's size (hence offset width) is known."""
     has = sel.has
@@ -389,6 +432,31 @@ def _strings(
     if has(Field.JEP106):
         for m in snap.database.manufacturers:
             pool.add(m.name)
+    for d in sheets:
+        pool.add(d.url)
+        if has(Field.DATASHEETS):
+            pool.add_json(d.title)
+            if d.revision is not None:
+                pool.add_json(d.revision)
+
+
+def _datasheets(f: Flash, sel: Selection) -> tuple[Datasheet, ...]:
+    """The datasheets of ``f`` that ``sel`` stores: all of them with
+    DATASHEETS, the best alone with DATASHEET (the text line), else none."""
+    if sel.has(Field.DATASHEETS):
+        return f.datasheets
+    return f.datasheets[:1] if sel.has(Field.DATASHEET) else ()
+
+
+def _sheets(snap: Snapshot, sel: Selection) -> tuple[Datasheet, ...]:
+    """The ``dsrows`` rows: each distinct stored datasheet, sorted by URL."""
+    by_url: dict[str, Datasheet] = {}
+    for e in snap.entries:
+        for d in _datasheets(e.flash, sel):
+            if by_url.setdefault(d.url, d) != d:
+                msg = f"two datasheets share the URL {d.url}"
+                raise ValueError(msg)
+    return tuple(by_url[u] for u in sorted(by_url))
 
 
 def _int_values(snap: Snapshot, attr: str) -> tuple[int, ...]:
@@ -430,21 +498,22 @@ def _value(attr: str, v: object) -> object:
     return v
 
 
-#: Entry fields: name, width, the field that makes them present.
-_ENTRY_FIELDS: tuple[tuple[str, int, Field], ...] = (
-    ("BANK", 1, Field.IDENT),
-    ("SIZE", 1, Field.SIZE),
-    ("PAGE", 1, Field.PAGE_SIZE),
-    ("SECTOR", 1, Field.SECTOR_SIZE),
-    ("VOLT", 1, Field.VOLTAGE),
-    ("FEAT", 1, Field.FEATURES),
-    ("MFR", 1, Field.MANUFACTURER),
-    ("SRCS", 1, Field.SOURCES),
-    ("NAMES", 2, Field.NAMES),
-    ("OPS", 2, Field.OPERATIONS),
-    ("CONF", 2, Field.CONFLICTS),  # only with a printer: stores_conflicts()
-    ("EXT", 2, Field.EXT),
-    ("RECS", 2, Field.RECORDS),
+#: Entry fields: name, width, the fields that make them present (any of them).
+_ENTRY_FIELDS: tuple[tuple[str, int, frozenset[Field]], ...] = (
+    ("BANK", 1, frozenset({Field.IDENT})),
+    ("SIZE", 1, frozenset({Field.SIZE})),
+    ("PAGE", 1, frozenset({Field.PAGE_SIZE})),
+    ("SECTOR", 1, frozenset({Field.SECTOR_SIZE})),
+    ("VOLT", 1, frozenset({Field.VOLTAGE})),
+    ("FEAT", 1, frozenset({Field.FEATURES})),
+    ("MFR", 1, frozenset({Field.MANUFACTURER})),
+    ("SRCS", 1, frozenset({Field.SOURCES})),
+    ("NAMES", 2, frozenset({Field.NAMES})),
+    ("OPS", 2, frozenset({Field.OPERATIONS})),
+    ("CONF", 2, frozenset({Field.CONFLICTS})),  # only with a printer: stores_conflicts()
+    ("EXT", 2, frozenset({Field.EXT})),
+    ("RECS", 2, frozenset({Field.RECORDS})),
+    ("DS", 2, frozenset({Field.DATASHEET, Field.DATASHEETS})),
 )
 #: Each conflict attribute's value table.
 _ATTR_TABLE = {"size": "sizes", "page_size": "pages", "sector_size": "sectors", "voltage": "volts"}
@@ -457,15 +526,25 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     ops = tuple(n for n in ALL_OPS if has(Field.OPERATIONS) and n in used)
     with_conflicts = stores_conflicts(sel)
     any_conflicts = with_conflicts and any(e.flash.conflicts for e in snap.entries)
+    with_ds = has(Field.DATASHEET) or has(Field.DATASHEETS)
+    sheets = _sheets(snap, sel)
     pool = StringPool()
-    _strings(snap, sel, pool, ops, conflicts=any_conflicts)
+    _strings(snap, sel, pool, ops, sheets, conflicts=any_conflicts)
     pool_size = len(pool.data)
     lay = Layout(sel, snap, off_bytes=2 if pool_size < NONE16 else 3, ops=ops)
+    none_off = (1 << 8 * lay.off_bytes) - 1
+    if pool_size >= none_off:
+        msg = f"the string pool is {pool_size} bytes, over {none_off - 1}"
+        raise ValueError(msg)
     tables, defines, values = lay.tables, lay.defines, lay.values
     bases = [snap.entries[i].flash for i in range(snap.n_base)]
 
     def off(s: str) -> bytes:
         return pool.add(s).to_bytes(lay.off_bytes, "little")
+
+    def off_json(s: str | None) -> bytes:
+        at = none_off if s is None else pool.add_json(s)
+        return at.to_bytes(lay.off_bytes, "little")
 
     # ids
     ids = bytearray()
@@ -550,6 +629,24 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
             blob += b"".join(_u16(m) + _u16(variants[m]) for m in sorted(variants))
             ext_at[i] = ext.add(blob)
 
+    # dsrows (and dslists, per entry below)
+    dslists = _Blobs("dslists")
+    sheet_row = {d.url: i for i, d in enumerate(sheets)}
+    if with_ds:
+        ds_rows = bytearray()
+        for d in sheets:
+            ds_rows += off(d.url)
+            if has(Field.DATASHEETS):
+                ds_rows += off_json(d.title) + off_json(d.revision)
+                ds_rows += _uint(d.date.year if d.date else 0, 2, "year")
+                ds_rows += bytes([d.date.month, d.date.day]) if d.date else b"\0\0"
+                ds_rows += _u8(int(d.official))
+        tables["dsrows"] = _row_table("dsrows", bytes(ds_rows))
+        # url; with DATASHEETS title, revision, year u16, month, day, official
+        defines["DS_ROW"] = (3 * lay.off_bytes + 5) if has(Field.DATASHEETS) else lay.off_bytes
+        defines["DS_ITEM"] = 3 if has(Field.DATASHEETS) else 2
+        defines["NONE_OFF"] = none_off
+
     rows = bytearray()
     for i, e in enumerate(snap.entries):
         f = e.flash
@@ -599,12 +696,24 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
                 if has(Field.PROVENANCE):
                     recs += off(r.url)
             row += _u16(records.add(bytes(recs)))
+        if with_ds:
+            ds = _datasheets(f, sel)
+            row += _u16(
+                dslists.add(
+                    _u8(len(ds))
+                    + b"".join(
+                        _u16(sheet_row[d.url])
+                        + (_u8(f.key in d.confirmed) if has(Field.DATASHEETS) else b"")
+                        for d in ds
+                    )
+                )
+            )
         rows += row
 
     # Entry offsets.
     at = 0
-    for name, width, fld in _ENTRY_FIELDS:
-        if (has(fld) and (name != "CONF" or with_conflicts)) or name == "BANK":
+    for name, width, flds in _ENTRY_FIELDS:
+        if (sel.fields & flds and (name != "CONF" or with_conflicts)) or name == "BANK":
             defines[f"E_{name}"] = at
             at += width
     defines["ENTRY_SIZE"] = at
@@ -618,6 +727,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         (conflicts, with_conflicts),
         (ext, has(Field.EXT)),
         (records, has(Field.RECORDS)),
+        (dslists, with_ds),
     ):
         if present:
             tables[blobs.name] = bytes(blobs.data)
@@ -647,6 +757,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         "OP_COUNT": ("ops", len(ops)),
         "EXT_COUNT": ("ext", len(ext)),
         "CONF_COUNT": ("conflicts", len(conflicts)),
+        "DS_COUNT": ("dsrows", len(sheets)),
     }
     for name, (table, n) in counts.items():
         defines[name] = n
@@ -654,6 +765,8 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
             tables.pop(table, None)
     if not ops:
         tables.pop("opsets", None)
+    if not sheets:
+        tables.pop("dslists", None)
 
     # Defines.
     defines["ENTRY_COUNT"] = len(snap.entries)

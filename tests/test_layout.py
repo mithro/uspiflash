@@ -54,6 +54,10 @@ def expected(sel: Selection, flash: Flash) -> dict[str, object]:
             a: [(tuple(v) if isinstance(v, tuple) else v, list(s)) for v, s in vals.items()]
             for a, vals in flash.conflicts.items()
         }
+    if sel.has(Field.DATASHEET) or sel.has(Field.DATASHEETS):
+        every = sel.has(Field.DATASHEETS)
+        ds = flash.datasheets if every else flash.datasheets[:1]
+        out["datasheets"] = [(d.url, flash.key in d.confirmed if every else None) for d in ds]
     return out
 
 
@@ -69,6 +73,60 @@ def test_every_entry_round_trips(snap: Snapshot, level: str) -> None:
     lay = layout.build(snap, sel)
     for i, e in enumerate(snap.entries):
         assert ordered(decode.entry(lay, i)) == ordered(expected(sel, e.flash)), (level, i)
+
+
+@pytest.mark.parametrize(
+    "extras", [["datasheet"], ["datasheets"], ["datasheet", "datasheets"]], ids="+".join
+)
+def test_every_entry_round_trips_with_datasheets(snap: Snapshot, extras: list[str]) -> None:
+    sel = Selection.make("full", with_=extras)
+    lay = layout.build(snap, sel)
+    for i, e in enumerate(snap.entries):
+        assert ordered(decode.entry(lay, i)) == ordered(expected(sel, e.flash)), (extras, i)
+    assert any(e.flash.datasheets for e in snap.entries)
+
+
+def test_datasheet_alone_stores_only_the_best(snap: Snapshot) -> None:
+    """The text line prints a chip's best datasheet only, so without
+    DATASHEETS the others (and their URLs) are not stored."""
+    best = {e.flash.datasheets[0].url for e in snap.entries if e.flash.datasheets}
+    every = {d.url for e in snap.entries for d in e.flash.datasheets}
+    one = layout.build(snap, Selection.make("full", with_=["datasheet"]))
+    assert one.defines["DS_COUNT"] == len(best) < len(every)
+    assert one.defines["DS_ROW"] == one.off_bytes
+    assert one.defines["DS_ITEM"] == 2
+    pool = set(one.tables["str"].split(b"\0"))
+    assert {u.encode() for u in best} <= pool
+    assert not {u.encode() for u in every - best} & pool
+    both = layout.build(snap, Selection.make("full", with_=["datasheet", "datasheets"]))
+    assert both.defines["DS_COUNT"] == len(every)
+    assert both.defines["DS_ROW"] == 3 * both.off_bytes + 5
+    assert both.defines["DS_ITEM"] == 3
+    assert len(both.tables["dsrows"]) == both.defines["DS_ROW"] * len(every)
+    assert both.defines["NONE_OFF"] == (1 << 8 * both.off_bytes) - 1
+    assert len(both.tables["str"]) < both.defines["NONE_OFF"]
+
+
+def test_datasheet_tables_are_left_out_when_no_chip_has_one() -> None:
+    """``dsrows`` and ``dslists`` are counted tables: with no datasheet among
+    the chips both go, and DS_COUNT is 0; ``E_DS`` stays, as ``E_OPS`` does."""
+    bare = next(f for f in database().flashes if not f.datasheets)
+    chips = ChipFilter(ids=(bare.id,), types=(bare.type,), families=(bare.family,))
+    one = Snapshot.build(chips.apply(database()))
+    lay = layout.build(one, Selection.make("full", with_=["datasheet", "datasheets"]))
+    assert lay.defines["DS_COUNT"] == 0
+    assert not {"dsrows", "dslists"} & lay.tables.keys()
+    assert "E_DS" in lay.defines
+    assert all(decode.entry(lay, i)["datasheets"] == [] for i in range(len(one.entries)))
+
+
+def test_without_datasheets_no_datasheet_is_stored(snap: Snapshot) -> None:
+    lay = layout.build(snap, Selection.make("full", with_=["records"]))
+    assert lay.defines["DS_COUNT"] == 0
+    assert "E_DS" not in lay.defines
+    assert not {"DS_ROW", "DS_ITEM", "NONE_OFF"} & lay.defines.keys()
+    urls = {d.url.encode() for e in snap.entries for d in e.flash.datasheets}
+    assert not urls & set(lay.tables["str"].split(b"\0"))
 
 
 @pytest.mark.parametrize("level", ["read", "full"])
@@ -181,6 +239,10 @@ _FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrna
         # CONFLICTS without a printer adds nothing itself (no conflicts, no
         # attrnames); only VOLTAGE, which it requires, adds volts.
         ("write", ["conflicts"], _WRITE_TABLES | {"volts"}),
+        # Datasheets: the text line and the JSON list each read both tables.
+        ("full", ["datasheet"], _FULL_TABLES | {"dsrows", "dslists"}),
+        ("full", ["datasheets"], _FULL_TABLES | {"dsrows", "dslists"}),
+        ("describe", ["datasheet"], _DESCRIBE_TABLES | {"dsrows", "dslists"}),
     ],
 )
 def test_exactly_the_tables_compiled_code_reads(
@@ -276,6 +338,7 @@ _COUNTED = {
     "OP_COUNT": "ops",
     "EXT_COUNT": "ext",
     "CONF_COUNT": "conflicts",
+    "DS_COUNT": "dsrows",
 }
 
 
@@ -284,13 +347,14 @@ def test_a_counted_table_without_rows_is_left_out(keep: FlashType) -> None:
     """Code indexing a counted table is compiled only when it has rows, so
     an empty one (and what only that code reads) is not emitted."""
     one = Snapshot.build(ChipFilter(types=(keep,)).apply(database()))
-    lay = layout.build(one, Selection.make("full", with_=["records", "jep106"]))
+    lay = layout.build(one, Selection.make("full", with_=["records", "jep106", "datasheets"]))
     d = lay.defines
     assert d["LOOKUP_MAX"] == 1
     for count, table in _COUNTED.items():
         assert (table in lay.tables) == (d[count] > 0), count
     assert ("opsets" in lay.tables) == ("kindnames" in lay.tables) == (d["OP_COUNT"] > 0)
     assert ("attrnames" in lay.tables) == (d["CONF_COUNT"] > 0)
+    assert ("dslists" in lay.tables) == (d["DS_COUNT"] > 0)
     if keep is FlashType.NAND:
         # No NAND chip has a voltage, an operation, an extended id or a conflict.
         assert [d[c] for c in ("VOLT_COUNT", "OP_COUNT", "EXT_COUNT", "CONF_COUNT")] == [0] * 4
