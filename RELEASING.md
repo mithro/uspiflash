@@ -145,8 +145,8 @@ move it:
        clang-19 llvm-19 gcc libc6-dev python3 ca-certificates git curl
      curl -LsSf https://astral.sh/uv/install.sh | sh
      git config --global --add safe.directory /w
-     ~/.local/bin/uv run uspiflash measure --write
-     chown -R "$(stat -c %u:%g /w)" sizes README.md'
+     ~/.local/bin/uv run --locked uspiflash measure --write
+     chown -R "$(stat -c %u:%g /w)" /w'
    ```
 
 4. Commit the digest and the regenerated `sizes/` and `README.md` together.
