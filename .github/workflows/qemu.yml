@@ -6,7 +6,7 @@ name: QEMU
 # See tools/qemu/README.md.
 #
 # Its own workflow, not part of deb.yml: it is slow, it runs only when the
-# tool, the templates or the QEMU setup change (and on every push to main),
+# tool, the generator or the QEMU setup change (and on every push to main),
 # and it never holds up publishing (publish-pypi.yml follows deb.yml only).
 
 on:
@@ -18,7 +18,10 @@ on:
       - "tools/qemu/**"
       - "tests/linux/**"
       - "tests/test_qemu.py"
-      - "src/uspiflash/templates/**"
+      - "tests/harness.py"
+      - "src/uspiflash/**"
+      - "pyproject.toml"
+      - "uv.lock"
       - ".github/workflows/qemu.yml"
   workflow_dispatch:
 
@@ -40,9 +43,38 @@ jobs:
 
       - uses: astral-sh/setup-uv@v7
 
+      # The image (about 720 MB) is tagged with a hash of its inputs, and
+      # run.py uses an image of that tag as it is. The key names the same
+      # inputs: the Dockerfile, run.py (the pins) and ledger.py (IMAGE and
+      # SNAPSHOT).
+      - name: Restore the image
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: tmp/qemu-image.tar
+          key: qemu-image-${{ hashFiles('tools/qemu/Dockerfile', 'tools/qemu/run.py', 'src/uspiflash/ledger.py') }}
+
+      - name: Load the image
+        if: steps.cache.outputs.cache-hit == 'true'
+        run: docker load --input tmp/qemu-image.tar
+
       # Only this test, so the coverage gate is left out; the basetemp stays
       # in tmp/, as the default addopts has it.
       - name: uspiflash-linux under QEMU
         env:
           USPIFLASH_QEMU: "1"
-        run: uv run pytest tests/test_qemu.py -o addopts="--basetemp=tmp/pytest" -v -ra
+        run: >-
+          uv run pytest tests/test_qemu.py -v -ra
+          -o addopts="--basetemp=tmp/pytest" --junitxml=tmp/qemu-junit.xml
+
+      # A skip (say, of the parity marker) must not pass for a result.
+      - name: The test ran
+        run: |
+          suite=$(grep -o '<testsuite [^>]*>' tmp/qemu-junit.xml)
+          echo "$suite"
+          case "$suite" in *' skipped="0"'*) ;; *) echo "::error::the QEMU test was skipped"; exit 1 ;; esac
+          case "$suite" in *' tests="1"'*) ;; *) echo "::error::expected one test"; exit 1 ;; esac
+
+      - name: Save the image for the cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: docker save --output tmp/qemu-image.tar $(docker images --format '{{.Repository}}:{{.Tag}}' uspiflash-qemu)

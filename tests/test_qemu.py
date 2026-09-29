@@ -3,7 +3,8 @@
 ``tools/qemu/run.py`` boots riscv64 Linux on QEMU's ``sifive_u`` (in docker),
 binds its SPI flash, an ``is25wp256``, to spidev, and runs the tool with
 ``--opcodes --sfdp``. Slow (a docker image build the first time), so it runs
-only with ``USPIFLASH_QEMU=1``."""
+only with ``USPIFLASH_QEMU=1``; with that set, a missing docker is a failure,
+not a skip."""
 
 from __future__ import annotations
 
@@ -23,14 +24,15 @@ from uspiflash.levels import Selection
 
 ROOT = Path(__file__).resolve().parent.parent
 EXTRAS = ["sfdp", "sfdp_dumps", "datasheet", "datasheets", "records", "provenance"]
-pytestmark = [
-    pytest.mark.skipif(os.environ.get("USPIFLASH_QEMU") != "1", reason="set USPIFLASH_QEMU=1"),
-    pytest.mark.skipif(shutil.which("docker") is None, reason="needs docker"),
-]
+pytestmark = pytest.mark.skipif(
+    os.environ.get("USPIFLASH_QEMU") != "1", reason="set USPIFLASH_QEMU=1"
+)
 
 
 @parity
 def test_tool_in_qemu_describes_the_emulated_flash() -> None:
+    if shutil.which("docker") is None:
+        pytest.fail("USPIFLASH_QEMU=1 is set, but docker is not installed")
     res = subprocess.run(
         [sys.executable, str(ROOT / "tools/qemu/run.py")],
         capture_output=True,
