@@ -20,6 +20,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# The `pypi` environment has no branch policy of its own, so a manual dispatch
+# is the only path that could otherwise publish a build of a feature branch;
+# the job condition below restricts workflow_dispatch to main. Least-privilege
+# default; the publish job adds back the one extra permission it needs.
+permissions:
+  contents: read
+
 jobs:
   build:
     # workflow_run fires on EVERY completion (failure and cancelled included);
@@ -27,9 +34,11 @@ jobs:
     # triggering run's branch NAME, which a pull request from a fork's own
     # `main` has too, and the checkout below would then publish that pull
     # request's commit. So a pull request's run is excluded explicitly.
+    # A workflow_dispatch is restricted to main: it can otherwise be run from
+    # any branch, and this environment has no branch policy to stop it.
     # Dependent jobs inherit the skip.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event != 'pull_request')
     runs-on: ubuntu-latest

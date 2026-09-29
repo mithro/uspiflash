@@ -57,6 +57,10 @@ packages = ["src/uspiflash"]
 [tool.hatch.build.targets.sdist]
 include = ["src/", "tests/", "tools/", "examples/", "experiments/", "docs/", "README.md",
            "LICENSE"]
+# A local docs build writes these git-ignored directories under docs/; without
+# excluding them, a local `uv build` (CI never has a docs build to sweep up)
+# would put them in the sdist.
+exclude = ["docs/_autosummary", "docs/_build"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
