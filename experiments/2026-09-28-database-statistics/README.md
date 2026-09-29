@@ -67,6 +67,8 @@ and its biggest tables (`layout_tables` has every table at every level):
 | `describe` | 37,540 | `str` 14,766, `entries` 10,712, `namelists` 3,675, `opsets` 3,635, `ids` 2,999 |
 | `full` | 47,236 | `str` 14,892, `entries` 13,184, `opsets` 10,143, `namelists` 3,675, `ids` 2,999 |
 | `full` + `records` + `provenance` + `jep106` | 191,517 | `str` 123,505, `records` 20,858, `entries` 14,832, `jep106` 11,530, `opsets` 10,143 |
+| `full` + `datasheet` | 94,544 | `str` 57,926, `entries` 14,832, `opsets` 10,143, `namelists` 3,675, `ids` 2,999, `dslists` 1,576, `dsrows` 1,050 |
+| `full` + `datasheets` | 162,061 | `str` 114,743, `entries` 14,832, `opsets` 10,143, `dsrows` 9,114, `namelists` 5,112, `dslists` 2,580 |
 
 **Conclusion.** The shape of the data has not moved since spec §3 was
 written: every number in its table reproduces.
@@ -95,6 +97,16 @@ record names:
   two, not record names, dominate the extras; the tables that point at
   them (`records` 20,858, `jep106` 11,530) add about a quarter as much
   again. They are opt-in extras for that reason.
+- Datasheets (spiflash 0.0.post38 and later) cost more than `full`
+  itself. The `datasheet` extra doubles the file (+47,308 bytes, to
+  94,544): the URLs of the 525 distinct best datasheets are 43,034 bytes of
+  `str`, and `dsrows`, `dslists` and the 2-byte `E_DS` per entry add 4,274.
+  The `datasheets` extra more than triples it (+114,825, to 162,061):
+  every one of the 651 datasheets' URL, title and revision (99,851 bytes
+  of `str`), 14-byte `dsrows` rows (9,114), `dslists` (2,580) and `E_DS`
+  (1,648); and because the pool passes 64 KiB, every offset in the file
+  widens to 3 bytes, which alone costs 1,632 bytes in `namelists`, `ops`,
+  `mfrs` and the name arrays. They are opt-in extras for that reason.
 - The two facts the layout never stores at any level, `via` (400,398
   bytes) and upstream `notes` (164,813 bytes), are bigger than everything
   above combined. They exist only in spiflash's own JSON, and uspiflash has

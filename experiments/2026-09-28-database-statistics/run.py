@@ -73,6 +73,8 @@ def collect() -> dict[str, object]:
     selections["full+records+provenance+jep106"] = Selection.make(
         "full", with_=("records", "provenance", "jep106")
     )
+    selections["full+datasheet"] = Selection.make("full", with_=("datasheet",))
+    selections["full+datasheets"] = Selection.make("full", with_=("datasheets",))
     layout_tables = {
         name: {t: len(b) for t, b in sorted(layout_module.build(snap, sel).tables.items())}
         for name, sel in selections.items()
