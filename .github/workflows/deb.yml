@@ -81,6 +81,40 @@ jobs:
       - name: Tests + coverage gate
         run: uv run pytest
 
+  # The size ledger (sizes/ledger.json) must match a fresh measurement. The
+  # numbers only reproduce with the tools that made them, so this runs in the
+  # environment the ledger is regenerated in: Debian trixie's clang-19,
+  # llvm-19 and gcc. `measure --check` exits 2 if the tools' version lines
+  # differ from the ledger's, and 1 (with a diff) if the sizes do.
+  sizes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: debian:trixie
+    steps:
+      # git before checkout, so actions/checkout makes a real clone: hatch-vcs
+      # derives the version from its history and tags.
+      - name: Install the pinned tools
+        run: |
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends \
+            clang-19 llvm-19 gcc libc6-dev python3 ca-certificates git
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # The workspace belongs to the runner's user, not the container's root.
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Tool versions
+        run: clang-19 --version && llvm-size-19 --version && gcc --version
+
+      - name: Check the size ledger
+        run: uv run uspiflash measure --check
+
   build-deb:
     name: build-deb (${{ matrix.suite }} ${{ matrix.arch }})
     needs: test
