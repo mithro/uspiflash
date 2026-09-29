@@ -6,22 +6,10 @@
 #define USF_IMPLEMENTATION
 #include USF_HEADER
 #include "harness_names.h"
+#include "simchip.h"
 
 /* The most bytes one command carries (a 256-byte SFDP read, in part D). */
 #define DATA_MAX 256u
-
-/* Parses hex pairs from `s` into `buf`, which holds `max` bytes; returns how
- * many it wrote, never more than `max`. Task 12 replaces this with
- * simchip.h's identical sim_hex. */
-static unsigned parse_hex(const char *s, uint8_t *buf, unsigned max)
-{
-    unsigned n = 0, v;
-    while (n < max && s[0] && s[1] && sscanf(s, "%2x", &v) == 1) {
-        buf[n++] = (uint8_t)v;
-        s += 2;
-    }
-    return n;
-}
 
 #if USF_HAVE_MANUFACTURER || USF_HAVE_NAMES || USF_HAVE_DESCRIPTIONS || USF_HAVE_TEXT \
     || USF_HAVE_JSON
@@ -148,7 +136,7 @@ int main(void)
             usf_chip chips[USF_LOOKUP_MAX];
             if (sscanf(line + 2, "%u %1023s", &fam, hex) != 2)
                 return 2;
-            len = parse_hex(hex, data, DATA_MAX);
+            len = sim_hex(hex, data, DATA_MAX);
             /* usf_lookup takes a uint8_t length: pass at most 255 bytes. No
              * id and extended id together come near that, so the bytes left
              * out cannot change spiflash's answer. */
@@ -170,7 +158,25 @@ int main(void)
                 usf_print_json(chips, n, out, NULL);
 #endif
         }
-        /* Task 12: P. */
+#if USF_HAVE_PROBE
+        if (cmd == 'P') {
+            static struct sim s;
+            usf_bus bus;
+            usf_probe_result r;
+            unsigned k;
+            s.log = stdout;
+            sim_parse(&s, line + 2);
+            bus.xfer = sim_xfer;
+            bus.ctx = &s;
+            usf_probe(&bus, &r);
+            printf("family=%s len=%u id=", FAMILY_NAMES[r.family], r.len);
+            for (k = 0; k < r.len; k++)
+                printf("%02x", r.id[k]);
+            printf(" count=%u\n", r.count);
+            for (k = 0; k < r.count; k++)
+                printf("chip %u %u\n", r.chip[k].entry, r.chip[k].base);
+        }
+#endif
         /* Part D: S. */
         fputs("\x1e\n", stdout);
         fflush(stdout);

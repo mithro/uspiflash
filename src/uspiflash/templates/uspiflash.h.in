@@ -147,7 +147,31 @@ void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink
 void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ctx);
 #endif
 
-/* @@API_PROBE@@  (Task 12 inserts here) */
+#if USF_HAVE_PROBE
+/* How the library talks to the chip: send `txlen` bytes, then clock in
+ * `rxlen` bytes, with chip select held for the whole transaction.
+ * Define USF_XFER(bus, tx, txlen, rx, rxlen) yourself to inline your SPI
+ * driver; otherwise a struct usf_bus holding a function pointer is used. */
+#ifndef USF_XFER
+typedef void (*usf_xfer_fn)(void *ctx, const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen);
+struct usf_bus { usf_xfer_fn xfer; void *ctx; };
+#define USF_XFER(bus, tx, txlen, rx, rxlen) ((bus)->xfer((bus)->ctx, (tx), (txlen), (rx), (rxlen)))
+#endif
+typedef struct usf_bus usf_bus;
+
+typedef struct usf_probe_result {
+    uint8_t family;              /* the command that answered (USF_FAMILY_*) */
+    uint8_t len;                 /* bytes in id[]; 0 if the bus stayed 0x00/0xFF */
+    uint8_t id[USF_RDID_LEN];    /* what the chip sent */
+    uint8_t count;               /* answers in chip[] (0: not in the database) */
+    usf_chip chip[USF_LOOKUP_MAX];
+} usf_probe_result;
+
+/* Identify the chip; returns r->count. Sends only id commands (RES,
+ * RDID, REMS, AT25F RDID, M95 RDID), and only those some chip in this
+ * file answers, so it cannot change the chip. */
+uint8_t usf_probe(usf_bus *bus, usf_probe_result *r);
+#endif
 
 #ifdef USF_IMPLEMENTATION
 
@@ -1207,7 +1231,128 @@ void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ct
 }
 #endif
 
-/* @@IMPL_PROBE@@  (Task 12 inserts here) */
+#if USF_HAVE_PROBE
+/* Which steps some chip in this file answers (the M1 index's single-type
+ * rules): RES wakes NOR chips, so it goes out whenever there is one. */
+#define USF__PROBE_RES (USF_HAVE_NOR || USF_HAVE_FAMILY_RES1 || USF_HAVE_FAMILY_RES2)
+#define USF__PROBE_LEGACY (USF_HAVE_FAMILY_REMS || USF_HAVE_FAMILY_RES1 \
+    || USF_HAVE_FAMILY_RES2 || USF_HAVE_FAMILY_AT25F || USF_HAVE_FAMILY_ST95)
+
+/* Whether n bytes are all 0x00 or all 0xFF: nothing answered. */
+static uint8_t usf__blank(const uint8_t *b, uint8_t n)
+{
+    uint8_t i, any = 0, all = 0xFF;
+    for (i = 0; i < n; i++) {
+        any |= b[i];
+        all &= b[i];
+    }
+    return any == 0 || all == 0xFF;
+}
+
+/* Send `tx`, keep the `rxlen` bytes that come back in r, and look them up
+ * as `family` unless the bus stayed blank. Returns r->count. */
+static uint8_t usf__ask(usf_bus *bus, usf_probe_result *r, uint8_t family,
+                        const uint8_t *tx, uint8_t txlen, uint8_t rxlen)
+{
+    USF_XFER(bus, tx, txlen, r->id, rxlen);
+    r->family = family;
+    r->len = rxlen;
+    r->count = usf__blank(r->id, rxlen) ? 0 : usf_lookup(family, r->id, rxlen, r->chip);
+    return r->count;
+}
+
+uint8_t usf_probe(usf_bus *bus, usf_probe_result *r)
+{
+    uint8_t tx[4], saved = 0;
+#if USF__PROBE_RES
+    uint8_t res[2];
+#endif
+#if USF_HAVE_FAMILY_JEDEC
+    uint8_t rdid[USF_RDID_LEN], i;
+#endif
+
+    tx[1] = 0;                          /* address or dummy bytes */
+    tx[2] = 0;
+    tx[3] = 0;
+#if USF__PROBE_RES
+    tx[0] = 0xAB;                       /* RES: also wakes from deep power-down */
+    USF_XFER(bus, tx, 4, res, 2);
+#endif
+
+    tx[0] = 0x9F;                       /* JEDEC read-id */
+#if USF_HAVE_FAMILY_JEDEC
+    if (usf__ask(bus, r, USF_FAMILY_JEDEC, tx, 1, USF_RDID_LEN))
+        return r->count;
+    if (!usf__blank(r->id, USF_RDID_LEN)) {
+        saved = 1;
+        for (i = 0; i < USF_RDID_LEN; i++)
+            rdid[i] = r->id[i];
+    }
+#endif
+#if USF_HAVE_NAND
+    /* SPI NAND: read-id after one dummy (or address) byte. The same command,
+     * so it is safe for any chip; a NAND chip answers plain 0x9F with a
+     * dummy byte first, which is why the first answer can be non-blank. */
+    if (usf__ask(bus, r, USF_FAMILY_JEDEC, tx, 2, USF_RDID_LEN - 1))
+        return r->count;
+#endif
+
+#if USF__PROBE_LEGACY
+    /* Legacy id commands go only to a chip that ignored read-id: one that
+     * answered it but isn't in the database is sent nothing else. */
+    if (!saved) {
+#if USF_HAVE_FAMILY_REMS
+        tx[0] = 0x90;                   /* REMS: 3 address bytes */
+        if (usf__ask(bus, r, USF_FAMILY_REMS, tx, 4, 2))
+            return r->count;
+#endif
+#if USF_HAVE_FAMILY_RES2 || USF_HAVE_FAMILY_RES1
+        if (!usf__blank(res, 2)) {      /* the RES answer: two bytes, then one */
+            /* Looked up from r->id, not res: inlined at -O3, gcc cannot see
+             * that narrowing stays inside a two-byte array. */
+            r->id[0] = res[0];
+            r->id[1] = res[1];
+#if USF_HAVE_FAMILY_RES2
+            r->family = USF_FAMILY_RES2;
+            r->len = 2;
+            if ((r->count = usf_lookup(USF_FAMILY_RES2, r->id, 2, r->chip)) != 0)
+                return r->count;
+#endif
+#if USF_HAVE_FAMILY_RES1
+            r->family = USF_FAMILY_RES1;
+            r->len = 1;
+            if ((r->count = usf_lookup(USF_FAMILY_RES1, r->id, 1, r->chip)) != 0)
+                return r->count;
+#endif
+        }
+#endif
+#if USF_HAVE_FAMILY_AT25F
+        tx[0] = 0x15;                   /* Atmel AT25F read-id */
+        if (usf__ask(bus, r, USF_FAMILY_AT25F, tx, 1, 2))
+            return r->count;
+#endif
+#if USF_HAVE_FAMILY_ST95
+        tx[0] = 0x83;                   /* ST M95 read-id: 2 address bytes */
+        if (usf__ask(bus, r, USF_FAMILY_ST95, tx, 3, 3))
+            return r->count;
+#endif
+    }
+#endif
+
+    /* Nothing known answered: report the JEDEC bytes, if there were any. */
+    r->family = USF_FAMILY_JEDEC;
+    r->count = 0;
+    r->len = 0;
+#if USF_HAVE_FAMILY_JEDEC
+    if (saved) {
+        r->len = USF_RDID_LEN;
+        for (i = 0; i < USF_RDID_LEN; i++)
+            r->id[i] = rdid[i];
+    }
+#endif
+    return 0;
+}
+#endif
 
 #endif /* USF_IMPLEMENTATION */
 

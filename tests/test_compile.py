@@ -120,3 +120,23 @@ def test_every_table_is_read(tmp_path: Path, compilers: list[str], config: Confi
     for cc in compilers:
         obj = tmp_path / f"main-{cc}.o"
         compile_c(cc, [header], obj, ["-c", "-ffreestanding", "-x", "c", impl])
+
+
+MACRO_XFER = """\
+#include <stdint.h>
+struct usf_bus { int unused; };
+void my_xfer(const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen);
+#define USF_XFER(bus, tx, txlen, rx, rxlen) ((void)(bus), my_xfer((tx), (txlen), (rx), (rxlen)))
+#define USF_IMPLEMENTATION
+#include "uspiflash.h"
+"""
+
+
+def test_probe_through_a_macro_transport(tmp_path: Path, compilers: list[str]) -> None:
+    generate(tmp_path, Config(Selection.make("id")))
+    unit = tmp_path / "macro.c"
+    unit.write_text(MACRO_XFER)
+    for cc in compilers:
+        obj = tmp_path / f"macro-{cc}.o"
+        compile_c(cc, [unit], obj, ["-Os", "-c", "-ffreestanding", f"-I{tmp_path}"])
+        assert undefined_symbols(obj) == ["my_xfer"]
