@@ -40,6 +40,8 @@ CONFIGS = [
     Config(Selection.make("full", with_=["datasheet", "datasheets"], chips=NO_DATASHEET)),
     # A renamed header: every symbol and table under another prefix.
     Config(Selection.make("full"), "fl", "flashid.h"),
+    # Renamed, NAND only (--type nand --prefix x).
+    Config(Selection.make("full", chips=ONE_TYPE[1]), "x"),
     # Single-type selections, whose counted tables can be empty.
     *(Config(Selection.make(level, chips=chips)) for chips in ONE_TYPE for level in LEVELS),
 ]

@@ -1063,7 +1063,8 @@ static void usf__dec2(uint8_t v, usf_putc_fn sink, void *ctx)
 #endif
 
 #if USF_CONF_COUNT
-/* Conflict value `i` of attribute `attr`: an int, or [min, max] for voltage. */
+/* Conflict value `i` of attribute `attr` (0 size, 1 page, 2 sector,
+ * 3 voltage): an int, or [min, max] for voltage. */
 static void usf__jvalue(usf__json *j, uint8_t attr, uint8_t i)
 {
 #if USF_VOLT_COUNT
