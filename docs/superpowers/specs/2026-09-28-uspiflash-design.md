@@ -327,18 +327,22 @@ output (checked in CI).
 
 ### 5.6 SFDP
 
-Since the M1 part D replan, the Python side is spiflash's own
-(`spiflash.sfdp`, amendment 9).
-
 The generator side is core:
 
-- JESD216 parameter decoding in Python, with fixtures
+- JESD216 parameter decoding, from `spiflash.sfdp`
 - a mapping from BFPT fields to the same fields the database provides
-- tests that the C decoder agrees with the Python one on every fixture
+- tests that the C decoder agrees with `spiflash.sfdp` on every shipped dump
+
+Since the M1 part D replan, the Python side is spiflash's own
+(`spiflash.sfdp`, amendment 9): uspiflash writes no JESD216 parser of its
+own and fetches no fixtures of its own. spiflash's shipped SFDP dumps are
+the fixtures.
 
 The C side is optional (`USF_WITH_SFDP`) and has its own size ledger entry.
-Fixtures come from QEMU's m25p80 SFDP tables, real chips on fpgas.online and
-published datasheet tables, each recorded with its origin.
+Fixtures currently come from QEMU's m25p80 SFDP tables (spiflash's 12
+dumps, amendment 9); real chips on fpgas.online and published datasheet
+tables may add more later, as spiflash data through PRs to
+`mithro/spiflash`, each recorded with its origin.
 
 ## 6. Verification
 
