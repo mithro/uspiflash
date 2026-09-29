@@ -6,15 +6,12 @@ import os
 import shutil
 import signal
 import subprocess
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 
 from uspiflash import sandbox
 from uspiflash.sandbox import GIB, Limits, compute_limits, current_limits, main, wrap
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 MEMINFO = "MemTotal:       32000000 kB\nMemAvailable:   20000000 kB\n"
 CALM = "some avg10=0.00 avg60=0.00 avg300=0.00 total=0\n"
@@ -184,3 +181,13 @@ def test_main_refuses_to_run_unsandboxed_when_systemd_run_is_missing(
 
     with pytest.raises(SystemExit):
         main(["--", "true"])
+
+
+def test_the_tests_keep_tmpdir_under_pytests_basetemp(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """conftest.py points TMPDIR into the base temporary directory, so the
+    compilers the tests run write nothing to /tmp."""
+    here = Path(os.environ["TMPDIR"])
+    assert here.is_dir()
+    assert here.is_relative_to(tmp_path_factory.getbasetemp())

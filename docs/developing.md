@@ -39,6 +39,11 @@ uv run python -m uspiflash.sandbox -- uv run pytest -n {jobs}
 Leave `{jobs}` literally; the sandbox replaces it with the CPU count the
 current limits allow.
 
+Nothing is written to `/tmp`: pytest keeps its temporary directories in the
+git-ignored `tmp/pytest` (and points `TMPDIR` there for the compilers it
+runs), `uspiflash measure` works in `tmp/`, and the sandbox sets `TMPDIR` to
+`./tmp` for the command it runs.
+
 ## The size ledger
 
 `sizes/ledger.json` records what the generated library costs, compiled for
