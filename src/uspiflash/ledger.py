@@ -177,9 +177,9 @@ def readme(ledger: dict[str, Any]) -> str:
         "",
         "## Configurations",
         "",
-        "SPI NOR is the primary target: its builds (`--type nor`, the `:nor` rows)",
-        "come first, and the default (all types) and NAND builds are listed for",
-        "comparison.",
+        "SPI NOR is the primary target and `uspiflash generate`'s default: its",
+        "builds (`--type nor`, the `:nor` rows) come first, and the all-types",
+        "(`--type nor --type nand`) and NAND builds are listed for comparison.",
         "",
         "| Configuration | `uspiflash generate` options |",
         "|---|---|",
@@ -233,7 +233,7 @@ def summary(ledger: dict[str, Any]) -> str:
     read, full = (sizes[name]["total"] for name in HEADLINE)
     return "\n".join(
         [
-            f"For SPI NOR flash (`--type nor`), compiled for `{t['name']}` with",
+            f"For SPI NOR flash (`--type nor`, the default), compiled for `{t['name']}` with",
             f"{ledger['tools'][t['compiler']]} at `-Os`, the `read` level costs",
             f"**{read:,} bytes** of flash and `full` **{full:,} bytes**, code and tables",
             "together, with no static RAM. Every configuration (all chip types, and",

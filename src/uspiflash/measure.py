@@ -117,9 +117,10 @@ _NOR = (FlashType.NOR,)
 _NAND = (FlashType.NAND,)
 
 #: The measured configurations, by stable name (default prefix and file
-#: name). SPI NOR is the primary target, so its builds (``--type nor``) come
-#: first, at every level; the default (all types) and NAND-only builds follow
-#: for comparison.
+#: name). SPI NOR is the primary target (and ``uspiflash generate``'s
+#: default), so its builds (``--type nor``) come first, at every level; the
+#: all-types (the library's default, ``ChipFilter()``) and NAND-only builds
+#: follow for comparison.
 CONFIGS: tuple[tuple[str, Config], ...] = (
     ("id:nor", _config("id", types=_NOR)),
     ("read:nor", _config("read", types=_NOR)),

@@ -190,7 +190,8 @@ Subsets filter chips before encoding:
 
 - `--manufacturer`
 - `--id` (an explicit list, e.g. the chips on one board)
-- `--type nor|nand`, `--family jedec`, `--min-size` / `--max-size`
+- `--type nor|nand` (default `nor`: amendment 12), `--family jedec`,
+  `--min-size` / `--max-size`
 
 A subset only shrinks the tables; the code shrinks when a level drops fields.
 
@@ -645,3 +646,15 @@ merging.
     answer (§5.3 step 5): the caller chooses. The SFDP-versus-database
     experiment found the database saying as much as SFDP, or more, for
     every shipped dump.
+12. **`generate` defaults to SPI NOR; SPI NOR is the primary target**
+    (maintainer decision, 2026-09-29). Without `--type`, `uspiflash
+    generate` keeps only SPI NOR chips, as if given `--type nor`; `--type
+    nor --type nand` keeps every type and `--type nand` only NAND.
+    - Only the command line's default changes. The library's
+      (`ChipFilter()`, `Selection.make`) still keeps every type, and the
+      tests, the oracle and the size ledger name their types explicitly.
+    - A generated file records its effective types: its regeneration
+      command always gives `--type` (every type is `--type nor --type
+      nand`), so `uspiflash check` regenerates it identically. A
+      configuration with no types still means every type, as it always
+      has.

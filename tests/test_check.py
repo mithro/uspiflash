@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING, Any
 
 import spiflash
 
-from uspiflash import VERIFIED_SPIFLASH, __version__
+from uspiflash import VERIFIED_SPIFLASH, __version__, emit
 from uspiflash.cli import main
+from uspiflash.levels import Selection
 from uspiflash.provenance import CONFIG_RE, Config
 
 if TYPE_CHECKING:
@@ -148,3 +149,36 @@ def test_check_warns_once_when_spiflash_is_not_the_verified_one(
         f"{VERIFIED_SPIFLASH}; spiflash 9.9.post9 is installed\n"
     )
     assert captured.out == f"{a}: up to date\n{b}: up to date\n"
+
+
+def test_a_default_file_round_trips(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """``generate`` without ``--type`` (SPI NOR only) records ``--type nor``,
+    so ``check`` regenerates it identically."""
+    out = tmp_path / "uspiflash.h"
+    assert main(["generate", "-o", str(out), "--level", "id"]) == 0
+    text = out.read_text()
+    assert "uspiflash generate -o uspiflash.h --prefix usf --level id --type nor\n" in text
+    assert '"types": ["nor"]' in text
+    capsys.readouterr()
+    assert main(["check", str(out)]) == 0
+    assert capsys.readouterr().out == f"{out}: up to date\n"
+
+
+def test_a_config_without_types_still_means_every_type(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A file from before SPI NOR became the default: its configuration has
+    no types (every type) and its regeneration command no ``--type``.
+    ``check`` regenerates every type from it; only that command's comment
+    line differs, now spelling the types out."""
+    out = tmp_path / "uspiflash.h"
+    old = emit.render(Config(Selection.make("id")))
+    assert '"types": []' in old
+    assert "#define USF_HAVE_NAND 1\n" in old
+    out.write_text(old.replace(" --level id --type nor --type nand\n", " --level id\n", 1))
+    capsys.readouterr()
+    assert main(["check", str(out)]) == 1
+    report = capsys.readouterr().out
+    changed = [line for line in report.splitlines() if re.match(r"  [-+][^-+]", line)]
+    command = "  {} *       uspiflash generate -o uspiflash.h --prefix usf --level id"
+    assert changed == [command.format("-"), command.format("+") + " --type nor --type nand"]

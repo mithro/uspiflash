@@ -78,7 +78,8 @@ def _generate_options(ap: argparse.ArgumentParser) -> None:
         action="append",
         default=[],
         choices=[t.value for t in FlashType],
-        help="keep chips of this type",
+        help="keep chips of this type (default: nor, SPI NOR only; every type: "
+        "--type nor --type nand)",
     )
     ap.add_argument(
         "--family",
@@ -92,11 +93,24 @@ def _generate_options(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--max-size", type=int, metavar="BYTES", help="keep chips at most this big")
 
 
+#: The chip types ``generate`` keeps without ``--type``: SPI NOR, the primary
+#: target. (The library's own default, ``ChipFilter()``, keeps every type.)
+DEFAULT_TYPES = (FlashType.NOR,)
+
+
+def _types(given: Sequence[str]) -> tuple[FlashType, ...]:
+    """The ``--type`` options as a :class:`ChipFilter`'s ``types``: SPI NOR
+    when none is given, and ``()`` (every type, as a configuration without
+    types has always meant) when every type is given."""
+    types = tuple(FlashType(t) for t in given) or DEFAULT_TYPES
+    return () if set(types) == set(FlashType) else types
+
+
 def _config(args: argparse.Namespace) -> Config:
     chips = ChipFilter(
         manufacturers=tuple(args.manufacturer),
         ids=tuple(args.ids),
-        types=tuple(FlashType(t) for t in args.types),
+        types=_types(args.types),
         families=tuple(IdFamily(f) for f in args.families),
         min_size=args.min_size,
         max_size=args.max_size,
@@ -129,7 +143,14 @@ def parser() -> argparse.ArgumentParser:
     )
     sub = ap.add_subparsers(dest="command")
 
-    _generate_options(sub.add_parser("generate", help="write a generated C file"))
+    _generate_options(
+        sub.add_parser(
+            "generate",
+            help="write a generated C file",
+            description="Write a generated C file. SPI NOR is the primary target: "
+            "without --type, only SPI NOR chips are kept.",
+        )
+    )
 
     check_ap = sub.add_parser(
         "check",

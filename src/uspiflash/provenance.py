@@ -12,6 +12,7 @@ from typing import Any
 
 import spiflash
 from spiflash.db import FORMAT
+from spiflash.enums import FlashType
 
 from . import __version__
 from .levels import LEVELS, Selection
@@ -47,7 +48,11 @@ class Config:
         return hashlib.sha256(text.encode()).hexdigest()
 
     def args(self) -> list[str]:
-        """The ``uspiflash generate`` arguments that reproduce this config."""
+        """The ``uspiflash generate`` arguments that reproduce this config.
+
+        The types are always given: without ``--type`` the command keeps only
+        SPI NOR, so a configuration of every type (``types`` empty) says
+        ``--type nor --type nand``, which the command reads back as empty."""
         sel = self.selection
         out = ["-o", self.filename, "--prefix", self.prefix, "--level", sel.level]
         base = LEVELS[sel.level]
@@ -56,7 +61,7 @@ class Config:
         c = sel.chips
         out += [a for m in c.manufacturers for a in ("--manufacturer", m)]
         out += [a for i in c.ids for a in ("--id", i.hex())]
-        out += [a for t in c.types for a in ("--type", t.value)]
+        out += [a for t in c.types or tuple(FlashType) for a in ("--type", t.value)]
         out += [a for f in c.families for a in ("--family", f.value)]
         if c.min_size is not None:
             out += ["--min-size", str(c.min_size)]

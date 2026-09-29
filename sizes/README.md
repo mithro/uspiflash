@@ -25,9 +25,9 @@ counts the raw table bytes before compiling.
 
 ## Configurations
 
-SPI NOR is the primary target: its builds (`--type nor`, the `:nor` rows)
-come first, and the default (all types) and NAND builds are listed for
-comparison.
+SPI NOR is the primary target and `uspiflash generate`'s default: its
+builds (`--type nor`, the `:nor` rows) come first, and the all-types
+(`--type nor --type nand`) and NAND builds are listed for comparison.
 
 | Configuration | `uspiflash generate` options |
 |---|---|
@@ -40,15 +40,15 @@ comparison.
 | `read+sfdp:nor` | `--level read --with sfdp --type nor` |
 | `full-sfdp_summary:nor` | `--level full --without sfdp_summary --type nor` |
 | `full+sfdp_dumps:nor` | `--level full --with sfdp_dumps --type nor` |
-| `id` | `--level id` |
-| `read` | `--level read` |
-| `write` | `--level write` |
-| `describe` | `--level describe` |
-| `full` | `--level full` |
-| `full+datasheet` | `--level full --with datasheet` |
-| `full+datasheets` | `--level full --with datasheets` |
-| `full+records+provenance+jep106` | `--level full --with jep106 --with provenance --with records` |
-| `full+sfdp+sfdp_dumps` | `--level full --with sfdp --with sfdp_dumps` |
+| `id` | `--level id --type nor --type nand` |
+| `read` | `--level read --type nor --type nand` |
+| `write` | `--level write --type nor --type nand` |
+| `describe` | `--level describe --type nor --type nand` |
+| `full` | `--level full --type nor --type nand` |
+| `full+datasheet` | `--level full --with datasheet --type nor --type nand` |
+| `full+datasheets` | `--level full --with datasheets --type nor --type nand` |
+| `full+records+provenance+jep106` | `--level full --with jep106 --with provenance --with records --type nor --type nand` |
+| `full+sfdp+sfdp_dumps` | `--level full --with sfdp --with sfdp_dumps --type nor --type nand` |
 | `read:nand` | `--level read --type nand` |
 | `full:nand` | `--level full --type nand` |
 

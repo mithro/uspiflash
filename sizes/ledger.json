@@ -427,7 +427,11 @@
    "name": "id",
    "options": [
     "--level",
-    "id"
+    "id",
+    "--type",
+    "nor",
+    "--type",
+    "nand"
    ]
   },
   {
@@ -462,7 +466,11 @@
    "name": "read",
    "options": [
     "--level",
-    "read"
+    "read",
+    "--type",
+    "nor",
+    "--type",
+    "nand"
    ]
   },
   {
@@ -502,7 +510,11 @@
    "name": "write",
    "options": [
     "--level",
-    "write"
+    "write",
+    "--type",
+    "nor",
+    "--type",
+    "nand"
    ]
   },
   {
@@ -548,7 +560,11 @@
    "name": "describe",
    "options": [
     "--level",
-    "describe"
+    "describe",
+    "--type",
+    "nor",
+    "--type",
+    "nand"
    ]
   },
   {
@@ -597,7 +613,11 @@
    "name": "full",
    "options": [
     "--level",
-    "full"
+    "full",
+    "--type",
+    "nor",
+    "--type",
+    "nand"
    ]
   },
   {
@@ -649,7 +669,11 @@
     "--level",
     "full",
     "--with",
-    "datasheet"
+    "datasheet",
+    "--type",
+    "nor",
+    "--type",
+    "nand"
    ]
   },
   {
@@ -701,7 +725,11 @@
     "--level",
     "full",
     "--with",
-    "datasheets"
+    "datasheets",
+    "--type",
+    "nor",
+    "--type",
+    "nand"
    ]
   },
   {
@@ -759,7 +787,11 @@
     "--with",
     "provenance",
     "--with",
-    "records"
+    "records",
+    "--type",
+    "nor",
+    "--type",
+    "nand"
    ]
   },
   {
@@ -814,7 +846,11 @@
     "--with",
     "sfdp",
     "--with",
-    "sfdp_dumps"
+    "sfdp_dumps",
+    "--type",
+    "nor",
+    "--type",
+    "nand"
    ]
   },
   {

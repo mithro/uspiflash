@@ -12,7 +12,7 @@ GCC, LLVM and SDCC versions.
 ## Size
 
 <!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->
-For SPI NOR flash (`--type nor`), compiled for `cortex-m0` with
+For SPI NOR flash (`--type nor`, the default), compiled for `cortex-m0` with
 Debian clang version 19.1.7 (3+b1) at `-Os`, the `read` level costs
 **11,275 bytes** of flash and `full` **54,547 bytes**, code and tables
 together, with no static RAM. Every configuration (all chip types, and
@@ -32,6 +32,10 @@ file was generated without: the `from:` line and per-opcode sources without
 this against spiflash 0.0.post92 (`uspiflash.VERIFIED_SPIFLASH`).
 `--with sfdp` adds `usf_sfdp_read()`, which reads and decodes the chip's own
 SFDP tables (JESD216).
+
+SPI NOR is the primary target: `uspiflash generate` keeps only SPI NOR chips
+unless told otherwise (`--type nor --type nand` keeps every chip, NAND
+included; `--type nand` only NAND).
 
 On 16-bit targets (AVR, msp430, the 8051) the levels `id` to `full` fit, if
 the part has the flash (`full` is about 59 KB of code and tables); the

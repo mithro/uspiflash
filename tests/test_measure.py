@@ -248,7 +248,8 @@ def test_the_ledger_is_deterministic(tmp_path: Path, small: list[Target]) -> Non
     data = json.loads(first)
     assert [t["name"] for t in data["targets"]] == [t.name for t in small]
     assert set(data["tools"]) == {*(t.compiler for t in small), measure.SIZE_TOOL}
-    assert data["configs"][0]["options"] == ["--level", "id"]
+    # Every type (the library's default) is spelt out: ``generate`` alone keeps SPI NOR.
+    assert data["configs"][0]["options"] == ["--level", "id", "--type", "nor", "--type", "nand"]
     assert data["configs"][0]["config"] == ID.to_json()
 
 

@@ -12,6 +12,17 @@ Write a generated C file:
 uv run uspiflash generate -o uspiflash.h --level read
 ```
 
+SPI NOR is the primary target, so without `--type` the file keeps only SPI
+NOR chips (as if given `--type nor`). For every chip in the database, NAND
+included, give both types:
+
+```console
+uv run uspiflash generate -o uspiflash.h --level read --type nor --type nand
+```
+
+The file's regeneration command and embedded configuration record the
+types either way, so `uspiflash check` regenerates it identically.
+
 Options:
 
 | Option | Meaning |
@@ -23,7 +34,7 @@ Options:
 | `--without FIELD` | leave a field the level would include out |
 | `--manufacturer NAME` | keep only this manufacturer's chips (repeatable) |
 | `--id HEX` | keep only this chip id, after stripping `0x7f` continuation codes (repeatable) |
-| `--type TYPE` | keep only chips of this type, e.g. `nor`, `nand` (repeatable) |
+| `--type TYPE` | keep only chips of this type, `nor` or `nand` (repeatable; default: `nor`, SPI NOR only; `--type nor --type nand` keeps every type) |
 | `--family FAMILY` | keep only chips of this JEP106 id family (repeatable) |
 | `--min-size BYTES` | keep only chips at least this big |
 | `--max-size BYTES` | keep only chips at most this big |
@@ -65,7 +76,7 @@ every configuration, on every measured target, are in
 `--max-size` are repeatable and combine as an AND of ORs: repeating one
 widens it (any of the given manufacturers), giving several different ones
 narrows it (this manufacturer *and* this type). An empty filter keeps
-every chip.
+every chip, except that no `--type` means `--type nor`.
 
 `--prefix` renames every `usf_`/`USF_` symbol; it must be a C identifier
 and must not start with `_` (C reserves those). This is the only way to
