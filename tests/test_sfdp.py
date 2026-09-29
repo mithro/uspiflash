@@ -10,7 +10,7 @@ import pytest
 from spiflash.db import database
 from spiflash.enums import FlashType
 
-from harness import Harness
+from harness import Harness, parity
 from uspiflash import oracle
 from uspiflash.levels import ChipFilter, Selection
 from uspiflash.provenance import Config
@@ -94,6 +94,7 @@ def test_there_are_dumps() -> None:
     assert len(DUMPS) >= 12
 
 
+@parity
 def test_every_shipped_dump(harnesses: dict[str, Harness]) -> None:
     for cc, h in harnesses.items():
         got = h.run([f"S sfdp={d.hex()}" for d in DUMPS])
@@ -102,6 +103,7 @@ def test_every_shipped_dump(harnesses: dict[str, Harness]) -> None:
             assert not decoded(out).startswith("sfdp=none")
 
 
+@parity
 def test_damaged_dumps(harnesses: dict[str, Harness]) -> None:
     images = damaged() + edges()
     want = [oracle.sfdp_fields(i) for i in images]
