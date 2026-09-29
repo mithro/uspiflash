@@ -1,6 +1,7 @@
 """The size ledger: ``sizes/ledger.json``, every :data:`~uspiflash.measure.CONFIGS`
 entry measured on every :data:`~uspiflash.measure.TARGETS` entry, and
-``sizes/README.md``, the tables generated from it.
+``sizes/README.md``, the tables generated from it. The top-level README
+quotes two figures from it, between markers that ``--write`` rewrites.
 
 The ledger holds only what determines the numbers: the spiflash version,
 each configuration's selection, each tool's version line and each target's
@@ -39,6 +40,10 @@ if TYPE_CHECKING:
 FORMAT = 1
 LEDGER = Path("sizes/ledger.json")
 README = Path("sizes/README.md")
+TOP_README = Path("README.md")
+#: The lines around the top-level README's size figures.
+BEGIN = "<!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->"
+END = "<!-- sizes: end -->"
 REGENERATE = "uv run python -m uspiflash.sandbox -- uv run uspiflash measure --write"
 _REPO = "https://github.com/mithro/uspiflash/blob/main"
 _STATS = "2026-09-28-database-statistics"
@@ -182,14 +187,47 @@ def tool_mismatches(ledger: dict[str, Any]) -> list[str]:
     return out
 
 
-def files(ledger: dict[str, Any]) -> dict[Path, str]:
-    """Every file generated from ``ledger``, by path from the repository root."""
-    return {LEDGER: dumps(ledger), README: readme(ledger)}
+def summary(ledger: dict[str, Any]) -> str:
+    """The headline figures the top-level README quotes: ``read`` and
+    ``full`` on the first target (Cortex-M0)."""
+    t = ledger["targets"][0]
+    sizes = ledger["sizes"][t["name"]]
+    return "\n".join(
+        [
+            f"Compiled for `{t['name']}` with {ledger['tools'][t['compiler']]} at `-Os`,",
+            f"the `read` level costs **{sizes['read']['total']:,} bytes** of flash and `full`",
+            f"**{sizes['full']['total']:,} bytes**, code and tables together, with no static RAM.",
+            "Every configuration and target, and how they are measured:",
+            f"[`sizes/README.md`]({_REPO}/sizes/README.md).",
+        ]
+    )
+
+
+def splice(text: str, ledger: dict[str, Any]) -> str:
+    """``text`` (the top-level README) with the lines between its
+    :data:`BEGIN` and :data:`END` markers replaced by :func:`summary`."""
+    head, begin, rest = text.partition(BEGIN + "\n")
+    _, end, tail = rest.partition(END + "\n")
+    if not (begin and end):
+        msg = f"{TOP_README} has no {BEGIN} ... {END} lines to put the sizes between"
+        raise ValueError(msg)
+    return f"{head}{BEGIN}\n{summary(ledger)}\n{END}\n{tail}"
+
+
+def files(ledger: dict[str, Any], root: Path) -> dict[Path, str]:
+    """Every file generated from ``ledger``, by path from the repository
+    ``root``: the ledger, its README, and the top-level README's size
+    figures (when ``root`` has a README)."""
+    out = {LEDGER: dumps(ledger), README: readme(ledger)}
+    top = root / TOP_README
+    if top.is_file():
+        out[TOP_README] = splice(top.read_text(encoding="utf-8"), ledger)
+    return out
 
 
 def write(root: Path, ledger: dict[str, Any]) -> None:
     """Write every file generated from ``ledger`` under ``root``."""
-    for path, text in files(ledger).items():
+    for path, text in files(ledger, root).items():
         (root / path).parent.mkdir(parents=True, exist_ok=True)
         (root / path).write_text(text, encoding="utf-8")
 
@@ -198,7 +236,7 @@ def diff(root: Path, ledger: dict[str, Any]) -> str:
     """A unified diff from the committed files to those ``ledger`` generates
     (empty when they match)."""
     out: list[str] = []
-    for path, want in files(ledger).items():
+    for path, want in files(ledger, root).items():
         p = root / path
         have = p.read_text(encoding="utf-8") if p.is_file() else ""
         out += difflib.unified_diff(

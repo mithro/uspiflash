@@ -251,7 +251,33 @@ def test_the_committed_files_match_the_committed_ledger() -> None:
     (CI's sizes job checks the numbers themselves.)"""
     data = ledger.committed(ROOT)
     assert data is not None
-    for path, text in ledger.files(data).items():
+    files = ledger.files(data, ROOT)
+    assert ledger.TOP_README in files
+    for path, text in files.items():
         assert (ROOT / path).read_text(encoding="utf-8") == text, path
     assert [c["name"] for c in data["configs"]] == [n for n, _ in measure.CONFIGS]
     assert [t["name"] for t in data["targets"]] == [t.name for t in TARGETS]
+
+
+def test_write_updates_the_readme_figures(
+    tmp_path: Path,
+    small: list[Target],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(measure, "CONFIGS", (("read", ID), ("full", ID)))
+    top = tmp_path / "README.md"
+    top.write_text(f"# x\n\n{ledger.BEGIN}\nstale\n{ledger.END}\n\nmore\n")
+    assert main(["measure", "--write", "--root", str(tmp_path)]) == 0
+    text = top.read_text()
+    data = json.loads((tmp_path / "sizes" / "ledger.json").read_text())
+    assert text == f"# x\n\n{ledger.BEGIN}\n{ledger.summary(data)}\n{ledger.END}\n\nmore\n"
+    total = data["sizes"][small[0].name]["full"]["total"]
+    assert f"**{total:,} bytes**" in text
+    top.write_text(text.replace(f"{total:,}", "1"))
+    capsys.readouterr()
+    assert main(["measure", "--check", "--root", str(tmp_path)]) == 1
+    assert "--- README.md (committed)" in capsys.readouterr().out
+    top.write_text("# no markers\n")
+    assert main(["measure", "--write", "--root", str(tmp_path)]) == 2
+    assert "README.md has no <!-- sizes:" in capsys.readouterr().err

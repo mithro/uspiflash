@@ -141,7 +141,9 @@ def parser() -> argparse.ArgumentParser:
     )
     mode = measure_ap.add_mutually_exclusive_group()
     mode.add_argument(
-        "--write", action="store_true", help="rewrite sizes/ledger.json and sizes/README.md"
+        "--write",
+        action="store_true",
+        help="rewrite sizes/ledger.json, sizes/README.md and README.md's size figures",
     )
     mode.add_argument(
         "--check",
@@ -213,7 +215,7 @@ def _measure(args: argparse.Namespace) -> int:
         if args.check:
             return _check_ledger(root)
         ledger.write(root, ledger.measure_fresh())
-    except (MeasureError, FileNotFoundError) as e:
+    except (MeasureError, FileNotFoundError, ValueError) as e:
         print(f"uspiflash: {e}", file=sys.stderr)
         return 2
     return 0
