@@ -47,6 +47,13 @@ else
 fi
 echo "=== exit $code ==="
 echo "=== end ==="
+# The console's output is still in the kernel's buffers, draining through the
+# emulated UART; reboot -f would drop it (on CI the output stopped mid-line,
+# about 2 KiB in). Setting the terminal's own settings back is a tcsetattr
+# with TCSADRAIN, which waits until the UART has sent everything; the pause
+# lets QEMU pass the last bytes on before it exits.
+stty "$(stty -g)"
+sleep 1
 # sifive_u has no power-off device (OpenSBI: "Platform Shutdown Device:
 # ---"), only gpio-restart, so reboot: QEMU's -no-reboot makes that an exit.
 reboot -f
