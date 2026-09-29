@@ -11,7 +11,8 @@ Build-Depends: debhelper-compat (= 13),
                python3-setuptools-scm,
                python3-spiflash (>= 0.0.post74~),
                python3-pytest <!nocheck>,
-               gcc <!nocheck>,
+               gcc,
+               linux-libc-dev,
 Standards-Version: 4.7.0
 Homepage: https://github.com/mithro/uspiflash
 Vcs-Git: https://github.com/mithro/uspiflash.git
@@ -33,3 +34,14 @@ Description: generator of tiny C libraries that detect SPI flash chips
  is measured byte for byte across GCC, LLVM and SDCC.
  .
  This package provides the uspiflash Python module and the uspiflash command.
+
+Package: uspiflash-linux
+Section: utils
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: identify the SPI flash chip on a spidev device
+ uspiflash-linux sends id commands (JEDEC read-id, legacy RES/REMS ids, SFDP)
+ through a Linux spidev device and prints what the chip is, in the same
+ format as `spiflash id --opcodes`: size, geometry, voltages, capabilities
+ and supported commands. It is a small C program built on a header generated
+ by uspiflash, and never writes to the chip.
