@@ -2,10 +2,9 @@
 tests' single source of truth. Every function is spiflash's own output with
 only the fields the selection leaves out removed.
 
-One thing is removed whatever the selection: the SFDP dumps spiflash 0.0.post74
-added (the text line ``    sfdp: <summary>  [<source>: <parts>]`` and the
-JSON key ``"sfdp"``). The generated file does not carry them yet; that is a
-known gap, owned by the SFDP milestone (M1 part D)."""
+:func:`sfdp_fields` is the oracle for ``usf_sfdp_read``, which decodes a
+chip's own SFDP tables: :func:`spiflash.sfdp.parse`, in the fields the C
+fills."""
 
 from __future__ import annotations
 
@@ -14,6 +13,8 @@ from typing import TYPE_CHECKING
 
 from spiflash.cli import describe
 from spiflash.enums import DataPhase
+from spiflash.sfdp import AddressBytes, FourByteMethod
+from spiflash.sfdp import parse as parse_sfdp
 
 from . import layout
 from .levels import Field
@@ -74,7 +75,7 @@ def text(db: Database, family: IdFamily, data: bytes, sel: Selection, *, opcodes
         for line in describe(f, opcodes=opcodes).split("\n"):
             if line.startswith("    from: ") and not sel.has(Field.SOURCES):
                 continue
-            if line.startswith("    sfdp: "):  # not carried yet: see the module docstring
+            if line.startswith("    sfdp: ") and not sel.has(Field.SFDP_SUMMARY):
                 continue
             if line.startswith("    sources disagree on ") and not sel.has(Field.CONFLICTS):
                 continue
@@ -92,7 +93,8 @@ def json_text(db: Database, family: IdFamily, data: bytes, sel: Selection) -> st
     """What `spiflash id --json` prints, less what ``sel`` leaves out."""
     objs = [f.to_json() for f in db.lookup(data, method=family)]
     for o in objs:
-        del o["sfdp"]  # not carried yet: see the module docstring
+        if not sel.has(Field.SFDP_DUMPS):
+            del o["sfdp"]
         if not sel.has(Field.DATASHEETS):
             del o["datasheets"]
         if not sel.has(Field.RECORDS):
@@ -101,3 +103,72 @@ def json_text(db: Database, family: IdFamily, data: bytes, sel: Selection) -> st
             for r in o["records"]:
                 del r["at"]
     return json.dumps(objs, indent=1) + "\n"
+
+
+#: usf_sfdp.address_bytes: DW1[18:17] (spiflash gives None for the reserved 3).
+_ADDRESS = {AddressBytes.THREE: 0, AddressBytes.THREE_OR_FOUR: 1, AddressBytes.FOUR: 2, None: 3}
+#: usf_sfdp.enter_4b and exit_4b: bit i is the method at index i (DW16[30:24]
+#: and DW16[21:14], in JESD216's bit order).
+_ENTER_4B = (
+    FourByteMethod.EN4B,
+    FourByteMethod.WREN_EN4B,
+    FourByteMethod.WREAR,
+    FourByteMethod.BRWR,
+    FourByteMethod.NV_CR,
+    FourByteMethod.OPCODES_4B,
+    FourByteMethod.ALWAYS_4B,
+)
+_EXIT_4B = (
+    FourByteMethod.EN4B,
+    FourByteMethod.WREN_EN4B,
+    FourByteMethod.WREAR,
+    FourByteMethod.BRWR,
+    FourByteMethod.NV_CR,
+    FourByteMethod.HW_RESET,
+    FourByteMethod.SW_RESET,
+    FourByteMethod.POWER_CYCLE,
+)
+
+
+def sfdp_space(image: bytes) -> bytes:
+    """``image`` as a chip whose SFDP space holds it answers: followed by
+    0xFF (an idle bus), as far as the header, every parameter header and
+    every BFPT they point at reach. A dump file ends where its tables do;
+    the chip's space never ends, so this is what ``usf_sfdp_read`` sees.
+    A table pointer near 0xFFFFFF makes it about 16 MiB long."""
+    space = image.ljust(8, b"\xff")
+    headers = space[6] + 1
+    space = space.ljust(8 + 8 * headers, b"\xff")
+    end = len(space)
+    for i in range(headers):
+        h = space[8 + 8 * i : 16 + 8 * i]
+        if h[0] == 0x00 and h[7] == 0xFF:  # a BFPT (id 0xff00)
+            end = max(end, int.from_bytes(h[4:7], "little") + 4 * h[3])
+    return space.ljust(end, b"\xff")
+
+
+def sfdp_fields(image: bytes) -> str:
+    """What the harness's ``S`` command (and ``uspiflash-linux --sfdp``)
+    prints for a chip whose SFDP space holds ``image``: spiflash's decoding
+    of its BFPT, in the fields ``usf_sfdp`` has; ``sfdp=none`` without one."""
+    try:
+        b = parse_sfdp(sfdp_space(image)).bfpt
+    except ValueError:  # no "SFDP" signature
+        b = None
+    if b is None:
+        return "sfdp=none\n"
+    size = b.size if b.size is not None and b.size < 1 << 32 else 0
+    qe = "none" if b.quad_enable is None else str(b.quad_enable)
+    en4b = sum(1 << i for i, m in enumerate(_ENTER_4B) if m in b.four_byte_enter)
+    ex4b = sum(1 << i for i, m in enumerate(_EXIT_4B) if m in b.four_byte_exit)
+    e4k = 0xFF if b.erase_4k_opcode is None else b.erase_4k_opcode
+    head = (
+        f"sfdp={b.major}.{b.minor} dwords={b.length} addr={_ADDRESS[b.address_bytes]} "
+        f"erase4k=0x{e4k:02x} dtr={int(b.dtr)} size={size} page={b.page_size or 0} "
+        f"qe={qe} en4b=0x{en4b:02x} ex4b=0x{ex4b:02x}"
+    )
+    erase = "".join(f" {e.index}:{e.size.bit_length() - 1}:0x{e.opcode:02x}" for e in b.erase_types)
+    reads = "".join(
+        f" {r.protocol}:0x{r.opcode:02x}:{r.mode_clocks}+{r.wait_states}" for r in b.reads
+    )
+    return f"{head}\nerase{erase}\nread{reads}\n"

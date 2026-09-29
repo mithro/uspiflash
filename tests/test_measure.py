@@ -248,7 +248,8 @@ def test_the_ledger_is_deterministic(tmp_path: Path, small: list[Target]) -> Non
     data = json.loads(first)
     assert [t["name"] for t in data["targets"]] == [t.name for t in small]
     assert set(data["tools"]) == {*(t.compiler for t in small), measure.SIZE_TOOL}
-    assert data["configs"][0]["options"] == ["--level", "id"]
+    # Every type (the library's default) is spelt out: ``generate`` alone keeps SPI NOR.
+    assert data["configs"][0]["options"] == ["--level", "id", "--type", "nor", "--type", "nand"]
     assert data["configs"][0]["config"] == ID.to_json()
 
 
@@ -433,3 +434,10 @@ def test_write_updates_the_readme_figures(
     top.write_text("# no markers\n")
     assert main(["measure", "--write", "--root", str(tmp_path)]) == 2
     assert "README.md has no <!-- sizes:" in capsys.readouterr().err
+
+
+def test_the_sfdp_extras_are_measured_nor_first() -> None:
+    names = [n for n, _ in measure.CONFIGS]
+    nor = ["id+sfdp:nor", "read+sfdp:nor", "full-sfdp_summary:nor", "full+sfdp_dumps:nor"]
+    assert names[len(LEVELS) : len(LEVELS) + len(nor)] == nor
+    assert "full+sfdp+sfdp_dumps" in names

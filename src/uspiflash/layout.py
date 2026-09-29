@@ -25,10 +25,11 @@ Conventions
   after its name. So the C file never holds a table nothing uses (which
   ``-Wunused-const-variable`` would reject).
 - **Counted tables.** ``sizes``, ``pages``, ``sectors``, ``volts``,
-  ``mfrs``, ``ops`` (with ``opsets``), ``ext``, ``conflicts`` and
-  ``dsrows`` (with ``dslists``) can have no rows in a filtered snapshot (a
-  ``--type nand`` one has no voltages, operations, extended ids or
-  conflicts; a chip may have no datasheet). The C code that indexes such a
+  ``mfrs``, ``ops`` (with ``opsets``), ``ext``, ``conflicts``, ``dsrows``
+  (with ``dslists``) and ``sfdprows`` (with ``sfdplines`` and ``sfdptree``)
+  can have no rows in a filtered snapshot (a ``--type nand`` one has no
+  voltages, operations, extended ids, conflicts or SFDP dumps; a chip may
+  have no datasheet). The C code that indexes such a
   table is compiled only when it has rows (``<NAME>_COUNT``, below), so a
   table with none is left out: nothing reads it, and no compiler sees an
   index into an empty array. The C emitter still pads any 0-byte table to
@@ -106,15 +107,40 @@ Tables
     DATASHEETS id confirmed, 0 or 1: whether the document gives the chip's
     id), best first as spiflash ranks them. With DATASHEET alone ``n`` is at
     most 1.
+``sfdprows`` (SFDP_SUMMARY with TEXT, or SFDP_DUMPS)
+    ``SFDP_ROW`` bytes per entry whose records carry an SFDP dump, in entry
+    order: ``u16`` entry index; with ``sfdplines``, at ``SFDP_LINES``, a
+    ``u16`` offset into ``sfdplines``; with SFDP_DUMPS, at ``SFDP_TREE``, a
+    ``u16`` offset into ``sfdptree``. ``SFDP_COUNT`` rows (13 at spiflash
+    0.0.post92: 11 chip ids and 2 extended-id variants). An entry without a
+    row has no dump; the C finds a row by scanning (no ``E_*`` field: two
+    bytes per entry would cost more than the rows).
+``sfdplines`` (SFDP_SUMMARY with TEXT: :func:`stores_sfdp_lines`)
+    Blobs: ``n``, then ``n x OFF``: the text after ``"    sfdp: "`` of each of
+    the entry's ``sfdp:`` lines, as ``spiflash id`` prints them
+    (``<summary>  [<source>: <parts>]``, :func:`sfdp_lines`).
+``sfdptree`` (SFDP_DUMPS)
+    Blobs, one per distinct JSON ``"sfdp"`` value (:func:`sfdp_json`): the
+    value as a flat run of tokens in document order, ending with ``T_END``
+    (0). A token is one byte, its kind in bits 0-6 and ``T_ITEM`` (bit 7)
+    set on a value that is an array element; then ``T_INT``: ``u32``;
+    ``T_STR`` and ``T_KEY`` (an object member's name; its value follows):
+    ``OFF``, stored JSON-escaped; ``T_NULL``, ``T_FALSE``, ``T_TRUE``,
+    ``T_LIST``, ``T_DICT``, ``T_LIST_END`` and ``T_DICT_END``: nothing. A
+    ``T_KEY`` always starts a member, so the reader writes the member
+    separator before it unasked; ``T_ITEM`` is never set on ``T_KEY``,
+    ``T_LIST_END`` or ``T_DICT_END``. Flat, so the C walks it in one loop,
+    without recursion.
 ``str`` (whenever compiled code reads a string, :func:`reads_strings`)
     NUL-terminated printable-ASCII strings with no ``"`` or ``\\``, each
     stored once. The readers are MANUFACTURER (with ``mfrs``), NAMES,
     DESCRIPTIONS (with ``ops``), TEXT (so DATASHEET), JSON (so RECORDS,
-    PROVENANCE and DATASHEETS) and JEP106. The one exception to the
-    character rule: datasheet titles and revisions, which only JSON prints,
-    are stored as ``json.dumps`` writes them between the quotes (ASCII, with
-    ``\\u00d7``-style escapes; :meth:`StringPool.add_json`). URLs follow the
-    rule.
+    PROVENANCE, DATASHEETS and SFDP_DUMPS) and JEP106. The one exception to
+    the character rule: datasheet titles and revisions and every
+    ``sfdptree`` string, which only JSON prints, are stored as
+    ``json.dumps`` writes them between the quotes (ASCII, with
+    ``\\u00d7``-style escapes; :meth:`StringPool.add_json`). URLs and
+    ``sfdp:`` lines follow the rule.
 Name arrays
     ``OFF`` arrays holding each member's value (``str(member)``: ``"nor"``,
     ``"u-boot"``, ``"erase_4k"``), for the printers (:func:`name_arrays`):
@@ -189,12 +215,14 @@ Constants for the C template, in :attr:`Layout.defines`:
 - the row counts of the counted tables, 0 when the table is absent:
   ``SIZE_COUNT``, ``PAGE_COUNT``, ``SECTOR_COUNT``, ``VOLT_COUNT``,
   ``MFR_COUNT``, ``OP_COUNT`` (rows of ``ops``), ``EXT_COUNT`` and
-  ``CONF_COUNT`` (blobs of ``ext`` and ``conflicts``) and ``DS_COUNT``
-  (rows of ``dsrows``);
+  ``CONF_COUNT`` (blobs of ``ext`` and ``conflicts``), ``DS_COUNT``
+  (rows of ``dsrows``) and ``SFDP_COUNT`` (rows of ``sfdprows``);
 - with DATASHEET or DATASHEETS: ``DS_ROW`` (the ``dsrows`` row size),
   ``DS_ITEM`` (a ``dslists`` item's size: 2, or 3 with DATASHEETS) and
   ``NONE_OFF`` (``2 ** (8 * OFF_BYTES) - 1``, which no real offset
   reaches: the generator refuses a pool that large);
+- with ``sfdprows``: ``SFDP_ROW`` (the ``sfdprows`` row size), and
+  ``SFDP_LINES`` and ``SFDP_TREE`` (offsets in a row) with their fields;
 - ``LOOKUP_MAX``: ``HAVE_NOR + HAVE_NAND``, the most answers a lookup can
   give (the size of ``usf_lookup``'s output array);
 - ``RDID_LEN``: the bytes the probe reads for RDID: max(6, the longest bank +
@@ -214,8 +242,9 @@ from __future__ import annotations
 import json
 import string
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from spiflash.cli import describe
 from spiflash.enums import DataPhase, Feature, FlashType, OperationKind, Source
 from spiflash.opcodes import OPERATIONS, sort_key
 
@@ -223,7 +252,7 @@ from .levels import Field
 from .model import FAMILIES
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable, Iterator
 
     from spiflash.model import Datasheet, Flash
 
@@ -246,6 +275,12 @@ CONFLICT_ATTRS: tuple[str, ...] = ("size", "page_size", "sector_size", "voltage"
 TYPES: tuple[FlashType, ...] = (FlashType.NOR, FlashType.NAND)
 NONE8 = 0xFF
 NONE16 = 0xFFFF
+#: ``sfdptree`` token kinds (bits 0-6 of a token's first byte).
+T_END, T_NULL, T_FALSE, T_TRUE, T_INT, T_STR, T_KEY = 0, 1, 2, 3, 4, 5, 6
+T_LIST, T_DICT, T_LIST_END, T_DICT_END = 7, 8, 9, 10
+#: Set on a token whose value is an array element: the C writes the separator.
+T_ITEM = 0x80
+_SFDP_LINE = "    sfdp: "
 _PRINTABLE = set(string.printable) - set('\t\n\r\x0b\x0c"\\')
 _DATA = {None: 0, DataPhase.READ: 1, DataPhase.WRITE: 2}
 
@@ -386,6 +421,12 @@ def stores_conflicts(sel: Selection) -> bool:
     return sel.has(Field.CONFLICTS) and (sel.has(Field.TEXT) or sel.has(Field.JSON))
 
 
+def stores_sfdp_lines(sel: Selection) -> bool:
+    """Whether ``sel`` stores the ``sfdp:`` lines (``sfdplines``):
+    SFDP_SUMMARY and TEXT, their only printer."""
+    return sel.has(Field.SFDP_SUMMARY) and sel.has(Field.TEXT)
+
+
 def name_arrays(
     sel: Selection, *, ops: bool = True, conflicts: bool = True
 ) -> dict[str, tuple[object, ...]]:
@@ -435,6 +476,12 @@ def _strings(
                 pool.add(r.name)
                 if has(Field.PROVENANCE):
                     pool.add(r.url)
+        if stores_sfdp_lines(sel):
+            for line in sfdp_lines(f):
+                pool.add(line)
+        if has(Field.SFDP_DUMPS):
+            for s in _json_strings(sfdp_json(f)):
+                pool.add_json(s)
     if has(Field.JEP106):
         for m in snap.database.manufacturers:
             pool.add(m.name)
@@ -444,6 +491,59 @@ def _strings(
             pool.add_json(d.title)
             if d.revision is not None:
                 pool.add_json(d.revision)
+
+
+def sfdp_lines(f: Flash) -> list[str]:
+    """What follows ``"    sfdp: "`` on each of ``f``'s ``sfdp:`` lines, taken
+    from ``spiflash id``'s own text so the two cannot differ."""
+    if not f.sfdp_dumps:
+        return []
+    lines = describe(f).split("\n")
+    return [line[len(_SFDP_LINE) :] for line in lines if line.startswith(_SFDP_LINE)]
+
+
+def sfdp_json(f: Flash) -> list[Any]:
+    """``f``'s JSON ``"sfdp"`` value (spiflash's own :meth:`Flash.to_json`),
+    as plain JSON types: its enums become the strings ``json.dumps`` writes."""
+    if not f.sfdp_dumps:
+        return []
+    value: list[Any] = json.loads(json.dumps(f.to_json()["sfdp"]))
+    return value
+
+
+def _json_strings(v: object) -> Iterator[str]:
+    """Every member name and string value in JSON value ``v``."""
+    if isinstance(v, str):
+        yield v
+    elif isinstance(v, list):
+        for x in v:
+            yield from _json_strings(x)
+    elif isinstance(v, dict):
+        for k, x in v.items():
+            yield str(k)
+            yield from _json_strings(x)
+
+
+def sfdp_tree(v: object, off: Callable[[str], bytes], *, item: bool = False) -> bytes:
+    """JSON value ``v`` as ``sfdptree`` tokens, without the final ``T_END``;
+    ``off`` gives a string's ``OFF``."""
+    flag = T_ITEM if item else 0
+    if v is None:
+        return _u8(T_NULL | flag)
+    if isinstance(v, bool):
+        return _u8((T_TRUE if v else T_FALSE) | flag)
+    if isinstance(v, int):
+        return _u8(T_INT | flag) + _uint(v, 4, "SFDP JSON integer")
+    if isinstance(v, str):
+        return _u8(T_STR | flag) + off(v)
+    if isinstance(v, list):
+        body = b"".join(sfdp_tree(x, off, item=True) for x in v)
+        return _u8(T_LIST | flag) + body + _u8(T_LIST_END)
+    if isinstance(v, dict):
+        body = b"".join(_u8(T_KEY) + off(str(k)) + sfdp_tree(x, off) for k, x in v.items())
+        return _u8(T_DICT | flag) + body + _u8(T_DICT_END)
+    msg = f"no sfdptree token for {v!r}"
+    raise ValueError(msg)
 
 
 def _datasheets(f: Flash, sel: Selection) -> tuple[Datasheet, ...]:
@@ -761,6 +861,35 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     if has(Field.JEP106):
         tables["jep106"] = b"".join(_u8(m.bank) + _u8(m.id) + off(m.name) for m in jep)
 
+    # sfdprows, sfdplines, sfdptree
+    sfdplines = _Blobs("sfdplines")
+    sfdptree = _Blobs("sfdptree")
+    sfdp_count = 0
+    with_lines = stores_sfdp_lines(sel)
+    if with_lines or has(Field.SFDP_DUMPS):
+        sfdp_rows = bytearray()
+        for i, e in enumerate(snap.entries):
+            if not e.flash.sfdp_dumps:
+                continue
+            sfdp_count += 1
+            sfdp_rows += _u16(i)
+            if with_lines:
+                lines = sfdp_lines(e.flash)
+                sfdp_rows += _u16(sfdplines.add(_u8(len(lines)) + b"".join(map(off, lines))))
+            if has(Field.SFDP_DUMPS):
+                tree = sfdp_tree(sfdp_json(e.flash), off_json) + _u8(T_END)
+                sfdp_rows += _u16(sfdptree.add(tree))
+        tables["sfdprows"] = _row_table("sfdprows", bytes(sfdp_rows))
+        defines["SFDP_ROW"] = 2
+        if with_lines:
+            tables["sfdplines"] = bytes(sfdplines.data)
+            defines["SFDP_LINES"] = defines["SFDP_ROW"]
+            defines["SFDP_ROW"] += 2
+        if has(Field.SFDP_DUMPS):
+            tables["sfdptree"] = bytes(sfdptree.data)
+            defines["SFDP_TREE"] = defines["SFDP_ROW"]
+            defines["SFDP_ROW"] += 2
+
     # Strings.
     for table, members in name_arrays(sel, ops=bool(ops), conflicts=any_conflicts).items():
         tables[table] = b"".join(off(str(n)) for n in members)
@@ -782,6 +911,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         "EXT_COUNT": ("ext", len(ext)),
         "CONF_COUNT": ("conflicts", len(conflicts)),
         "DS_COUNT": ("dsrows", len(sheets)),
+        "SFDP_COUNT": ("sfdprows", sfdp_count),
     }
     for name, (table, n) in counts.items():
         defines[name] = n
@@ -791,6 +921,9 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         tables.pop("opsets", None)
     if not sheets:
         tables.pop("dslists", None)
+    if not sfdp_count:
+        tables.pop("sfdplines", None)
+        tables.pop("sfdptree", None)
 
     # Defines.
     defines["ENTRY_COUNT"] = len(snap.entries)

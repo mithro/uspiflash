@@ -154,17 +154,16 @@ uint8_t usf_jep106(uint8_t bank, uint8_t id, usf_putc_fn sink, void *ctx);
  * usf_probe() gave them), byte for byte, trailing newline included, less
  * what this file was generated without: the `from:` line and each opcode's
  * [sources] without sources, the `sources disagree` lines without
- * conflicts, and the `datasheet:` line without datasheet. The `sfdp:` lines
- * are always left out: SFDP dumps are not in this file yet. */
+ * conflicts, the `datasheet:` line without datasheet, and the `sfdp:` lines
+ * without sfdp_summary. */
 void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink, void *ctx);
 #endif
 
 #if USF_HAVE_JSON
 /* Prints what `spiflash id --json` prints for these answers, byte for
  * byte, less what this file was generated without: "datasheets" without
- * datasheets, "records" without records, and each record's "at" without
- * provenance. The "sfdp" key is always left out: SFDP dumps are not in this
- * file yet. */
+ * datasheets, "records" without records, each record's "at" without
+ * provenance, and "sfdp" without sfdp_dumps. */
 void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ctx);
 #endif
 
@@ -210,6 +209,58 @@ typedef struct usf_probe_result {
 uint8_t usf_probe(usf_bus *bus, usf_probe_result *r);
 #endif
 
+#if USF_HAVE_SFDP
+/* What the chip's own SFDP (JESD216) Basic Flash Parameter Table says,
+ * decoded as spiflash.sfdp decodes it: the fields a driver needs. BFPT
+ * dwords are numbered from 1, as the standard does. */
+typedef struct usf_sfdp {
+    uint32_t size;               /* bytes (DW2); 0: not given, or 4 GiB or more */
+    uint16_t page_size;          /* bytes (DW11); 0: not given (before JESD216A) */
+    uint8_t  rev_major;          /* the BFPT's revision, major.minor: 1.0 JESD216, */
+    uint8_t  rev_minor;          /* 1.5 JESD216A, 1.6 B, 1.7 C, 1.8 D */
+    uint8_t  dwords;             /* the BFPT's length in dwords (9 in JESD216, 16 in B) */
+    uint8_t  address_bytes;      /* DW1[18:17]: 0 3-byte, 1 3- or 4-byte, 2 4-byte,
+                                    3 reserved */
+    uint8_t  erase_4k_opcode;    /* DW1[15:8]; 0xFF: no 4 KiB erase */
+    uint8_t  flags;              /* USF_SFDP_DTR */
+    uint8_t  erase_log2[4];      /* erase types 1-4 (DW8, DW9): log2 of the size; 0: none */
+    uint8_t  erase_opcode[4];    /* their opcodes (0 where there is no type) */
+    uint8_t  reads;              /* bit i set: fast-read mode i (USF_SFDP_READ_*) given */
+    uint8_t  read_opcode[6];     /* each mode's opcode (0 where not given) */
+    uint8_t  read_clocks[6];     /* bits 7:5 mode clocks, 4:0 wait states; their sum is
+                                    the dummy clocks a controller inserts */
+    uint8_t  quad_enable;        /* DW15[22:20]: how to set QE (JESD216's code 0-7);
+                                    0xFF: not given (before JESD216A) */
+    uint8_t  enter_4b;           /* DW16[30:24], ways into 4-byte addressing: bit 0 EN4B,
+                                    1 WREN then EN4B, 2 EAR, 3 BAR, 4 NVCR, 5 4-byte
+                                    opcodes, 6 always 4-byte; 0: none or not given */
+    uint8_t  exit_4b;            /* DW16[21:14], ways out: bit 0 EX4B, 1 WREN then EX4B,
+                                    2 EAR, 3 BAR, 4 NVCR, 5 hardware reset, 6 soft reset,
+                                    7 power cycle */
+} usf_sfdp;
+
+#define USF_SFDP_DTR 1           /* flags: DTR (double transfer rate) clocking, DW1[19] */
+/* The BFPT's fast-read modes, in usf_sfdp order: bits of `reads`, and
+ * indices of read_opcode and read_clocks. */
+#define USF_SFDP_READ_1_1_2 0
+#define USF_SFDP_READ_1_2_2 1
+#define USF_SFDP_READ_1_1_4 2
+#define USF_SFDP_READ_1_4_4 3
+#define USF_SFDP_READ_2_2_2 4
+#define USF_SFDP_READ_4_4_4 5
+
+/* Read the chip's SFDP header, parameter headers and BFPT into `out` and
+ * return 1; return 0, `out` untouched, when there is no "SFDP" signature or
+ * no BFPT. Of several BFPTs it takes the one spiflash picks (as Linux does
+ * among valid ones): major revision 1, the highest minor, then the longest.
+ * Sends only RDSFDP (0x5A, 3 address bytes, 8 dummy clocks), four bytes at
+ * a time, so it cannot change the chip; an address past the 24-bit SFDP
+ * space reads as 0xFF rather than wrapping round. Call it after
+ * usf_probe(), whose RES wakes the chip. What SFDP says is what the part's designers wrote, which is
+ * sometimes wrong (Linux keeps fixups for such parts). */
+uint8_t usf_sfdp_read(usf_bus *bus, usf_sfdp *out);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
@@ -246,9 +297,11 @@ typedef uint32_t usf__off_t;
 #define USF__NEED_OFF (USF_MFR_COUNT || USF_HAVE_NAMES \
     || (USF_HAVE_DESCRIPTIONS && USF_OP_COUNT) || USF_HAVE_JEP106 || USF_HAVE_TEXT \
     || USF_HAVE_JSON)
-#define USF__NEED_U32 (USF_SIZE_COUNT || USF_SECTOR_COUNT)
+#define USF__NEED_U32 (USF_SIZE_COUNT || USF_SECTOR_COUNT \
+    || (USF_HAVE_SFDP_DUMPS && USF_SFDP_COUNT))
 #define USF__NEED_U16 (USF__NEED_U32 || USF__NEED_OFF || USF_PAGE_COUNT || USF_VOLT_COUNT \
-    || USF_EXT_COUNT || USF_OP_COUNT || USF_CONF_COUNT || USF_HAVE_RECORDS || USF_DS_COUNT)
+    || USF_EXT_COUNT || USF_OP_COUNT || USF_CONF_COUNT || USF_HAVE_RECORDS || USF_DS_COUNT \
+    || USF_SFDP_COUNT)
 
 #if USF__NEED_U16
 /* Every byte is widened to an unsigned type before it is shifted: a byte
@@ -708,6 +761,20 @@ static usf__p usf__dsrow(usf__p item)
     return usf__dsrows + (uint16_t)(USF_DS_ROW * usf__u16(item));
 }
 #endif
+
+#if USF_SFDP_COUNT
+/* The entry's sfdprows row, or 0 when its records carry no SFDP dump. A
+ * scan: a dozen rows cost less than an entry field in every row. */
+static usf__p usf__sfdprow(const usf_chip *c)
+{
+    usf__p p = usf__sfdprows;
+    uint16_t i;
+    for (i = 0; i < USF_SFDP_COUNT; i++, p += USF_SFDP_ROW)
+        if (usf__u16(p) == c->entry)
+            return p;
+    return 0;
+}
+#endif
 #endif
 
 #if USF_HAVE_TEXT
@@ -888,6 +955,18 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
 #if USF_HAVE_SOURCES
     usf__lit("\n    from: ", sink, ctx);
     usf__srclist(usf_sources(c), ", ", sink, ctx);
+#endif
+#if USF_HAVE_SFDP_SUMMARY && USF_SFDP_COUNT
+    {   /* sfdp: <summary>  [<source>: <parts>], one line per dump */
+        usf__p sr = usf__sfdprow(c);
+        if (sr) {
+            usf__p q = usf__sfdplines + usf__u16(sr + USF_SFDP_LINES);
+            for (i = *q++; i; i--, q += USF_OFF_BYTES) {
+                usf__lit("\n    sfdp: ", sink, ctx);
+                usf__puts(usf__off(q), sink, ctx);
+            }
+        }
+    }
 #endif
 #if USF_HAVE_DATASHEET && USF_DS_COUNT
     {   /* the best datasheet */
@@ -1074,6 +1153,57 @@ static void usf__jvalue(usf__json *j, uint8_t attr, uint8_t i)
     }
 #endif
     usf__jint(j, usf__confint(attr, i));
+}
+#endif
+
+#if USF_HAVE_SFDP_DUMPS && USF_SFDP_COUNT
+/* Writes the JSON value at `p` in sfdptree: a flat run of tokens (see the
+ * layout), walked in one loop, so no recursion (SDCC's 8051 port would
+ * need __reentrant for that). */
+static void usf__jtree(usf__json *j, usf__p p)
+{
+    uint8_t t;
+    while ((t = *p++) != 0) {                 /* 0: the end */
+        if (t & 0x80)                         /* an array element */
+            usf__jitem(j);
+        switch (t & 0x7F) {
+        case 1:
+            usf__jnull(j);
+            break;
+        case 2:
+            usf__lit("false", j->sink, j->ctx);
+            break;
+        case 3:
+            usf__lit("true", j->sink, j->ctx);
+            break;
+        case 4:
+            usf__jint(j, usf__u32(p));
+            p += 4;
+            break;
+        case 5:                               /* a string, stored escaped */
+            usf__jpool(j, usf__off(p));
+            p += USF_OFF_BYTES;
+            break;
+        case 6:                               /* a member's name; its value follows */
+            usf__jitem(j);
+            usf__jpool(j, usf__off(p));
+            usf__lit(": ", j->sink, j->ctx);
+            p += USF_OFF_BYTES;
+            break;
+        case 7:
+            usf__jopen(j, '[');
+            break;
+        case 8:
+            usf__jopen(j, '{');
+            break;
+        case 9:
+            usf__jclose(j, ']');
+            break;
+        default:                              /* 10 */
+            usf__jclose(j, '}');
+            break;
+        }
+    }
 }
 #endif
 
@@ -1265,6 +1395,19 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
     }
     usf__jclose(j, ']');
 #endif
+#if USF_HAVE_SFDP_DUMPS
+    usf__jkey(j, "sfdp");
+#if USF_SFDP_COUNT
+    p = usf__sfdprow(c);
+    if (p) {
+        usf__jtree(j, usf__sfdptree + usf__u16(p + USF_SFDP_TREE));
+    } else
+#endif
+    {
+        usf__jopen(j, '[');                   /* no dump: [] */
+        usf__jclose(j, ']');
+    }
+#endif
     usf__jclose(j, '}');
 }
 
@@ -1419,6 +1562,114 @@ uint8_t usf_probe(usf_bus *bus, usf_probe_result *r)
     }
 #endif
     return 0;
+}
+#endif
+
+#if USF_HAVE_SFDP
+/* Four bytes of the SFDP space at `addr`, little-endian: RDSFDP, a 3-byte
+ * address, 8 dummy clocks (one byte), then the data. Past the 24-bit space
+ * it reads 0xFF rather than wrap round to the header. */
+static uint32_t usf__sfdp_dw(usf_bus *bus, uint32_t addr)
+{
+    uint8_t tx[5], rx[4];
+    if (addr > 0xFFFFFFUL)
+        return 0xFFFFFFFFUL;
+    tx[0] = 0x5A;
+    tx[1] = (uint8_t)(addr >> 16);
+    tx[2] = (uint8_t)(addr >> 8);
+    tx[3] = (uint8_t)addr;
+    tx[4] = 0;
+    USF_XFER(bus, tx, 5, rx, 4);
+    return (uint32_t)rx[0] | (uint32_t)rx[1] << 8 | (uint32_t)rx[2] << 16
+        | (uint32_t)rx[3] << 24;
+}
+
+/* Per fast-read mode (USF_SFDP_READ_* order): the BFPT dword holding its
+ * 16-bit settings (opcode in the high byte, mode clocks in 7:5, wait states
+ * in 4:0), that half's shift, and its support bit (in DW1; for 2-2-2 and
+ * 4-4-4, in DW5). */
+static const USF_ROM uint8_t usf__sfdp_modes[6][3] = {
+    {4, 0, 16}, {4, 16, 20}, {3, 16, 22}, {3, 0, 21}, {6, 16, 0}, {7, 16, 4},
+};
+
+uint8_t usf_sfdp_read(usf_bus *bus, usf_sfdp *out)
+{
+    uint32_t d, d1, d5, ptr = 0;
+    uint16_t i, count;
+    uint8_t k, len = 0, rev = 0;
+
+    if (usf__sfdp_dw(bus, 0) != 0x50444653UL)          /* "SFDP" */
+        return 0;
+    count = (uint16_t)((usf__sfdp_dw(bus, 4) >> 16 & 0xFF) + 1);
+    for (i = 0; i < count; i++) {
+        /* A parameter header: id LSB, minor, major, length in dwords; then
+         * a 24-bit table pointer and the id MSB. The BFPT's id is 0xFF00. */
+        uint32_t h0 = usf__sfdp_dw(bus, 8 + 8 * (uint32_t)i);
+        uint32_t h1 = usf__sfdp_dw(bus, 12 + 8 * (uint32_t)i);
+        uint8_t hminor = (uint8_t)(h0 >> 8), hlen = (uint8_t)(h0 >> 24);
+        if ((h0 & 0xFF) == 0x00 && h1 >> 24 == 0xFF && (h0 >> 16 & 0xFF) == 1 && hlen
+            && (!len || hminor > rev || (hminor == rev && hlen > len))) {
+            rev = hminor;
+            len = hlen;
+            ptr = h1 & 0xFFFFFFUL;
+        }
+    }
+    if (!len)
+        return 0;
+    out->rev_major = 1;
+    out->rev_minor = rev;
+    out->dwords = len;
+
+    /* Each field only when the table is long enough to hold it: spiflash
+     * decodes "a table only as far as its header's length says it goes". */
+    d1 = usf__sfdp_dw(bus, ptr);
+    out->address_bytes = (uint8_t)(d1 >> 17 & 3);
+    out->erase_4k_opcode = (uint8_t)(d1 >> 8);
+    out->flags = (uint8_t)(d1 >> 19 & 1);
+    out->size = 0;
+    if (len >= 2) {
+        d = usf__sfdp_dw(bus, ptr + 4);
+        if (d >> 31) {                                  /* 2^N bits */
+            d &= 0x7FFFFFFFUL;
+            if (d >= 3 && d < 35)
+                out->size = (uint32_t)1 << (d - 3);
+        } else {                                        /* N + 1 bits */
+            out->size = (d + 1) >> 3;
+        }
+    }
+    d5 = len >= 7 ? usf__sfdp_dw(bus, ptr + 16) : 0;
+    out->reads = 0;
+    for (k = 0; k < 6; k++) {
+        const USF_ROM uint8_t *m = usf__sfdp_modes[k];
+        out->read_opcode[k] = 0;
+        out->read_clocks[k] = 0;
+        if (len >= 7 && ((k < 4 ? d1 : d5) >> m[2] & 1)) {
+            d = usf__sfdp_dw(bus, ptr + 4 * (uint32_t)(m[0] - 1)) >> m[1];
+            out->reads = (uint8_t)(out->reads | 1u << k);
+            out->read_opcode[k] = (uint8_t)(d >> 8);
+            out->read_clocks[k] = (uint8_t)d;
+        }
+    }
+    for (k = 0; k < 4; k++) {                           /* DW8 and DW9, two each */
+        out->erase_log2[k] = 0;
+        out->erase_opcode[k] = 0;
+        if (len >= 8 + (k >> 1)) {
+            d = usf__sfdp_dw(bus, ptr + 28 + 4 * (uint32_t)(k >> 1)) >> (k & 1 ? 16 : 0);
+            out->erase_log2[k] = (uint8_t)d;
+            out->erase_opcode[k] = (uint8_t)d ? (uint8_t)(d >> 8) : 0;
+        }
+    }
+    out->page_size = len >= 11
+        ? (uint16_t)(1u << (usf__sfdp_dw(bus, ptr + 40) >> 4 & 15)) : 0;
+    out->quad_enable = len >= 15 ? (uint8_t)(usf__sfdp_dw(bus, ptr + 56) >> 20 & 7) : 0xFF;
+    out->enter_4b = 0;
+    out->exit_4b = 0;
+    if (len >= 16) {
+        d = usf__sfdp_dw(bus, ptr + 60);
+        out->enter_4b = (uint8_t)(d >> 24 & 0x7F);
+        out->exit_4b = (uint8_t)(d >> 14);
+    }
+    return 1;
 }
 #endif
 

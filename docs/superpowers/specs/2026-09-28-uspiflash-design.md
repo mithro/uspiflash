@@ -190,7 +190,8 @@ Subsets filter chips before encoding:
 
 - `--manufacturer`
 - `--id` (an explicit list, e.g. the chips on one board)
-- `--type nor|nand`, `--family jedec`, `--min-size` / `--max-size`
+- `--type nor|nand` (default `nor`: amendment 12), `--family jedec`,
+  `--min-size` / `--max-size`
 
 A subset only shrinks the tables; the code shrinks when a level drops fields.
 
@@ -248,8 +249,8 @@ void     usf_name(const usf_chip *c, uint8_t i,
 /* `describe` and above: */
 void     usf_print(const usf_chip *c, void (*putc)(void *, char), void *ctx);
 void     usf_print_json(const usf_chip *c, void (*putc)(void *, char), void *ctx);
-/* SFDP module (#define USF_WITH_SFDP): */
-int      usf_sfdp_read(usf_bus *bus, usf_chip *out);
+/* SFDP module (--with sfdp; USF_HAVE_SFDP is 1): */
+uint8_t  usf_sfdp_read(usf_bus *bus, usf_sfdp *out);   /* --with sfdp */
 ```
 
 Strings are *streamed* through a putc callback rather than copied into
@@ -329,13 +330,23 @@ output (checked in CI).
 
 The generator side is core:
 
-- JESD216 parameter decoding in Python, with fixtures
-- a mapping from BFPT fields to the same fields the database provides
-- tests that the C decoder agrees with the Python one on every fixture
+- JESD216 parameter decoding, from `spiflash.sfdp`
+- a comparison of BFPT fields with the same fields the database provides
+  (the SFDP-versus-database experiment, amendment 11); no runtime mapping
+  from one to the other is implemented (deferred)
+- tests that the C decoder agrees with `spiflash.sfdp` on every shipped dump
 
-The C side is optional (`USF_WITH_SFDP`) and has its own size ledger entry.
-Fixtures come from QEMU's m25p80 SFDP tables, real chips on fpgas.online and
-published datasheet tables, each recorded with its origin.
+Since the M1 part D replan, the Python side is spiflash's own
+(`spiflash.sfdp`, amendment 9): uspiflash writes no JESD216 parser of its
+own and fetches no fixtures of its own. spiflash's shipped SFDP dumps are
+the fixtures.
+
+The C side is optional (`--with sfdp`, which sets `USF_HAVE_SFDP`) and has
+its own size ledger entries.
+Fixtures currently come from QEMU's m25p80 SFDP tables (spiflash's 12
+dumps, amendment 9); real chips on fpgas.online and published datasheet
+tables may add more later, as spiflash data through PRs to
+`mithro/spiflash`, each recorded with its origin.
 
 ## 6. Verification
 
@@ -616,3 +627,37 @@ merging.
    - REMS, RES2/RES1, AT25F and ST95 run only when the JEDEC answer was
      blank (all `0x00` or `0xFF`), as spec §5.3 says. A chip that answers
      read-id but isn't in the database is never sent anything else.
+9. **SFDP comes from spiflash** (Part D replan, 2026-09-29). spiflash
+   0.0.post74 added a JESD216 decoder (`spiflash.sfdp`) and per-record SFDP
+   dumps (QEMU's 12 tables, for 11 chip ids). uspiflash has no SFDP parser
+   of its own and fetches no fixtures: `spiflash.sfdp.parse` is the oracle
+   for everything the C decodes, and spiflash's dumps are the fixtures.
+   §5.6's other fixture sources (real chips, datasheets) arrive as spiflash
+   data, through PRs to `mithro/spiflash`.
+10. **Three SFDP fields.**
+    - `sfdp_summary` (the text output's `sfdp:` lines for the database's
+      dumps, +0.9 KB on Cortex-M0) is part of `describe` and `full`. Like
+      conflicts, it is stored only with the text printer. `usf_print`
+      matches `spiflash id` at those levels, `sfdp:` lines included.
+    - `sfdp` compiles `usf_sfdp_read`, which reads and decodes the chip's
+      own BFPT (+0.7 KB). It is an opt-in extra.
+    - `sfdp_dumps` adds the JSON's `"sfdp"` list (+19.6 KB). It is an
+      opt-in extra like `records`; without it the oracle strips the key.
+11. **`usf_sfdp_read(usf_bus *, usf_sfdp *)`** fills its own struct (the
+    BFPT fields a driver needs) instead of the §5.2 sketch's `usf_chip`,
+    which holds only ROM indices. The probe does not merge SFDP into its
+    answer (§5.3 step 5): the caller chooses. The SFDP-versus-database
+    experiment found the database saying as much as SFDP, or more, for
+    every shipped dump.
+12. **`generate` defaults to SPI NOR; SPI NOR is the primary target**
+    (maintainer decision, 2026-09-29). Without `--type`, `uspiflash
+    generate` keeps only SPI NOR chips, as if given `--type nor`; `--type
+    nor --type nand` keeps every type and `--type nand` only NAND.
+    - Only the command line's default changes. The library's
+      (`ChipFilter()`, `Selection.make`) still keeps every type, and the
+      tests, the oracle and the size ledger name their types explicitly.
+    - A generated file records its effective types: its regeneration
+      command always gives `--type` (every type is `--type nor --type
+      nand`), so `uspiflash check` regenerates it identically. A
+      configuration with no types still means every type, as it always
+      has.

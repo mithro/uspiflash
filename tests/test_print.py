@@ -21,6 +21,10 @@ if TYPE_CHECKING:
 CONFIGS = [
     Config(Selection.make("describe")),
     Config(Selection.make("full")),
+    # describe and full print the sfdp: lines (11 NOR chip ids and 2
+    # variants carry dumps); without the summary, and before a datasheet line.
+    Config(Selection.make("full", without=["sfdp_summary"])),
+    Config(Selection.make("full", with_=["datasheet"])),
     # No NAND chip has an operation, a voltage or a conflict.
     Config(Selection.make("full", chips=ChipFilter(types=(FlashType.NAND,)))),
 ]

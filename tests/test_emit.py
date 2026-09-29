@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from typing import Any
 
 import pytest
 import spiflash
@@ -191,14 +193,11 @@ def test_a_prefix_starting_with_an_underscore_is_refused(
     assert f"uspiflash: prefix '{prefix}' starts with an underscore" in capsys.readouterr().err
 
 
-def test_sfdp_is_refused_until_the_sfdp_milestone(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_every_sfdp_extra_generates(tmp_path: Path) -> None:
     out = tmp_path / "x.h"
-    assert main(["generate", "-o", str(out), "--level", "id", "--with", "sfdp"]) == 2
-    err = capsys.readouterr().err
-    assert err.endswith("uspiflash: sfdp is not available yet (the SFDP milestone adds it)\n")
-    assert not out.exists()
+    for extra in ("sfdp", "sfdp_summary", "sfdp_dumps"):  # summary: below describe
+        assert main(["generate", "-o", str(out), "--level", "id", "--with", extra]) == 0
+        assert f"--with {extra}" in out.read_text()
 
 
 def test_generate_refuses_a_broken_selection(capsys: pytest.CaptureFixture[str]) -> None:
@@ -218,3 +217,55 @@ def test_generate_refuses_a_filter_that_keeps_no_chips(
 def test_stdint_is_included_outside_extern_c() -> None:
     text = emit.render(FULL)
     assert text.index("#include <stdint.h>") < text.index('extern "C" {')
+
+
+def _generated(tmp_path: Path, *options: str) -> tuple[dict[str, Any], dict[str, str], str]:
+    """``generate --level id`` with ``options``: the embedded configuration's
+    chip filter, the file's ``USF_*`` defines, and its regeneration command."""
+    out = tmp_path / "x.h"
+    assert main(["generate", "-o", str(out), "--level", "id", *options]) == 0
+    text = out.read_text(encoding="ascii")
+    m = CONFIG_RE.search(text)
+    assert m is not None
+    defines = dict(re.findall(r"^#define USF_(\w+) (\S+)$", text, re.MULTILINE))
+    (command,) = re.findall(r"^ \*       (uspiflash generate .*)$", text, re.MULTILINE)
+    chips: dict[str, Any] = json.loads(m.group(1))["selection"]["chips"]
+    return chips, defines, command
+
+
+def _count(*types: FlashType) -> str:
+    return str(sum(f.type in types for f in database().flashes))
+
+
+def test_generate_keeps_only_spi_nor_by_default(tmp_path: Path) -> None:
+    chips, defines, command = _generated(tmp_path)
+    assert chips["types"] == ["nor"]
+    assert (defines["HAVE_NOR"], defines["HAVE_NAND"]) == ("1", "0")
+    assert defines["BASE_COUNT"] == _count(FlashType.NOR)  # every NOR chip id, no NAND
+    assert command.endswith("--level id --type nor")
+
+
+@pytest.mark.parametrize("order", [("nor", "nand"), ("nand", "nor")])
+def test_generate_keeps_every_type_when_both_are_given(
+    tmp_path: Path, order: tuple[str, str]
+) -> None:
+    chips, defines, command = _generated(tmp_path, "--type", order[0], "--type", order[1])
+    assert chips["types"] == []  # every type, as configurations have always said it
+    assert (defines["HAVE_NOR"], defines["HAVE_NAND"]) == ("1", "1")
+    assert defines["BASE_COUNT"] == _count(FlashType.NOR, FlashType.NAND)
+    assert command.endswith("--level id --type nor --type nand")
+
+
+def test_generate_keeps_only_nand_when_asked(tmp_path: Path) -> None:
+    chips, defines, command = _generated(tmp_path, "--type", "nand")
+    assert chips["types"] == ["nand"]
+    assert (defines["HAVE_NOR"], defines["HAVE_NAND"]) == ("0", "1")
+    assert defines["BASE_COUNT"] == _count(FlashType.NAND)
+    assert command.endswith("--level id --type nand")
+
+
+@pytest.mark.parametrize("types", [(), (FlashType.NOR,), (FlashType.NAND,)])
+def test_args_regenerate_every_type_choice(types: tuple[FlashType, ...]) -> None:
+    """The library's default (every type) included: its arguments name both."""
+    cfg = Config(Selection.make("id", chips=ChipFilter(types=types)))
+    assert config_from_args(cfg.args()) == cfg

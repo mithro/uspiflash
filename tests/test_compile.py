@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import pytest
 from spiflash.enums import FlashType
 
-from harness import compile_c, generate, impl_source, name, no_datasheet, undefined_symbols
+from harness import CFLAGS, compile_c, generate, impl_source, name, no_datasheet, undefined_symbols
 from uspiflash.levels import LEVELS, ChipFilter, Selection
 from uspiflash.provenance import Config
 
@@ -38,6 +38,21 @@ CONFIGS = [
     Config(Selection.make("describe", with_=["datasheet"])),
     Config(Selection.make("full", with_=["datasheet", "datasheets"], chips=ONE_TYPE[1])),
     Config(Selection.make("full", with_=["datasheet", "datasheets"], chips=NO_DATASHEET)),
+    # The SFDP reader alone, NOR first.
+    Config(Selection.make("id", with_=["sfdp"], chips=ONE_TYPE[0])),
+    Config(Selection.make("read", with_=["sfdp"], chips=ONE_TYPE[0])),
+    # describe and full carry the sfdp: lines already (the LEVELS loop).
+    # The summary without its printer, and removed; the JSON list;
+    # everything; and a filter keeping no chip with a dump (SFDP_COUNT 0).
+    Config(Selection.make("write", with_=["sfdp_summary"])),
+    Config(Selection.make("full", without=["sfdp_summary"])),
+    Config(Selection.make("write", with_=["sfdp_dumps"])),
+    Config(Selection.make("full", with_=["sfdp", "sfdp_dumps"])),
+    Config(Selection.make("full", with_=["sfdp_dumps"], chips=ONE_TYPE[1])),
+    # The JSON list without the text's summary; and the reader with the list,
+    # NOR only and renamed (--type nor --prefix nor).
+    Config(Selection.make("full", with_=["sfdp_dumps"], without=["sfdp_summary"])),
+    Config(Selection.make("full", with_=["sfdp", "sfdp_dumps"], chips=ONE_TYPE[0]), "nor"),
     # A renamed header: every symbol and table under another prefix.
     Config(Selection.make("full"), "fl", "flashid.h"),
     # Renamed, NAND only (--type nand --prefix x).
@@ -65,7 +80,7 @@ def test_implementation_compiles_and_needs_no_symbols(
 def test_header_and_implementation_compile_as_cpp(tmp_path: Path, cxx: str) -> None:
     if shutil.which(cxx) is None:
         pytest.skip(f"{cxx} not installed")
-    generate(tmp_path, Config(Selection.make("full", with_=["jep106"])))
+    generate(tmp_path, Config(Selection.make("full", with_=["jep106", "sfdp", "sfdp_dumps"])))
     src = tmp_path / "use.cpp"
     src.write_text(
         '#include "uspiflash.h"\n'  # declarations, as a C++ user sees them
@@ -75,7 +90,8 @@ def test_header_and_implementation_compile_as_cpp(tmp_path: Path, cxx: str) -> N
     impl = tmp_path / "impl.cpp"
     impl.write_text('#define USF_IMPLEMENTATION\n#include "uspiflash.h"\n')  # or on its own
     for unit in (src, impl):
-        cmd = [cxx, "-std=c++11", "-Wall", "-Wextra", "-Wpedantic", "-Wundef", "-Werror", "-c"]
+        warnings = [f for f in CFLAGS if not f.startswith("-std=")]
+        cmd = [cxx, "-std=c++11", *warnings, "-c"]
         cmd += [f"-I{tmp_path}", str(unit), "-o", str(unit.with_suffix(".o"))]
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         assert res.returncode == 0, res.stderr
@@ -164,8 +180,8 @@ void my_xfer(const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen);
 @pytest.mark.parametrize("bus", ["defined", "incomplete"])
 def test_probe_through_a_macro_transport(tmp_path: Path, compilers: list[str], bus: str) -> None:
     """With its own USF_XFER, the user's struct usf_bus may be anything,
-    or not defined at all."""
-    generate(tmp_path, Config(Selection.make("id")))
+    or not defined at all; the SFDP reader uses it too."""
+    generate(tmp_path, Config(Selection.make("id", with_=["sfdp"])))
     unit = tmp_path / "macro.c"
     source = MACRO_XFER
     if bus == "incomplete":

@@ -8,7 +8,7 @@
 #include "harness_names.h"
 #include "simchip.h"
 
-/* The most bytes one command carries (a 256-byte SFDP read, in part D). */
+/* The most id bytes one L, A, T, t or J command carries. */
 #define DATA_MAX 256u
 
 #if USF_HAVE_MANUFACTURER || USF_HAVE_NAMES || USF_HAVE_DESCRIPTIONS || USF_HAVE_TEXT \
@@ -122,6 +122,33 @@ static void dump(const usf_chip *c)
 #endif
 }
 
+#if USF_HAVE_SFDP
+/* The S command's output: what usf_sfdp_read() filled in, in
+ * uspiflash.oracle.sfdp_fields()'s format. */
+static void print_sfdp(const usf_sfdp *f)
+{
+    static const char *const modes[] = {"1-1-2", "1-2-2", "1-1-4", "1-4-4", "2-2-2", "4-4-4"};
+    unsigned k;
+    printf("sfdp=%u.%u dwords=%u addr=%u erase4k=0x%02x dtr=%u size=%lu page=%u", f->rev_major,
+           f->rev_minor, f->dwords, f->address_bytes, f->erase_4k_opcode, f->flags & USF_SFDP_DTR,
+           (unsigned long)f->size, f->page_size);
+    if (f->quad_enable == 0xFF)
+        printf(" qe=none");
+    else
+        printf(" qe=%u", f->quad_enable);
+    printf(" en4b=0x%02x ex4b=0x%02x\nerase", f->enter_4b, f->exit_4b);
+    for (k = 0; k < 4; k++)
+        if (f->erase_log2[k])
+            printf(" %u:%u:0x%02x", k + 1, f->erase_log2[k], f->erase_opcode[k]);
+    printf("\nread");
+    for (k = 0; k < 6; k++)
+        if (f->reads >> k & 1)
+            printf(" %s:0x%02x:%u+%u", modes[k], f->read_opcode[k], f->read_clocks[k] >> 5,
+                   f->read_clocks[k] & 31u);
+    putchar('\n');
+}
+#endif
+
 int main(void)
 {
     static char line[16384];
@@ -177,7 +204,21 @@ int main(void)
                 printf("chip %u %u\n", r.chip[k].entry, r.chip[k].base);
         }
 #endif
-        /* Part D: S. */
+#if USF_HAVE_SFDP
+        if (cmd == 'S') {                  /* S <sim spec>: usf_sfdp_read */
+            static struct sim s;
+            usf_bus bus;
+            usf_sfdp f;
+            s.log = stdout;
+            sim_parse(&s, line + 2);
+            bus.xfer = sim_xfer;
+            bus.ctx = &s;
+            if (usf_sfdp_read(&bus, &f))
+                print_sfdp(&f);
+            else
+                printf("sfdp=none\n");
+        }
+#endif
         fputs("\x1e\n", stdout);
         fflush(stdout);
     }

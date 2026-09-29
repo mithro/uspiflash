@@ -5,9 +5,29 @@ middle."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import json
+from typing import TYPE_CHECKING, Any
 
-from .layout import ALL_OPS, CONFLICT_ATTRS, FEATURES, NONE8, NONE16, SOURCES
+from .layout import (
+    ALL_OPS,
+    CONFLICT_ATTRS,
+    FEATURES,
+    NONE8,
+    NONE16,
+    SOURCES,
+    T_DICT,
+    T_DICT_END,
+    T_END,
+    T_FALSE,
+    T_INT,
+    T_ITEM,
+    T_KEY,
+    T_LIST,
+    T_LIST_END,
+    T_NULL,
+    T_STR,
+    T_TRUE,
+)
 
 if TYPE_CHECKING:
     from spiflash.enums import Source
@@ -205,3 +225,66 @@ def jep106(lay: Layout) -> list[tuple[int, int, str]]:
     """Every (bank, id, name) in the ``jep106`` table, in table order."""
     b, step = lay.tables["jep106"], 2 + lay.off_bytes
     return [(b[at], b[at + 1], string(lay, _off(lay, b, at + 2))) for at in range(0, len(b), step)]
+
+
+def _sfdp_row(lay: Layout, index: int) -> int | None:
+    """The byte offset of entry ``index``'s ``sfdprows`` row (C's
+    ``usf__sfdprow``), or ``None`` when it has no SFDP dump."""
+    rows, size = lay.tables.get("sfdprows", b""), lay.defines.get("SFDP_ROW", 2)
+    return next((at for at in range(0, len(rows), size) if _u16(rows, at) == index), None)
+
+
+def sfdp_lines(lay: Layout, index: int) -> list[str]:
+    """Entry ``index``'s ``sfdp:`` lines, without their ``"    sfdp: "``."""
+    at = _sfdp_row(lay, index)
+    if at is None:
+        return []
+    b = lay.tables["sfdplines"]
+    p = _u16(lay.tables["sfdprows"], at + lay.defines["SFDP_LINES"])
+    return [string(lay, _off(lay, b, p + 1 + k * lay.off_bytes)) for k in range(b[p])]
+
+
+def sfdp_json(lay: Layout, index: int) -> list[Any]:
+    """Entry ``index``'s JSON ``"sfdp"`` value, read back token by token as
+    the C's ``usf__jtree`` walks it."""
+    at = _sfdp_row(lay, index)
+    if at is None:
+        return []
+    b, ob = lay.tables["sfdptree"], lay.off_bytes
+    p = _u16(lay.tables["sfdprows"], at + lay.defines["SFDP_TREE"])
+    holder: list[Any] = []
+    stack: list[Any] = [holder]
+    key = ""
+    while (t := b[p]) != T_END:
+        p += 1
+        kind, top = t & ~T_ITEM, stack[-1]
+        if kind in (T_LIST_END, T_DICT_END):
+            stack.pop()
+            continue
+        if kind == T_KEY:
+            key = json.loads(f'"{string(lay, _off(lay, b, p))}"')
+            p += ob
+            continue
+        if bool(t & T_ITEM) != (isinstance(top, list) and top is not holder):
+            msg = f"sfdptree token 0x{t:02x} at {p - 1}: item flag disagrees with its parent"
+            raise ValueError(msg)
+        value: Any
+        if kind == T_INT:
+            value, p = int.from_bytes(b[p : p + 4], "little"), p + 4
+        elif kind == T_STR:
+            value, p = json.loads(f'"{string(lay, _off(lay, b, p))}"'), p + ob
+        elif kind in (T_NULL, T_FALSE, T_TRUE):
+            value = {T_NULL: None, T_FALSE: False, T_TRUE: True}[kind]
+        elif kind in (T_LIST, T_DICT):
+            value = [] if kind == T_LIST else {}
+        else:
+            msg = f"sfdptree token 0x{t:02x} at {p - 1}"
+            raise ValueError(msg)
+        if isinstance(top, list):
+            top.append(value)
+        else:
+            top[key] = value
+        if kind in (T_LIST, T_DICT):
+            stack.append(value)
+    root: list[Any] = holder[0]
+    return root

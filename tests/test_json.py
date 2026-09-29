@@ -22,6 +22,19 @@ CONFIGS = [
     Config(Selection.make("full", with_=["records"])),
     Config(Selection.make("full", with_=["records", "provenance"])),
     Config(Selection.make("full", chips=ChipFilter(types=(FlashType.NAND,)))),
+    # The "sfdp" list, alone and after every other extra key.
+    Config(Selection.make("full", with_=["sfdp_dumps"])),
+    Config(Selection.make("full", with_=["sfdp_dumps", "datasheets", "records", "provenance"])),
+    # No NAND chip has a dump: every "sfdp" is [] (SFDP_COUNT 0).
+    Config(Selection.make("full", with_=["sfdp_dumps"], chips=ChipFilter(types=(FlashType.NAND,)))),
+    # The list without the text's summary; and with the reader, NOR only (the
+    # harness drives the usf_ prefix, so test_compile has this one renamed).
+    Config(Selection.make("full", with_=["sfdp_dumps"], without=["sfdp_summary"])),
+    Config(
+        Selection.make(
+            "full", with_=["sfdp", "sfdp_dumps"], chips=ChipFilter(types=(FlashType.NOR,))
+        )
+    ),
     # JSON without TEXT: the shared formatting helpers compiled for JSON alone.
     Config(Selection.make("write", with_=["json"])),
 ]

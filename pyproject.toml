@@ -23,9 +23,10 @@ classifiers = [
     "Topic :: Software Development :: Code Generators",
 ]
 # The one runtime dependency: the database. Everything else is optional.
-# 0.0.post74 is the version the generated C's output is verified
-# byte-identical to (uspiflash.VERIFIED_SPIFLASH): it added the QEMU and
-# Zephyr sources, SFDP dumps and suffix-group part names.
+# 0.0.post74 is the minimum: it added the QEMU and Zephyr sources, SFDP
+# dumps and suffix-group part names. The generated C's output is verified
+# byte-identical to 0.0.post92, the newest release as of the last
+# catch-up (uspiflash.VERIFIED_SPIFLASH).
 dependencies = ["spiflash>=0.0.post74"]
 
 [project.urls]
@@ -76,7 +77,10 @@ extend-exclude = ["src/uspiflash/_version.py"]
 # Each experiment's directory is a script location, not a package (INP001):
 # it has no __init__.py and is never imported by name. Every later
 # experiment adds its directory here too (see experiments/README.md).
-namespace-packages = ["experiments/2026-09-28-database-statistics"]
+namespace-packages = [
+    "experiments/2026-09-28-database-statistics",
+    "experiments/2026-09-29-sfdp-vs-database",
+]
 
 [tool.ruff.format]
 exclude = ["*.md"]
@@ -90,7 +94,9 @@ select = [
 ]
 
 [tool.mypy]
-files = ["src/uspiflash", "tests", "docs/conf.py", "experiments"]
+# Not experiments/: every experiment's script is run.py, and mypy refuses two
+# modules of one name in a run. tests/test_research.py checks each on its own.
+files = ["src/uspiflash", "tests", "docs/conf.py"]
 mypy_path = ["src"]
 strict = true
 

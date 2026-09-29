@@ -102,23 +102,35 @@ TARGETS: tuple[Target, ...] = (
 )
 
 
-def _config(level: str, with_: Iterable[str] = (), types: tuple[FlashType, ...] = ()) -> Config:
-    return Config(Selection.make(level, with_=with_, chips=ChipFilter(types=types)))
+def _config(
+    level: str,
+    with_: Iterable[str] = (),
+    types: tuple[FlashType, ...] = (),
+    without: Iterable[str] = (),
+) -> Config:
+    return Config(
+        Selection.make(level, with_=with_, without=without, chips=ChipFilter(types=types))
+    )
 
 
 _NOR = (FlashType.NOR,)
 _NAND = (FlashType.NAND,)
 
 #: The measured configurations, by stable name (default prefix and file
-#: name). SPI NOR is the primary target, so its builds (``--type nor``) come
-#: first, at every level; the default (all types) and NAND-only builds follow
-#: for comparison.
+#: name). SPI NOR is the primary target (and ``uspiflash generate``'s
+#: default), so its builds (``--type nor``) come first, at every level; the
+#: all-types (the library's default, ``ChipFilter()``) and NAND-only builds
+#: follow for comparison.
 CONFIGS: tuple[tuple[str, Config], ...] = (
     ("id:nor", _config("id", types=_NOR)),
     ("read:nor", _config("read", types=_NOR)),
     ("write:nor", _config("write", types=_NOR)),
     ("describe:nor", _config("describe", types=_NOR)),
     ("full:nor", _config("full", types=_NOR)),
+    ("id+sfdp:nor", _config("id", ["sfdp"], types=_NOR)),
+    ("read+sfdp:nor", _config("read", ["sfdp"], types=_NOR)),
+    ("full-sfdp_summary:nor", _config("full", types=_NOR, without=["sfdp_summary"])),
+    ("full+sfdp_dumps:nor", _config("full", ["sfdp_dumps"], types=_NOR)),
     ("id", _config("id")),
     ("read", _config("read")),
     ("write", _config("write")),
@@ -127,6 +139,7 @@ CONFIGS: tuple[tuple[str, Config], ...] = (
     ("full+datasheet", _config("full", ["datasheet"])),
     ("full+datasheets", _config("full", ["datasheets"])),
     ("full+records+provenance+jep106", _config("full", ["records", "provenance", "jep106"])),
+    ("full+sfdp+sfdp_dumps", _config("full", ["sfdp", "sfdp_dumps"])),
     ("read:nand", _config("read", types=_NAND)),
     ("full:nand", _config("full", types=_NAND)),
 )

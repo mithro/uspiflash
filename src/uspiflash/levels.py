@@ -7,7 +7,7 @@ id         probe the bus; which chip (ids, family, type, JEP106 bank)
 read       size, features, id/read/mode operations, extended-id narrowing
 write      page and sector size, every operation (program, erase, registers)
 describe   voltage, manufacturer and part names, operation names/descriptions,
-           the text printer (``usf_print``)
+           the text printer (``usf_print``) with its ``sfdp:`` lines
 full       which sources say what, where they disagree, the JSON printer
 ========== =========================================================================
 
@@ -15,12 +15,19 @@ Extras (``--with``): ``records`` (each upstream entry's source, raw name and
 extended id), ``provenance`` (each entry's upstream file:line), ``datasheet``
 (the best datasheet's URL, the text output's ``datasheet:`` line),
 ``datasheets`` (every datasheet, as the JSON lists them), ``jep106`` (every
-JEP106 manufacturer name), ``sfdp`` (read and decode SFDP on the chip; not
-available yet: ``uspiflash generate`` refuses it until the SFDP milestone).
+JEP106 manufacturer name), ``sfdp`` (read the chip's own SFDP tables over the
+bus and decode the Basic Flash Parameter Table: ``usf_sfdp_read``) and
+``sfdp_dumps`` (the database's SFDP dumps, decoded, as the JSON's ``"sfdp"``
+list).
 
 Conflicts are only ever printed, so selecting ``conflicts`` without a printer
 (``text`` or ``json``) adds nothing to the file (see
 :func:`uspiflash.layout.stores_conflicts`).
+
+Likewise ``sfdp_summary`` (the text output's ``sfdp:`` lines for the
+database's SFDP dumps, in ``describe`` and ``full``) is only printed by
+``usf_print``: without ``text`` it adds nothing (see
+:func:`uspiflash.layout.stores_sfdp_lines`).
 """
 
 from __future__ import annotations
@@ -65,13 +72,22 @@ class Field(StrEnum):
     DATASHEETS = "datasheets"
     JEP106 = "jep106"
     SFDP = "sfdp"
+    SFDP_SUMMARY = "sfdp_summary"
+    SFDP_DUMPS = "sfdp_dumps"
 
 
 F = Field
 _ID = frozenset({F.IDENT, F.PROBE})
 _READ = _ID | {F.EXT, F.SIZE, F.FEATURES, F.OPERATIONS}
 _WRITE = _READ | {F.PAGE_SIZE, F.SECTOR_SIZE}
-_DESCRIBE = _WRITE | {F.VOLTAGE, F.MANUFACTURER, F.NAMES, F.DESCRIPTIONS, F.TEXT}
+_DESCRIBE = _WRITE | {
+    F.VOLTAGE,
+    F.MANUFACTURER,
+    F.NAMES,
+    F.DESCRIPTIONS,
+    F.TEXT,
+    F.SFDP_SUMMARY,
+}
 _FULL = _DESCRIBE | {F.SOURCES, F.CONFLICTS, F.JSON}
 
 #: Each level's fields.
@@ -119,6 +135,7 @@ REQUIRES: dict[Field, frozenset[Field]] = {
     F.DATASHEET: frozenset({F.TEXT}),
     F.DATASHEETS: frozenset({F.JSON}),
     F.SFDP: frozenset({F.PROBE}),
+    F.SFDP_DUMPS: frozenset({F.JSON}),
 }
 
 

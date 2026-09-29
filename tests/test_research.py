@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import runpy
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -127,3 +129,33 @@ def test_tests_cannot_find_the_real_repository_from_their_tmp_path(tmp_path: Pat
     repository: no test can reach (and rewrite) the committed files."""
     with pytest.raises(FileNotFoundError, match="no experiments/"):
         research.find_root(tmp_path)
+
+
+EXPERIMENTS = sorted(research.find_root(Path(__file__).parent).glob("experiments/*/run.py"))
+
+
+@pytest.mark.parametrize("script", EXPERIMENTS, ids=lambda p: p.parent.name)
+def test_every_experiment_type_checks(script: Path) -> None:
+    """mypy --strict on each experiment's script on its own: every one is
+    run.py, and mypy refuses two modules of one name in one run."""
+    pytest.importorskip("mypy")
+    root = script.parent.parent.parent
+    res = subprocess.run(
+        [sys.executable, "-m", "mypy", str(script.relative_to(root))],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=root,
+    )
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+def test_the_sfdp_experiment_compares_every_dump() -> None:
+    root = research.find_root(Path(__file__).parent)
+    ns = runpy.run_path(str(root / "experiments/2026-09-29-sfdp-vs-database/run.py"))
+    result = ns["collect"]()
+    dumps = [d for f in database().flashes for d in f.sfdp_dumps]
+    assert result["dumps"] == len(dumps) == len(result["rows"])
+    assert result["chip_ids"] == sum(1 for f in database().flashes if f.sfdp_dumps)
+    assert set(result["agree"]) == {"size", "page_size", "sector_size", "features", "operations"}
+    assert all(0 <= n <= result["dumps"] for n in result["agree"].values())
