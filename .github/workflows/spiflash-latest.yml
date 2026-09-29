@@ -1,0 +1,50 @@
+name: Newest spiflash
+
+# The drift alarm. uv.lock pins the spiflash the generated C's output is
+# verified byte-identical to (uspiflash.VERIFIED_SPIFLASH), and every other
+# job tests against that. This one installs the newest spiflash release and
+# runs the whole suite with the parity tests forced on
+# (USPIFLASH_FORCE_PARITY=1), so a spiflash release that changes what
+# `spiflash id` prints fails here, daily, before it reaches a user. The fix is
+# a catch-up commit that moves uv.lock and VERIFIED_SPIFLASH (RELEASING.md,
+# "A data update").
+#
+# Not part of deb.yml ("Debian packages"), and not run on pull requests: a
+# new spiflash release must never block a merge or a publish.
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spiflash-latest
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # hatch-vcs derives the version from the tags
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Sync the dev group, then upgrade spiflash past the lock
+        run: |
+          uv sync --group dev
+          uv pip install --upgrade spiflash
+
+      # --no-sync: a plain `uv run` would put the locked spiflash back.
+      - name: Versions
+        run: uv run --no-sync uspiflash --version
+
+      - name: Tests, parity forced on
+        env:
+          USPIFLASH_FORCE_PARITY: "1"
+        run: uv run --no-sync pytest -n auto --ignore=tests/test_docs.py

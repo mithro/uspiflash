@@ -15,6 +15,7 @@ from spiflash.db import FORMAT, database
 from spiflash.enums import FlashType
 
 import uspiflash
+from harness import FORCE_PARITY
 from uspiflash import emit, layout
 from uspiflash.cli import config_from_args, main
 from uspiflash.levels import ChipFilter, Selection
@@ -165,6 +166,19 @@ def test_the_lock_pins_the_verified_spiflash() -> None:
     packages = tomllib.loads(lock.read_text(encoding="utf-8"))["package"]
     (pinned,) = (p["version"] for p in packages if p["name"] == "spiflash")
     assert pinned == uspiflash.VERIFIED_SPIFLASH
+
+
+def test_a_daily_job_runs_parity_against_the_newest_spiflash() -> None:
+    """The drift alarm: scheduled, never on a pull request, parity forced."""
+    workflow = Path(__file__).resolve().parent.parent / ".github/workflows/spiflash-latest.yml"
+    if not workflow.is_file():
+        pytest.skip("no .github/ (an sdist or a Debian build)")
+    text = workflow.read_text(encoding="utf-8")
+    assert "  schedule:\n" in text
+    assert "pull_request" not in text
+    assert "uv pip install --upgrade spiflash" in text
+    assert f'{FORCE_PARITY}: "1"' in text
+    assert "uv run --no-sync pytest" in text
 
 
 def test_generate_refuses_a_broken_selection(capsys: pytest.CaptureFixture[str]) -> None:
