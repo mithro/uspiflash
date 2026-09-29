@@ -170,6 +170,12 @@ _FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrna
         ("id", ["jep106"], _ID_TABLES | {"jep106", "str"}),
         # TEXT with SOURCES: srcnames, still no kindnames (JSON only).
         ("describe", ["sources"], _DESCRIBE_TABLES | {"srcnames"}),
+        # CONFLICTS brings SOURCES, whose names its lines print.
+        ("describe", ["conflicts"], _DESCRIBE_TABLES | {"conflicts", "srcnames", "attrnames"}),
+        # DESCRIPTIONS alone: usf_op_name and usf_op_description read the pool.
+        ("write", ["descriptions"], _WRITE_TABLES | {"str"}),
+        # JSON without TEXT reads what full reads.
+        ("write", ["json"], _FULL_TABLES),
     ],
 )
 def test_exactly_the_tables_compiled_code_reads(
@@ -225,6 +231,10 @@ def test_every_entry_field_has_an_offset_define(snap: Snapshot) -> None:
         "HAVE_NAND": 1,
     }
     assert len(lay.tables["entries"]) == d["ENTRY_SIZE"] * d["ENTRY_COUNT"]
+    assert d["LOOKUP_MAX"] == 2
+    for table, count, width in _ROWS:
+        assert len(lay.tables[table]) == width * d[count], table
+    assert len(lay.tables["ops"]) == d["OP_SIZE"] * d["OP_COUNT"]
     idl = layout.build(snap, Selection.make("id")).defines
     assert {k for k in idl if k.startswith("E_")} == {"E_BANK"}
     assert idl["ENTRY_SIZE"] == 1
@@ -243,6 +253,42 @@ def test_single_type_selections(keep: FlashType, other: str) -> None:
     }
     for i, e in enumerate(one.entries):
         assert ordered(decode.entry(lay, i)) == ordered(expected(sel, e.flash)), (keep, i)
+
+
+#: Counted value tables: (table, count define, row width).
+_ROWS = (
+    ("sizes", "SIZE_COUNT", 4),
+    ("pages", "PAGE_COUNT", 2),
+    ("sectors", "SECTOR_COUNT", 4),
+    ("volts", "VOLT_COUNT", 4),
+)
+_COUNTED = {
+    "SIZE_COUNT": "sizes",
+    "PAGE_COUNT": "pages",
+    "SECTOR_COUNT": "sectors",
+    "VOLT_COUNT": "volts",
+    "MFR_COUNT": "mfrs",
+    "OP_COUNT": "ops",
+    "EXT_COUNT": "ext",
+    "CONF_COUNT": "conflicts",
+}
+
+
+@pytest.mark.parametrize("keep", [FlashType.NOR, FlashType.NAND])
+def test_a_counted_table_without_rows_is_left_out(keep: FlashType) -> None:
+    """Code indexing a counted table is compiled only when it has rows, so
+    an empty one (and what only that code reads) is not emitted."""
+    one = Snapshot.build(ChipFilter(types=(keep,)).apply(database()))
+    lay = layout.build(one, Selection.make("full", with_=["records", "jep106"]))
+    d = lay.defines
+    assert d["LOOKUP_MAX"] == 1
+    for count, table in _COUNTED.items():
+        assert (table in lay.tables) == (d[count] > 0), count
+    assert ("opsets" in lay.tables) == ("kindnames" in lay.tables) == (d["OP_COUNT"] > 0)
+    assert ("attrnames" in lay.tables) == (d["CONF_COUNT"] > 0)
+    if keep is FlashType.NAND:
+        # No NAND chip has a voltage, an operation, an extended id or a conflict.
+        assert [d[c] for c in ("VOLT_COUNT", "OP_COUNT", "EXT_COUNT", "CONF_COUNT")] == [0] * 4
 
 
 def test_full_database_has_both_types_and_every_family(snap: Snapshot) -> None:

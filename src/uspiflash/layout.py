@@ -22,12 +22,15 @@ Conventions
   code compiled for the selection reads it: with the field(s) in parentheses
   after its name. So the C file never holds a table nothing uses (which
   ``-Wunused-const-variable`` would reject).
-- **Empty tables.** A present table other than ``ids`` can still be 0 bytes
-  long (with a filtered snapshot, ``conflicts``, ``ext``, ``mfrs``, ``ops``,
-  ``str`` and the value tables can be). C99 has no zero-length arrays, so the
-  C emitter pads a 0-byte table to one unused byte. No entry field then
-  points into it (every such field holds its "none" value), so no reader
-  indexes the pad byte.
+- **Counted tables.** ``sizes``, ``pages``, ``sectors``, ``volts``,
+  ``mfrs``, ``ops`` (with ``opsets``), ``ext`` and ``conflicts`` can have no
+  rows in a filtered snapshot (a ``--type nand`` one has no voltages,
+  operations, extended ids or conflicts). The C code that indexes such a
+  table is compiled only when it has rows (``<NAME>_COUNT``, below), so a
+  table with none is left out: nothing reads it, and no compiler sees an
+  index into an empty array. The C emitter still pads any 0-byte table to
+  one unused byte (C99 has no zero-length arrays), but no reader relies on
+  the pad.
 
 Tables
 ------
@@ -87,20 +90,22 @@ Tables
 ``jep106`` (JEP106)
     ``JEP106_COUNT`` rows, sorted by (bank, id): bank, id (with its parity
     bit, as a chip sends it), name ``OFF``.
-``str`` (any string field, :data:`STRING_FIELDS`)
+``str`` (whenever compiled code reads a string, :func:`reads_strings`)
     NUL-terminated printable-ASCII strings with no ``"`` or ``\\``, each
-    stored once. The string fields are MANUFACTURER, NAMES, DESCRIPTIONS,
-    TEXT, JSON, RECORDS, PROVENANCE and JEP106.
+    stored once. The readers are MANUFACTURER (with ``mfrs``), NAMES,
+    DESCRIPTIONS (with ``ops``), TEXT, JSON (so RECORDS and PROVENANCE) and
+    JEP106.
 Name arrays
     ``OFF`` arrays holding each member's value (``str(member)``: ``"nor"``,
     ``"u-boot"``, ``"erase_4k"``), for the printers (:func:`name_arrays`):
     ``featnames`` per :data:`FEATURES`, ``famnames`` per
     :data:`~uspiflash.model.FAMILIES` and ``typenames`` per :data:`TYPES`
-    (TEXT or JSON); ``kindnames`` per :data:`KINDS` (JSON); ``srcnames`` per
-    :data:`SOURCES` (SOURCES, and TEXT or JSON); ``attrnames`` per
-    :data:`CONFLICT_ATTRS` (CONFLICTS, and TEXT or JSON). No printer prints an
-    operation's protocol, so there is no protocol name array; ``ops`` rows
-    still hold the :data:`PROTOCOLS` index.
+    (TEXT or JSON); ``kindnames`` per :data:`KINDS` (JSON, with ``ops``);
+    ``srcnames`` per :data:`SOURCES` (SOURCES, and TEXT or JSON);
+    ``attrnames`` per :data:`CONFLICT_ATTRS` (CONFLICTS with ``conflicts``,
+    and TEXT or JSON). No printer prints an operation's protocol, so there is
+    no protocol name array; ``ops`` rows still hold the :data:`PROTOCOLS`
+    index.
 
 Entry fields
 ------------
@@ -151,8 +156,14 @@ Defines
 Constants for the C template, in :attr:`Layout.defines`:
 
 - ``ENTRY_COUNT``, ``BASE_COUNT``, ``ENTRY_SIZE`` and each present ``E_*``;
-- ``OFF_BYTES``; ``OP_COUNT``, ``OP_SIZE`` and (with DESCRIPTIONS)
-  ``OP_NAME``; ``JEP106_COUNT`` (0 without JEP106);
+- ``OFF_BYTES``; ``OP_SIZE`` and (with DESCRIPTIONS) ``OP_NAME``;
+  ``JEP106_COUNT`` (0 without JEP106);
+- the row counts of the counted tables, 0 when the table is absent:
+  ``SIZE_COUNT``, ``PAGE_COUNT``, ``SECTOR_COUNT``, ``VOLT_COUNT``,
+  ``MFR_COUNT``, ``OP_COUNT`` (rows of ``ops``), ``EXT_COUNT`` and
+  ``CONF_COUNT`` (blobs of ``ext`` and ``conflicts``);
+- ``LOOKUP_MAX``: ``HAVE_NOR + HAVE_NAND``, the most answers a lookup can
+  give (the size of ``usf_lookup``'s output array);
 - ``RDID_LEN``: the bytes the probe reads for RDID: max(6, the longest bank +
   id length + longest extended id over the JEDEC-family base entries). Only
   JEDEC answers are looked up from RDID reads; the legacy probes read fixed
@@ -295,6 +306,10 @@ class _Blobs:
         self.data = bytearray()
         self._at: dict[bytes, int] = {}
 
+    def __len__(self) -> int:
+        """How many distinct blobs the table holds."""
+        return len(self._at)
+
     def add(self, blob: bytes) -> int:
         """The offset of ``blob``, adding it if new."""
         if blob not in self._at:
@@ -306,40 +321,45 @@ class _Blobs:
         return self._at[blob]
 
 
-#: The fields that put strings in ``str`` (so C code reading ``str`` is compiled).
-STRING_FIELDS = frozenset(
-    {
-        Field.MANUFACTURER,
-        Field.NAMES,
-        Field.DESCRIPTIONS,
-        Field.TEXT,
-        Field.JSON,
-        Field.RECORDS,
-        Field.PROVENANCE,
-        Field.JEP106,
-    }
-)
+def reads_strings(sel: Selection, *, ops: bool, mfrs: bool) -> bool:
+    """Whether C code compiled for ``sel`` reads ``str`` (the template's
+    ``USF__NEED_OFF``): ``ops`` and ``mfrs`` say whether those tables have rows."""
+    has = sel.has
+    return (
+        (has(Field.MANUFACTURER) and mfrs)
+        or has(Field.NAMES)
+        or (has(Field.DESCRIPTIONS) and ops)
+        or has(Field.JEP106)
+        or has(Field.TEXT)
+        or has(Field.JSON)
+    )
 
 
-def name_arrays(sel: Selection) -> dict[str, tuple[object, ...]]:
-    """The name arrays the printers compiled for ``sel`` read, with their members."""
+def name_arrays(
+    sel: Selection, *, ops: bool = True, conflicts: bool = True
+) -> dict[str, tuple[object, ...]]:
+    """The name arrays the printers compiled for ``sel`` read, with their
+    members. ``ops`` and ``conflicts`` say whether those tables have rows:
+    ``kindnames`` and ``attrnames`` are read only by code indexing them."""
     has = sel.has
     printer = has(Field.TEXT) or has(Field.JSON)
     wanted: tuple[tuple[str, tuple[object, ...], bool], ...] = (
         ("featnames", FEATURES, printer),
         ("srcnames", SOURCES, printer and has(Field.SOURCES)),
         ("famnames", FAMILIES, printer),
-        ("kindnames", KINDS, has(Field.JSON)),
-        ("attrnames", CONFLICT_ATTRS, printer and has(Field.CONFLICTS)),
+        ("kindnames", KINDS, has(Field.JSON) and ops),
+        ("attrnames", CONFLICT_ATTRS, printer and has(Field.CONFLICTS) and conflicts),
         ("typenames", TYPES, printer),
     )
     return {table: members for table, members, present in wanted if present}
 
 
-def _strings(snap: Snapshot, sel: Selection, pool: StringPool, ops: tuple[str, ...]) -> None:
+def _strings(
+    snap: Snapshot, sel: Selection, pool: StringPool, ops: tuple[str, ...], *, conflicts: bool
+) -> None:
     """Pass 1: every string, so the pool's size (hence offset width) is known."""
     has = sel.has
-    for members in name_arrays(sel).values():
+    for members in name_arrays(sel, ops=bool(ops), conflicts=conflicts).values():
         for member in members:
             pool.add(str(member))
     if has(Field.DESCRIPTIONS):
@@ -427,8 +447,9 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     has = sel.has
     used = {n for e in snap.entries for n in _ops_of(e.flash, sel)}
     ops = tuple(n for n in ALL_OPS if has(Field.OPERATIONS) and n in used)
+    any_conflicts = has(Field.CONFLICTS) and any(e.flash.conflicts for e in snap.entries)
     pool = StringPool()
-    _strings(snap, sel, pool, ops)
+    _strings(snap, sel, pool, ops, conflicts=any_conflicts)
     pool_size = len(pool.data)
     lay = Layout(sel, snap, off_bytes=2 if pool_size < NONE16 else 3, ops=ops)
     tables, defines, values = lay.tables, lay.defines, lay.values
@@ -598,19 +619,37 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         tables["jep106"] = b"".join(_u8(m.bank) + _u8(m.id) + off(m.name) for m in jep)
 
     # Strings.
-    for table, members in name_arrays(sel).items():
+    for table, members in name_arrays(sel, ops=bool(ops), conflicts=any_conflicts).items():
         tables[table] = b"".join(off(str(n)) for n in members)
     if len(pool.data) != pool_size:
         msg = "a string was added after the offset width was chosen"
         raise AssertionError(msg)
-    if sel.fields & STRING_FIELDS:
+    if reads_strings(sel, ops=bool(ops), mfrs=bool(mfrs)):
         tables["str"] = pool.data
+
+    # Counted tables: their readers are compiled only when they have rows,
+    # so one with none is left out (see "Counted tables" above).
+    counts = {
+        "SIZE_COUNT": ("sizes", len(values.get("sizes", ()))),
+        "PAGE_COUNT": ("pages", len(values.get("pages", ()))),
+        "SECTOR_COUNT": ("sectors", len(values.get("sectors", ()))),
+        "VOLT_COUNT": ("volts", len(values.get("volts", ()))),
+        "MFR_COUNT": ("mfrs", len(values.get("mfrs", ()))),
+        "OP_COUNT": ("ops", len(ops)),
+        "EXT_COUNT": ("ext", len(ext)),
+        "CONF_COUNT": ("conflicts", len(conflicts)),
+    }
+    for name, (table, n) in counts.items():
+        defines[name] = n
+        if not n:
+            tables.pop(table, None)
+    if not ops:
+        tables.pop("opsets", None)
 
     # Defines.
     defines["ENTRY_COUNT"] = len(snap.entries)
     defines["BASE_COUNT"] = snap.n_base
     defines["OFF_BYTES"] = lay.off_bytes
-    defines["OP_COUNT"] = len(ops)
     defines["JEP106_COUNT"] = len(jep) if has(Field.JEP106) else 0
     for fld in Field:
         defines[f"HAVE_{fld.name}"] = int(has(fld))
@@ -618,6 +657,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         defines[f"HAVE_{flash_type.name}"] = int(any(f.type is flash_type for f in bases))
     for fam in FAMILIES:
         defines[f"HAVE_FAMILY_{fam.name}"] = int(any(f.family is fam for f in bases))
+    defines["LOOKUP_MAX"] = defines["HAVE_NOR"] + defines["HAVE_NAND"]
     longest = 0
     for i, f in enumerate(bases):
         if f.family is FAMILIES[0]:

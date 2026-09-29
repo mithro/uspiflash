@@ -103,6 +103,8 @@ def _value(lay: Layout, table: str, i: int) -> object:
 
 
 def _operations(lay: Layout, offset: int) -> list[tuple[str, list[Source] | None]]:
+    if not lay.defines["OP_COUNT"]:  # no operation stored: no opsets either
+        return []
     b, ops = lay.tables["opsets"], lay.tables["ops"]
     with_sources = bool(lay.defines["HAVE_SOURCES"])
     step = 2 if with_sources else 1
