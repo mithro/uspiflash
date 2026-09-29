@@ -189,7 +189,12 @@ release's clang or gcc). To move them:
    `Platform: linux/amd64`. The image's `/etc/apt/sources.list.d/debian.sources`
    names the snapshot it was built from (a `# http://snapshot.debian.org/...`
    comment): use that timestamp.
-2. Put the digest and the timestamp in the places above.
+2. Put the digest and the timestamp in the places above. The QEMU test's
+   image (`tools/qemu/`) is built from the same pins, and
+   `tools/qemu/run.py` names riscv64 kernel and busybox versions from that
+   snapshot: move `KERNEL`, `KERNEL_VERSION` and `BUSYBOX_VERSION` to the
+   new snapshot's (`tools/qemu/README.md` says how to list them) and run
+   `USPIFLASH_QEMU=1 uv run pytest tests/test_qemu.py`.
 3. Regenerate the ledger in that image, from the repository's root:
 
    ```sh

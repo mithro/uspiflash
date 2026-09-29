@@ -1,0 +1,52 @@
+#!/bin/sh
+# The guest's /init (busybox sh): bind QEMU's emulated SPI flash to spidev,
+# run uspiflash-linux on it between markers run.py looks for, and leave QEMU.
+#
+# The kernel starts this with no console when the initramfs has no
+# /dev/console, so the output goes to the console only once devtmpfs is up.
+/bin/busybox mkdir -p /proc /sys /dev /usr/bin /usr/sbin /sbin
+/bin/busybox mount -t devtmpfs devtmpfs /dev
+exec </dev/console >/dev/console 2>&1
+/bin/busybox --install -s
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+
+while read -r module; do
+    insmod "$module"
+done </modules
+
+# The flash is the SPI device whose device tree node is compatible with
+# jedec,spi-nor (sifive_u: /soc/spi@10040000/flash@0). spi-nor is never
+# loaded, so it has no driver until spidev is bound to it by name.
+node=
+for dev in /sys/bus/spi/devices/*; do
+    [ -e "$dev/of_node/compatible" ] || continue
+    if tr '\0' '\n' <"$dev/of_node/compatible" | grep -qx 'jedec,spi-nor'; then
+        name=${dev##*/}
+        echo spidev >"$dev/driver_override"
+        echo "$name" >/sys/bus/spi/drivers/spidev/bind
+        node=/dev/spidev${name#spi}
+        break
+    fi
+done
+# To the kernel log: on the console only when booted without quiet.
+for dev in /sys/bus/spi/devices/*; do
+    driver=$(readlink "$dev/driver")
+    echo "init: ${dev##*/} $(readlink -f "$dev/of_node") driver=${driver##*/}" >/dev/kmsg
+done
+echo "init: flash node ${node:-none}" >/dev/kmsg
+
+echo "=== uspiflash-linux ==="
+if [ -n "$node" ] && [ -e "$node" ]; then
+    uspiflash-linux -D "$node" --opcodes --sfdp
+    code=$?
+else
+    echo "no jedec,spi-nor device bound to spidev" >&2
+    ls -l /sys/bus/spi/devices/ >&2
+    code=125
+fi
+echo "=== exit $code ==="
+echo "=== end ==="
+# sifive_u has no power-off device (OpenSBI: "Platform Shutdown Device:
+# ---"), only gpio-restart, so reboot: QEMU's -no-reboot makes that an exit.
+reboot -f
