@@ -45,7 +45,7 @@ _REASON = parity_skip_reason()
 #: Marks a test comparing the C's output with what spiflash prints.
 parity = pytest.mark.skipif(_REASON is not None, reason=_REASON or "")
 
-CFLAGS = ["-std=c99", "-Wall", "-Wextra", "-Wpedantic", "-Wundef", "-Werror"]
+CFLAGS = ["-std=c99", "-Wall", "-Wextra", "-Wpedantic", "-Wundef", "-Wshadow", "-Werror"]
 HERE = Path(__file__).parent
 SEP = "\x1e\n"
 SANITIZE = ["-O1", "-g", "-fsanitize=address,undefined", "-fno-sanitize-recover=all"]

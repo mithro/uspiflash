@@ -6,6 +6,7 @@ import json
 import re
 from typing import TYPE_CHECKING, Any
 
+import pytest
 import spiflash
 
 from uspiflash import VERIFIED_SPIFLASH, __version__, emit
@@ -15,8 +16,6 @@ from uspiflash.provenance import CONFIG_RE, Config
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    import pytest
 
 
 def _retagged(text: str, data: dict[str, Any]) -> str:
@@ -182,3 +181,43 @@ def test_a_config_without_types_still_means_every_type(
     changed = [line for line in report.splitlines() if re.match(r"  [-+][^-+]", line)]
     command = "  {} *       uspiflash generate -o uspiflash.h --prefix usf --level id"
     assert changed == [command.format("-"), command.format("+") + " --type nor --type nand"]
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [("min_size", "1"), ("max_size", [1]), ("manufacturers", [5])],
+)
+def test_an_ill_typed_chip_filter_is_an_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], key: str, value: object
+) -> None:
+    """A chip filter value of the wrong type, under a checksum that matches
+    it: it reads back, but rendering it fails, and that must be reported,
+    not escape as a traceback."""
+    out = tmp_path / "uspiflash.h"
+    main(["generate", "-o", str(out), "--level", "id"])
+    text = out.read_text()
+    m = CONFIG_RE.search(text)
+    assert m is not None
+    data = json.loads(m.group(1))
+    data["selection"]["chips"][key] = value
+    out.write_text(_retagged(text, data))
+    capsys.readouterr()
+    assert main(["check", str(out)]) == 2
+    assert f"{out}: its configuration cannot be regenerated: " in capsys.readouterr().out
+
+
+def test_only_the_tag_above_the_config_is_its_checksum(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A matching ``Configuration (sha256 ...)`` elsewhere in the file does
+    not stand in for a damaged tag above the ``uspiflash-config`` line."""
+    out = tmp_path / "uspiflash.h"
+    main(["generate", "-o", str(out), "--level", "id"])
+    text = out.read_text()
+    tag = re.search(r"Configuration \(sha256 [0-9a-f]{64}\):", text)
+    assert tag is not None
+    damaged = text.replace(tag.group(), "Configuration (sha256 " + "0" * 64 + "):", 1)
+    out.write_text(f"/* {tag.group()} */\n" + damaged)
+    capsys.readouterr()
+    assert main(["check", str(out)]) == 2
+    assert "checksum mismatch" in capsys.readouterr().out

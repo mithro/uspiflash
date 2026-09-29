@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import pytest
 from spiflash.enums import FlashType
 
-from harness import compile_c, generate, impl_source, name, no_datasheet, undefined_symbols
+from harness import CFLAGS, compile_c, generate, impl_source, name, no_datasheet, undefined_symbols
 from uspiflash.levels import LEVELS, ChipFilter, Selection
 from uspiflash.provenance import Config
 
@@ -86,7 +86,8 @@ def test_header_and_implementation_compile_as_cpp(tmp_path: Path, cxx: str) -> N
     impl = tmp_path / "impl.cpp"
     impl.write_text('#define USF_IMPLEMENTATION\n#include "uspiflash.h"\n')  # or on its own
     for unit in (src, impl):
-        cmd = [cxx, "-std=c++11", "-Wall", "-Wextra", "-Wpedantic", "-Wundef", "-Werror", "-c"]
+        warnings = [f for f in CFLAGS if not f.startswith("-std=")]
+        cmd = [cxx, "-std=c++11", *warnings, "-c"]
         cmd += [f"-I{tmp_path}", str(unit), "-o", str(unit.with_suffix(".o"))]
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         assert res.returncode == 0, res.stderr
