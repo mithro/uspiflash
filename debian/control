@@ -1,0 +1,35 @@
+Source: uspiflash
+Section: python
+Priority: optional
+Maintainer: Tim 'mithro' Ansell <me@mith.ro>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               pybuild-plugin-pyproject,
+               python3-all,
+               python3-hatchling,
+               python3-hatch-vcs,
+               python3-setuptools-scm,
+               python3-spiflash (>= 0.0.post38~),
+               python3-pytest <!nocheck>,
+               gcc <!nocheck>,
+Standards-Version: 4.7.0
+Homepage: https://github.com/mithro/uspiflash
+Vcs-Git: https://github.com/mithro/uspiflash.git
+Vcs-Browser: https://github.com/mithro/uspiflash
+Rules-Requires-Root: no
+
+Package: python3-uspiflash
+Architecture: all
+Depends: python3 (>= 3.11),
+         python3-spiflash (>= 0.0.post38~),
+         ${python3:Depends},
+         ${misc:Depends}
+Provides: uspiflash
+Description: generator of tiny C libraries that detect SPI flash chips
+ uspiflash writes a single C header that, on an embedded device, identifies
+ the SPI flash chip attached (JEDEC read-id, legacy ids, SFDP) and reports its
+ size, geometry, voltages, capabilities and supported commands, from the
+ spiflash database. The output needs no libc functions and no allocation, and
+ is measured byte for byte across GCC, LLVM and SDCC.
+ .
+ This package provides the uspiflash Python module and the uspiflash command.
