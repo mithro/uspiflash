@@ -71,6 +71,10 @@ target-version = "py311"
 src = ["src", "tests", "tools", "docs", "experiments"]
 line-length = 100
 extend-exclude = ["src/uspiflash/_version.py"]
+# Each experiment's directory is a script location, not a package (INP001):
+# it has no __init__.py and is never imported by name. Every later
+# experiment adds its directory here too (see experiments/README.md).
+namespace-packages = ["experiments/2026-09-28-database-statistics"]
 
 [tool.ruff.format]
 exclude = ["*.md"]
@@ -84,7 +88,7 @@ select = [
 ]
 
 [tool.mypy]
-files = ["src/uspiflash", "tests", "docs/conf.py"]
+files = ["src/uspiflash", "tests", "docs/conf.py", "experiments"]
 mypy_path = ["src"]
 strict = true
 
