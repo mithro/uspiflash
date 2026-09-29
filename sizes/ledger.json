@@ -552,7 +552,7 @@
    "describe": {
     "bss": 0,
     "data": 0,
-    "rodata": 37968,
+    "rodata": 39820,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -583,21 +583,21 @@
       ".ARM.exidx.text.usf_voltage": 8,
       ".rodata.cst4": 4,
       ".rodata.str1.1": 180,
-      ".rodata.usf__entries": 10712,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__entries": 11089,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
-      ".rodata.usf__mfrs": 74,
-      ".rodata.usf__namelists": 3675,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 3635,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
+      ".rodata.usf__mfrs": 76,
+      ".rodata.usf__namelists": 3912,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 4032,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__str": 14766,
+      ".rodata.usf__str": 15354,
       ".rodata.usf__volts": 52
      },
      "text": {
@@ -631,12 +631,12 @@
      }
     },
     "text": 3912,
-    "total": 41880
+    "total": 43732
    },
    "full": {
     "bss": 0,
     "data": 0,
-    "rodata": 47961,
+    "rodata": 50954,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -676,27 +676,27 @@
       ".ARM.exidx.text.usf_sources": 8,
       ".ARM.exidx.text.usf_type": 8,
       ".ARM.exidx.text.usf_voltage": 8,
+      ".rodata.cst16": 16,
       ".rodata.cst4": 4,
       ".rodata.cst8": 8,
       ".rodata.str1.1": 389,
-      ".rodata.usf__conflicts": 558,
-      ".rodata.usf__entries": 13184,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__conflicts": 614,
+      ".rodata.usf__entries": 13648,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__kindnames": 12,
-      ".rodata.usf__mfrs": 74,
-      ".rodata.usf__namelists": 3675,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 76,
+      ".rodata.usf__namelists": 3912,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 14892,
+      ".rodata.usf__str": 15492,
       ".rodata.usf__volts": 52
      },
      "text": {
@@ -741,12 +741,12 @@
      }
     },
     "text": 7418,
-    "total": 55379
+    "total": 58372
    },
    "full+datasheet": {
     "bss": 0,
     "data": 0,
-    "rodata": 95286,
+    "rodata": 98337,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -786,29 +786,29 @@
       ".ARM.exidx.text.usf_sources": 8,
       ".ARM.exidx.text.usf_type": 8,
       ".ARM.exidx.text.usf_voltage": 8,
+      ".rodata.cst16": 16,
       ".rodata.cst4": 4,
       ".rodata.cst8": 8,
       ".rodata.str1.1": 406,
-      ".rodata.usf__conflicts": 558,
+      ".rodata.usf__conflicts": 614,
       ".rodata.usf__dslists": 1576,
       ".rodata.usf__dsrows": 1050,
-      ".rodata.usf__entries": 14832,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__entries": 15354,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__kindnames": 12,
-      ".rodata.usf__mfrs": 74,
-      ".rodata.usf__namelists": 3675,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 76,
+      ".rodata.usf__namelists": 3912,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 57926,
+      ".rodata.usf__str": 58526,
       ".rodata.usf__volts": 52
      },
      "text": {
@@ -853,12 +853,12 @@
      }
     },
     "text": 7618,
-    "total": 102904
+    "total": 105955
    },
    "full+datasheets": {
     "bss": 0,
     "data": 0,
-    "rodata": 162854,
+    "rodata": 166019,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -900,26 +900,26 @@
       ".ARM.exidx.text.usf_voltage": 8,
       ".rodata.str1.1": 457,
       ".rodata.usf__attrnames": 12,
-      ".rodata.usf__conflicts": 558,
+      ".rodata.usf__conflicts": 614,
       ".rodata.usf__dslists": 2580,
       ".rodata.usf__dsrows": 9114,
-      ".rodata.usf__entries": 14832,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__entries": 15354,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 18,
       ".rodata.usf__featnames": 54,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__kindnames": 18,
-      ".rodata.usf__mfrs": 111,
-      ".rodata.usf__namelists": 5112,
-      ".rodata.usf__ops": 812,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 114,
+      ".rodata.usf__namelists": 5456,
+      ".rodata.usf__ops": 840,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__srcnames": 18,
-      ".rodata.usf__str": 114743,
+      ".rodata.usf__srcnames": 24,
+      ".rodata.usf__str": 115343,
       ".rodata.usf__typenames": 6,
       ".rodata.usf__volts": 52
      },
@@ -965,12 +965,12 @@
      }
     },
     "text": 8482,
-    "total": 171336
+    "total": 174501
    },
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
-    "rodata": 192280,
+    "rodata": 201522,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -1013,26 +1013,26 @@
       ".ARM.exidx.text.usf_voltage": 8,
       ".rodata.str1.1": 419,
       ".rodata.usf__attrnames": 12,
-      ".rodata.usf__conflicts": 558,
-      ".rodata.usf__entries": 14832,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__conflicts": 614,
+      ".rodata.usf__entries": 15354,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 18,
       ".rodata.usf__featnames": 54,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__jep106": 11530,
       ".rodata.usf__kindnames": 18,
-      ".rodata.usf__mfrs": 111,
-      ".rodata.usf__namelists": 5112,
-      ".rodata.usf__ops": 812,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 114,
+      ".rodata.usf__namelists": 5456,
+      ".rodata.usf__ops": 840,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
-      ".rodata.usf__records": 20858,
+      ".rodata.usf__records": 24440,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__srcnames": 18,
-      ".rodata.usf__str": 123505,
+      ".rodata.usf__srcnames": 24,
+      ".rodata.usf__str": 126600,
       ".rodata.usf__typenames": 6,
       ".rodata.usf__volts": 52
      },
@@ -1079,12 +1079,12 @@
      }
     },
     "text": 8386,
-    "total": 200666
+    "total": 209908
    },
    "full:nand": {
     "bss": 0,
     "data": 0,
-    "rodata": 5527,
+    "rodata": 5543,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -1117,6 +1117,7 @@
       ".ARM.exidx.text.usf_sources": 8,
       ".ARM.exidx.text.usf_type": 8,
       ".ARM.exidx.text.usf_voltage": 8,
+      ".rodata.cst16": 16,
       ".rodata.cst4": 8,
       ".rodata.cst8": 8,
       ".rodata.str1.1": 736,
@@ -1128,8 +1129,7 @@
       ".rodata.usf__namelists": 378,
       ".rodata.usf__p10": 40,
       ".rodata.usf__sizes": 20,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 1969
+      ".rodata.usf__str": 1981
      },
      "text": {
       ".text": 0,
@@ -1166,12 +1166,12 @@
      }
     },
     "text": 4254,
-    "total": 9781
+    "total": 9797
    },
    "full:nor": {
     "bss": 0,
     "data": 0,
-    "rodata": 43441,
+    "rodata": 46436,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -1211,27 +1211,27 @@
       ".ARM.exidx.text.usf_sources": 8,
       ".ARM.exidx.text.usf_type": 8,
       ".ARM.exidx.text.usf_voltage": 8,
+      ".rodata.cst16": 16,
       ".rodata.cst4": 4,
       ".rodata.cst8": 8,
       ".rodata.str1.1": 389,
-      ".rodata.usf__conflicts": 558,
-      ".rodata.usf__entries": 11152,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__conflicts": 614,
+      ".rodata.usf__entries": 11616,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 390,
-      ".rodata.usf__ids": 2570,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__ids": 2606,
       ".rodata.usf__kindnames": 12,
-      ".rodata.usf__mfrs": 60,
-      ".rodata.usf__namelists": 3297,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 10142,
+      ".rodata.usf__mfrs": 62,
+      ".rodata.usf__namelists": 3534,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 11521,
       ".rodata.usf__p10": 40,
-      ".rodata.usf__pages": 18,
+      ".rodata.usf__pages": 20,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 80,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 13241,
+      ".rodata.usf__str": 13841,
       ".rodata.usf__volts": 52
      },
      "text": {
@@ -1276,12 +1276,12 @@
      }
     },
     "text": 7266,
-    "total": 50707
+    "total": 53702
    },
    "id": {
     "bss": 0,
     "data": 0,
-    "rodata": 3879,
+    "rodata": 3944,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -1291,8 +1291,8 @@
       ".ARM.exidx.text.usf_lookup": 8,
       ".ARM.exidx.text.usf_probe": 8,
       ".ARM.exidx.text.usf_type": 8,
-      ".rodata.usf__entries": 824,
-      ".rodata.usf__ids": 2999
+      ".rodata.usf__entries": 853,
+      ".rodata.usf__ids": 3035
      },
      "text": {
       ".text": 0,
@@ -1306,12 +1306,12 @@
      }
     },
     "text": 874,
-    "total": 4753
+    "total": 4818
    },
    "read": {
     "bss": 0,
     "data": 0,
-    "rodata": 10777,
+    "rodata": 11333,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -1326,12 +1326,12 @@
       ".ARM.exidx.text.usf_probe": 8,
       ".ARM.exidx.text.usf_size": 8,
       ".ARM.exidx.text.usf_type": 8,
-      ".rodata.usf__entries": 5768,
-      ".rodata.usf__ext": 352,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
-      ".rodata.usf__ops": 240,
-      ".rodata.usf__opsets": 841,
+      ".rodata.usf__entries": 5971,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
+      ".rodata.usf__ops": 248,
+      ".rodata.usf__opsets": 959,
       ".rodata.usf__sizes": 88
      },
      "text": {
@@ -1351,7 +1351,7 @@
      }
     },
     "text": 1424,
-    "total": 12201
+    "total": 12757
    },
    "read:nand": {
     "bss": 0,
@@ -1398,7 +1398,7 @@
    "read:nor": {
     "bss": 0,
     "data": 0,
-    "rodata": 9447,
+    "rodata": 10003,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -1413,12 +1413,12 @@
       ".ARM.exidx.text.usf_probe": 8,
       ".ARM.exidx.text.usf_size": 8,
       ".ARM.exidx.text.usf_type": 8,
-      ".rodata.usf__entries": 4879,
-      ".rodata.usf__ext": 352,
-      ".rodata.usf__featsets": 390,
-      ".rodata.usf__ids": 2570,
-      ".rodata.usf__ops": 240,
-      ".rodata.usf__opsets": 840,
+      ".rodata.usf__entries": 5082,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__ids": 2606,
+      ".rodata.usf__ops": 248,
+      ".rodata.usf__opsets": 958,
       ".rodata.usf__sizes": 80
      },
      "text": {
@@ -1438,12 +1438,12 @@
      }
     },
     "text": 1272,
-    "total": 10719
+    "total": 11275
    },
    "write": {
     "bss": 0,
     "data": 0,
-    "rodata": 15505,
+    "rodata": 16406,
     "sections": {
      "rodata": {
       ".ARM.exidx.text.usf__ask": 8,
@@ -1460,12 +1460,12 @@
       ".ARM.exidx.text.usf_sector_size": 8,
       ".ARM.exidx.text.usf_size": 8,
       ".ARM.exidx.text.usf_type": 8,
-      ".rodata.usf__entries": 7416,
-      ".rodata.usf__ext": 352,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
-      ".rodata.usf__ops": 464,
-      ".rodata.usf__opsets": 3635,
+      ".rodata.usf__entries": 7677,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
+      ".rodata.usf__ops": 480,
+      ".rodata.usf__opsets": 4032,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88
@@ -1489,33 +1489,33 @@
      }
     },
     "text": 1532,
-    "total": 17037
+    "total": 17938
    }
   },
   "rv32imc": {
    "describe": {
     "bss": 0,
     "data": 0,
-    "rodata": 37760,
+    "rodata": 39612,
     "sections": {
      "rodata": {
       ".rodata.cst4": 4,
       ".rodata.str1.1": 180,
-      ".rodata.usf__entries": 10712,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__entries": 11089,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
-      ".rodata.usf__mfrs": 74,
-      ".rodata.usf__namelists": 3675,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 3635,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
+      ".rodata.usf__mfrs": 76,
+      ".rodata.usf__namelists": 3912,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 4032,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__str": 14766,
+      ".rodata.usf__str": 15354,
       ".rodata.usf__volts": 52
      },
      "text": {
@@ -1549,35 +1549,35 @@
      }
     },
     "text": 5206,
-    "total": 42966
+    "total": 44818
    },
    "full": {
     "bss": 0,
     "data": 0,
-    "rodata": 47665,
+    "rodata": 50658,
     "sections": {
      "rodata": {
+      ".rodata.cst16": 16,
       ".rodata.cst4": 4,
       ".rodata.cst8": 8,
       ".rodata.str1.1": 389,
-      ".rodata.usf__conflicts": 558,
-      ".rodata.usf__entries": 13184,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__conflicts": 614,
+      ".rodata.usf__entries": 13648,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__kindnames": 12,
-      ".rodata.usf__mfrs": 74,
-      ".rodata.usf__namelists": 3675,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 76,
+      ".rodata.usf__namelists": 3912,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 14892,
+      ".rodata.usf__str": 15492,
       ".rodata.usf__volts": 52
      },
      "text": {
@@ -1622,37 +1622,37 @@
      }
     },
     "text": 9708,
-    "total": 57373
+    "total": 60366
    },
    "full+datasheet": {
     "bss": 0,
     "data": 0,
-    "rodata": 94990,
+    "rodata": 98041,
     "sections": {
      "rodata": {
+      ".rodata.cst16": 16,
       ".rodata.cst4": 4,
       ".rodata.cst8": 8,
       ".rodata.str1.1": 406,
-      ".rodata.usf__conflicts": 558,
+      ".rodata.usf__conflicts": 614,
       ".rodata.usf__dslists": 1576,
       ".rodata.usf__dsrows": 1050,
-      ".rodata.usf__entries": 14832,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__entries": 15354,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__kindnames": 12,
-      ".rodata.usf__mfrs": 74,
-      ".rodata.usf__namelists": 3675,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 76,
+      ".rodata.usf__namelists": 3912,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 57926,
+      ".rodata.usf__str": 58526,
       ".rodata.usf__volts": 52
      },
      "text": {
@@ -1697,36 +1697,36 @@
      }
     },
     "text": 10070,
-    "total": 105060
+    "total": 108111
    },
    "full+datasheets": {
     "bss": 0,
     "data": 0,
-    "rodata": 162558,
+    "rodata": 165723,
     "sections": {
      "rodata": {
       ".rodata.str1.1": 457,
       ".rodata.usf__attrnames": 12,
-      ".rodata.usf__conflicts": 558,
+      ".rodata.usf__conflicts": 614,
       ".rodata.usf__dslists": 2580,
       ".rodata.usf__dsrows": 9114,
-      ".rodata.usf__entries": 14832,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__entries": 15354,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 18,
       ".rodata.usf__featnames": 54,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__kindnames": 18,
-      ".rodata.usf__mfrs": 111,
-      ".rodata.usf__namelists": 5112,
-      ".rodata.usf__ops": 812,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 114,
+      ".rodata.usf__namelists": 5456,
+      ".rodata.usf__ops": 840,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__srcnames": 18,
-      ".rodata.usf__str": 114743,
+      ".rodata.usf__srcnames": 24,
+      ".rodata.usf__str": 115343,
       ".rodata.usf__typenames": 6,
       ".rodata.usf__volts": 52
      },
@@ -1773,36 +1773,36 @@
      }
     },
     "text": 11108,
-    "total": 173666
+    "total": 176831
    },
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
-    "rodata": 191976,
+    "rodata": 201218,
     "sections": {
      "rodata": {
       ".rodata.str1.1": 419,
       ".rodata.usf__attrnames": 12,
-      ".rodata.usf__conflicts": 558,
-      ".rodata.usf__entries": 14832,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__conflicts": 614,
+      ".rodata.usf__entries": 15354,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 18,
       ".rodata.usf__featnames": 54,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__jep106": 11530,
       ".rodata.usf__kindnames": 18,
-      ".rodata.usf__mfrs": 111,
-      ".rodata.usf__namelists": 5112,
-      ".rodata.usf__ops": 812,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 114,
+      ".rodata.usf__namelists": 5456,
+      ".rodata.usf__ops": 840,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
-      ".rodata.usf__records": 20858,
+      ".rodata.usf__records": 24440,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__srcnames": 18,
-      ".rodata.usf__str": 123505,
+      ".rodata.usf__srcnames": 24,
+      ".rodata.usf__str": 126600,
       ".rodata.usf__typenames": 6,
       ".rodata.usf__volts": 52
      },
@@ -1850,14 +1850,15 @@
      }
     },
     "text": 10976,
-    "total": 202952
+    "total": 212194
    },
    "full:nand": {
     "bss": 0,
     "data": 0,
-    "rodata": 5287,
+    "rodata": 5303,
     "sections": {
      "rodata": {
+      ".rodata.cst16": 16,
       ".rodata.cst4": 8,
       ".rodata.cst8": 8,
       ".rodata.str1.1": 736,
@@ -1869,8 +1870,7 @@
       ".rodata.usf__namelists": 378,
       ".rodata.usf__p10": 40,
       ".rodata.usf__sizes": 20,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 1969
+      ".rodata.usf__str": 1981
      },
      "text": {
       ".text": 0,
@@ -1907,35 +1907,35 @@
      }
     },
     "text": 5530,
-    "total": 10817
+    "total": 10833
    },
    "full:nor": {
     "bss": 0,
     "data": 0,
-    "rodata": 43145,
+    "rodata": 46140,
     "sections": {
      "rodata": {
+      ".rodata.cst16": 16,
       ".rodata.cst4": 4,
       ".rodata.cst8": 8,
       ".rodata.str1.1": 389,
-      ".rodata.usf__conflicts": 558,
-      ".rodata.usf__entries": 11152,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__conflicts": 614,
+      ".rodata.usf__entries": 11616,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 390,
-      ".rodata.usf__ids": 2570,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__ids": 2606,
       ".rodata.usf__kindnames": 12,
-      ".rodata.usf__mfrs": 60,
-      ".rodata.usf__namelists": 3297,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 10142,
+      ".rodata.usf__mfrs": 62,
+      ".rodata.usf__namelists": 3534,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 11521,
       ".rodata.usf__p10": 40,
-      ".rodata.usf__pages": 18,
+      ".rodata.usf__pages": 20,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 80,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 13241,
+      ".rodata.usf__str": 13841,
       ".rodata.usf__volts": 52
      },
      "text": {
@@ -1980,16 +1980,16 @@
      }
     },
     "text": 9548,
-    "total": 52693
+    "total": 55688
    },
    "id": {
     "bss": 0,
     "data": 0,
-    "rodata": 3823,
+    "rodata": 3888,
     "sections": {
      "rodata": {
-      ".rodata.usf__entries": 824,
-      ".rodata.usf__ids": 2999
+      ".rodata.usf__entries": 853,
+      ".rodata.usf__ids": 3035
      },
      "text": {
       ".text": 0,
@@ -2003,20 +2003,20 @@
      }
     },
     "text": 1052,
-    "total": 4875
+    "total": 4940
    },
    "read": {
     "bss": 0,
     "data": 0,
-    "rodata": 10681,
+    "rodata": 11237,
     "sections": {
      "rodata": {
-      ".rodata.usf__entries": 5768,
-      ".rodata.usf__ext": 352,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
-      ".rodata.usf__ops": 240,
-      ".rodata.usf__opsets": 841,
+      ".rodata.usf__entries": 5971,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
+      ".rodata.usf__ops": 248,
+      ".rodata.usf__opsets": 959,
       ".rodata.usf__sizes": 88
      },
      "text": {
@@ -2036,7 +2036,7 @@
      }
     },
     "text": 1760,
-    "total": 12441
+    "total": 12997
    },
    "read:nand": {
     "bss": 0,
@@ -2071,15 +2071,15 @@
    "read:nor": {
     "bss": 0,
     "data": 0,
-    "rodata": 9351,
+    "rodata": 9907,
     "sections": {
      "rodata": {
-      ".rodata.usf__entries": 4879,
-      ".rodata.usf__ext": 352,
-      ".rodata.usf__featsets": 390,
-      ".rodata.usf__ids": 2570,
-      ".rodata.usf__ops": 240,
-      ".rodata.usf__opsets": 840,
+      ".rodata.usf__entries": 5082,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__ids": 2606,
+      ".rodata.usf__ops": 248,
+      ".rodata.usf__opsets": 958,
       ".rodata.usf__sizes": 80
      },
      "text": {
@@ -2099,20 +2099,20 @@
      }
     },
     "text": 1598,
-    "total": 10949
+    "total": 11505
    },
    "write": {
     "bss": 0,
     "data": 0,
-    "rodata": 15393,
+    "rodata": 16294,
     "sections": {
      "rodata": {
-      ".rodata.usf__entries": 7416,
-      ".rodata.usf__ext": 352,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
-      ".rodata.usf__ops": 464,
-      ".rodata.usf__opsets": 3635,
+      ".rodata.usf__entries": 7677,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
+      ".rodata.usf__ops": 480,
+      ".rodata.usf__opsets": 4032,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88
@@ -2136,14 +2136,14 @@
      }
     },
     "text": 1906,
-    "total": 17299
+    "total": 18200
    }
   },
   "x86_64": {
    "describe": {
     "bss": 0,
     "data": 0,
-    "rodata": 37760,
+    "rodata": 39612,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2154,23 +2154,23 @@
      "rodata": {
       ".rodata.digits.0": 17,
       ".rodata.units.1": 4,
-      ".rodata.usf__entries": 10712,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__entries": 11089,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 393,
+      ".rodata.usf__featsets": 441,
       ".rodata.usf__human.str1.1": 6,
       ".rodata.usf__idhex.str1.1": 3,
-      ".rodata.usf__ids": 2999,
-      ".rodata.usf__mfrs": 74,
-      ".rodata.usf__namelists": 3675,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 3635,
+      ".rodata.usf__ids": 3035,
+      ".rodata.usf__mfrs": 76,
+      ".rodata.usf__namelists": 3912,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 4032,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
-      ".rodata.usf__str": 14766,
+      ".rodata.usf__str": 15354,
       ".rodata.usf__typenames": 4,
       ".rodata.usf__volts": 52,
       ".rodata.usf_print.str1.1": 150
@@ -2212,12 +2212,12 @@
      }
     },
     "text": 3637,
-    "total": 41397
+    "total": 43249
    },
    "full": {
     "bss": 0,
     "data": 0,
-    "rodata": 47665,
+    "rodata": 50658,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2229,29 +2229,29 @@
       ".rodata.digits.0": 17,
       ".rodata.units.1": 4,
       ".rodata.usf__attrnames": 8,
-      ".rodata.usf__conflicts": 558,
-      ".rodata.usf__entries": 13184,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__conflicts": 614,
+      ".rodata.usf__entries": 13648,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 393,
+      ".rodata.usf__featsets": 441,
       ".rodata.usf__human.str1.1": 6,
       ".rodata.usf__idhex.str1.1": 3,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__jintornull.str1.1": 5,
       ".rodata.usf__jkey.str1.1": 4,
       ".rodata.usf__kindnames": 12,
-      ".rodata.usf__mfrs": 74,
-      ".rodata.usf__namelists": 3675,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 76,
+      ".rodata.usf__namelists": 3912,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
       ".rodata.usf__srclist.constprop.0.str1.1": 3,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 14892,
+      ".rodata.usf__srcnames": 16,
+      ".rodata.usf__str": 15492,
       ".rodata.usf__typenames": 4,
       ".rodata.usf__volts": 52,
       ".rodata.usf_print.str1.1": 198,
@@ -2309,12 +2309,12 @@
      }
     },
     "text": 6875,
-    "total": 54540
+    "total": 57533
    },
    "full+datasheet": {
     "bss": 0,
     "data": 0,
-    "rodata": 94990,
+    "rodata": 98041,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2326,31 +2326,31 @@
       ".rodata.digits.0": 17,
       ".rodata.units.1": 4,
       ".rodata.usf__attrnames": 8,
-      ".rodata.usf__conflicts": 558,
+      ".rodata.usf__conflicts": 614,
       ".rodata.usf__dslists": 1576,
       ".rodata.usf__dsrows": 1050,
-      ".rodata.usf__entries": 14832,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__entries": 15354,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 393,
+      ".rodata.usf__featsets": 441,
       ".rodata.usf__human.str1.1": 6,
       ".rodata.usf__idhex.str1.1": 3,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__jintornull.str1.1": 5,
       ".rodata.usf__jkey.str1.1": 4,
       ".rodata.usf__kindnames": 12,
-      ".rodata.usf__mfrs": 74,
-      ".rodata.usf__namelists": 3675,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 76,
+      ".rodata.usf__namelists": 3912,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
       ".rodata.usf__srclist.constprop.0.str1.1": 3,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 57926,
+      ".rodata.usf__srcnames": 16,
+      ".rodata.usf__str": 58526,
       ".rodata.usf__typenames": 4,
       ".rodata.usf__volts": 52,
       ".rodata.usf_print.str1.1": 215,
@@ -2408,12 +2408,12 @@
      }
     },
     "text": 6937,
-    "total": 101927
+    "total": 104978
    },
    "full+datasheets": {
     "bss": 0,
     "data": 0,
-    "rodata": 162558,
+    "rodata": 165723,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2425,31 +2425,31 @@
       ".rodata.digits.0": 17,
       ".rodata.units.1": 4,
       ".rodata.usf__attrnames": 12,
-      ".rodata.usf__conflicts": 558,
+      ".rodata.usf__conflicts": 614,
       ".rodata.usf__dslists": 2580,
       ".rodata.usf__dsrows": 9114,
-      ".rodata.usf__entries": 14832,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__entries": 15354,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 18,
       ".rodata.usf__featnames": 54,
-      ".rodata.usf__featsets": 393,
+      ".rodata.usf__featsets": 441,
       ".rodata.usf__human.str1.1": 6,
       ".rodata.usf__idhex.str1.1": 3,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__jkey.str1.1": 4,
       ".rodata.usf__jnull.str1.1": 5,
       ".rodata.usf__kindnames": 18,
-      ".rodata.usf__mfrs": 111,
-      ".rodata.usf__namelists": 5112,
-      ".rodata.usf__ops": 812,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 114,
+      ".rodata.usf__namelists": 5456,
+      ".rodata.usf__ops": 840,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
       ".rodata.usf__srclist.constprop.0.str1.1": 3,
-      ".rodata.usf__srcnames": 18,
-      ".rodata.usf__str": 114743,
+      ".rodata.usf__srcnames": 24,
+      ".rodata.usf__str": 115343,
       ".rodata.usf__typenames": 6,
       ".rodata.usf__volts": 52,
       ".rodata.usf_print.str1.1": 198,
@@ -2510,12 +2510,12 @@
      }
     },
     "text": 7594,
-    "total": 170152
+    "total": 173317
    },
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
-    "rodata": 191976,
+    "rodata": 201218,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2527,31 +2527,31 @@
       ".rodata.digits.0": 17,
       ".rodata.units.1": 4,
       ".rodata.usf__attrnames": 12,
-      ".rodata.usf__conflicts": 558,
-      ".rodata.usf__entries": 14832,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__conflicts": 614,
+      ".rodata.usf__entries": 15354,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 18,
       ".rodata.usf__featnames": 54,
-      ".rodata.usf__featsets": 393,
+      ".rodata.usf__featsets": 441,
       ".rodata.usf__human.str1.1": 6,
       ".rodata.usf__idhex.str1.1": 3,
-      ".rodata.usf__ids": 2999,
+      ".rodata.usf__ids": 3035,
       ".rodata.usf__jep106": 11530,
       ".rodata.usf__jintornull.str1.1": 5,
       ".rodata.usf__jkey.str1.1": 4,
       ".rodata.usf__kindnames": 18,
-      ".rodata.usf__mfrs": 111,
-      ".rodata.usf__namelists": 5112,
-      ".rodata.usf__ops": 812,
-      ".rodata.usf__opsets": 10143,
+      ".rodata.usf__mfrs": 114,
+      ".rodata.usf__namelists": 5456,
+      ".rodata.usf__ops": 840,
+      ".rodata.usf__opsets": 11522,
       ".rodata.usf__p10": 40,
       ".rodata.usf__pages": 22,
-      ".rodata.usf__records": 20858,
+      ".rodata.usf__records": 24440,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88,
       ".rodata.usf__srclist.constprop.0.str1.1": 3,
-      ".rodata.usf__srcnames": 18,
-      ".rodata.usf__str": 123505,
+      ".rodata.usf__srcnames": 24,
+      ".rodata.usf__str": 126600,
       ".rodata.usf__typenames": 6,
       ".rodata.usf__volts": 52,
       ".rodata.usf_print.str1.1": 198,
@@ -2611,12 +2611,12 @@
      }
     },
     "text": 7447,
-    "total": 199423
+    "total": 208665
    },
    "full:nand": {
     "bss": 0,
     "data": 0,
-    "rodata": 5287,
+    "rodata": 5303,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2642,8 +2642,8 @@
       ".rodata.usf__pages": 4,
       ".rodata.usf__sectors": 8,
       ".rodata.usf__sizes": 20,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 1969,
+      ".rodata.usf__srcnames": 16,
+      ".rodata.usf__str": 1981,
       ".rodata.usf__typenames": 4,
       ".rodata.usf_print.str1.1": 151,
       ".rodata.usf_print_json.str1.1": 116
@@ -2691,12 +2691,12 @@
      }
     },
     "text": 3830,
-    "total": 9117
+    "total": 9133
    },
    "full:nor": {
     "bss": 0,
     "data": 0,
-    "rodata": 43145,
+    "rodata": 46140,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2708,29 +2708,29 @@
       ".rodata.digits.0": 17,
       ".rodata.units.1": 4,
       ".rodata.usf__attrnames": 8,
-      ".rodata.usf__conflicts": 558,
-      ".rodata.usf__entries": 11152,
-      ".rodata.usf__ext": 352,
+      ".rodata.usf__conflicts": 614,
+      ".rodata.usf__entries": 11616,
+      ".rodata.usf__ext": 495,
       ".rodata.usf__famnames": 12,
       ".rodata.usf__featnames": 36,
-      ".rodata.usf__featsets": 390,
+      ".rodata.usf__featsets": 438,
       ".rodata.usf__human.str1.1": 6,
       ".rodata.usf__idhex.str1.1": 3,
-      ".rodata.usf__ids": 2570,
+      ".rodata.usf__ids": 2606,
       ".rodata.usf__jintornull.str1.1": 5,
       ".rodata.usf__jkey.str1.1": 4,
       ".rodata.usf__kindnames": 12,
-      ".rodata.usf__mfrs": 60,
-      ".rodata.usf__namelists": 3297,
-      ".rodata.usf__ops": 696,
-      ".rodata.usf__opsets": 10142,
+      ".rodata.usf__mfrs": 62,
+      ".rodata.usf__namelists": 3534,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 11521,
       ".rodata.usf__p10": 40,
-      ".rodata.usf__pages": 18,
+      ".rodata.usf__pages": 20,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 80,
       ".rodata.usf__srclist.constprop.0.str1.1": 3,
-      ".rodata.usf__srcnames": 12,
-      ".rodata.usf__str": 13241,
+      ".rodata.usf__srcnames": 16,
+      ".rodata.usf__str": 13841,
       ".rodata.usf__typenames": 4,
       ".rodata.usf__volts": 52,
       ".rodata.usf_print.str1.1": 198,
@@ -2788,12 +2788,12 @@
      }
     },
     "text": 6739,
-    "total": 49884
+    "total": 52879
    },
    "id": {
     "bss": 0,
     "data": 0,
-    "rodata": 3823,
+    "rodata": 3888,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2802,8 +2802,8 @@
       ".data": 0
      },
      "rodata": {
-      ".rodata.usf__entries": 824,
-      ".rodata.usf__ids": 2999
+      ".rodata.usf__entries": 853,
+      ".rodata.usf__ids": 3035
      },
      "text": {
       ".text": 0,
@@ -2819,12 +2819,12 @@
      }
     },
     "text": 928,
-    "total": 4751
+    "total": 4816
    },
    "read": {
     "bss": 0,
     "data": 0,
-    "rodata": 10681,
+    "rodata": 11237,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2833,12 +2833,12 @@
       ".data": 0
      },
      "rodata": {
-      ".rodata.usf__entries": 5768,
-      ".rodata.usf__ext": 352,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
-      ".rodata.usf__ops": 240,
-      ".rodata.usf__opsets": 841,
+      ".rodata.usf__entries": 5971,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
+      ".rodata.usf__ops": 248,
+      ".rodata.usf__opsets": 959,
       ".rodata.usf__sizes": 88
      },
      "text": {
@@ -2860,7 +2860,7 @@
      }
     },
     "text": 1433,
-    "total": 12114
+    "total": 12670
    },
    "read:nand": {
     "bss": 0,
@@ -2902,7 +2902,7 @@
    "read:nor": {
     "bss": 0,
     "data": 0,
-    "rodata": 9351,
+    "rodata": 9907,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2911,12 +2911,12 @@
       ".data": 0
      },
      "rodata": {
-      ".rodata.usf__entries": 4879,
-      ".rodata.usf__ext": 352,
-      ".rodata.usf__featsets": 390,
-      ".rodata.usf__ids": 2570,
-      ".rodata.usf__ops": 240,
-      ".rodata.usf__opsets": 840,
+      ".rodata.usf__entries": 5082,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__ids": 2606,
+      ".rodata.usf__ops": 248,
+      ".rodata.usf__opsets": 958,
       ".rodata.usf__sizes": 80
      },
      "text": {
@@ -2938,12 +2938,12 @@
      }
     },
     "text": 1297,
-    "total": 10648
+    "total": 11204
    },
    "write": {
     "bss": 0,
     "data": 0,
-    "rodata": 15393,
+    "rodata": 16294,
     "sections": {
      "bss": {
       ".bss": 0
@@ -2952,12 +2952,12 @@
       ".data": 0
      },
      "rodata": {
-      ".rodata.usf__entries": 7416,
-      ".rodata.usf__ext": 352,
-      ".rodata.usf__featsets": 393,
-      ".rodata.usf__ids": 2999,
-      ".rodata.usf__ops": 464,
-      ".rodata.usf__opsets": 3635,
+      ".rodata.usf__entries": 7677,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 441,
+      ".rodata.usf__ids": 3035,
+      ".rodata.usf__ops": 480,
+      ".rodata.usf__opsets": 4032,
       ".rodata.usf__pages": 22,
       ".rodata.usf__sectors": 24,
       ".rodata.usf__sizes": 88
@@ -2983,13 +2983,13 @@
      }
     },
     "text": 1528,
-    "total": 16921
+    "total": 17822
    }
   }
  },
  "spiflash": {
-  "database_format": 2,
-  "version": "0.0.post39"
+  "database_format": 3,
+  "version": "0.0.post74"
  },
  "targets": [
   {

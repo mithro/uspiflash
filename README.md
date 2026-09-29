@@ -13,11 +13,25 @@ GCC, LLVM and SDCC versions.
 
 <!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->
 Compiled for `cortex-m0` with Debian clang version 19.1.7 (3+b1) at `-Os`,
-the `read` level costs **12,201 bytes** of flash and `full`
-**55,379 bytes**, code and tables together, with no static RAM.
+the `read` level costs **12,757 bytes** of flash and `full`
+**58,372 bytes**, code and tables together, with no static RAM.
 Every configuration and target, and how they are measured:
 [`sizes/README.md`](https://github.com/mithro/uspiflash/blob/main/sizes/README.md).
 <!-- sizes: end -->
+
+## Output
+
+A generated file's `usf_print()` and `usf_print_json()` print exactly what
+`spiflash id` and `spiflash id --json` print, byte for byte, less what the
+file was generated without: the `from:` line and per-opcode sources without
+`sources`, conflicts without `conflicts`, the datasheet line without
+`datasheet`, and the JSON `datasheets`, `records` and records' `at` without
+`datasheets`, `records` and `provenance`. The tests check this against
+spiflash 0.0.post74 (`uspiflash.VERIFIED_SPIFLASH`).
+
+One known gap: spiflash's SFDP dumps (the `sfdp:` line of `spiflash id`, and
+the JSON `sfdp` key) are not in the generated file yet. The SFDP milestone
+adds them.
 
 ## Install
 

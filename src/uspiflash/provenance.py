@@ -91,7 +91,8 @@ def header(config: Config) -> str:
         "",
         "Licence: Apache-2.0. The data is from spiflash (Apache-2.0), itself",
         "extracted from the flash tables of Linux, U-Boot, flashrom, flashprog,",
-        "OpenOCD and openFPGALoader; see https://github.com/mithro/spiflash.",
+        "OpenOCD, openFPGALoader and QEMU, and Zephyr's board descriptions;",
+        "see https://github.com/mithro/spiflash.",
         "",
         "Documentation: https://uspiflash.readthedocs.io/",
     ]

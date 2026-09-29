@@ -137,13 +137,15 @@ uint8_t usf_jep106(uint8_t bank, uint8_t id, usf_putc_fn sink, void *ctx);
 /* usf_print's flags: also list the operations, as `spiflash id --opcodes`. */
 #define USF_PRINT_OPCODES 1
 /* Prints exactly what `spiflash id` prints for these answers (n of them,
- * as usf_lookup() or usf_probe() gave them), trailing newline included. */
+ * as usf_lookup() or usf_probe() gave them), trailing newline included,
+ * except the `sfdp:` lines: SFDP dumps are not in this file yet. */
 void usf_print(const usf_chip *chips, uint8_t n, uint8_t flags, usf_putc_fn sink, void *ctx);
 #endif
 
 #if USF_HAVE_JSON
 /* Prints exactly what `spiflash id --json` prints for these answers, less
- * the records unless the file has them. */
+ * the records unless the file has them, and less the "sfdp" key: SFDP dumps
+ * are not in this file yet. */
 void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ctx);
 #endif
 

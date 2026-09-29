@@ -432,3 +432,13 @@ def test_more_than_254_distinct_values_is_refused() -> None:
     records = [replace(r, id=bytes([0xEF, i >> 8, i & 0xFF]), size=i + 1) for i in range(300)]
     with pytest.raises(ValueError, match="more than 254 distinct values"):
         _build(records, "read")
+
+
+def test_the_source_mask_holds_every_source() -> None:
+    """spiflash 0.0.post74 has eight sources, which fill a one-byte mask; a
+    ninth must fail loudly, not wrap or overflow."""
+    layout.check_sources()
+    assert len(layout.SOURCES) <= 8
+    nine = (*layout.SOURCES, *layout.SOURCES)[:9]
+    with pytest.raises(ValueError, match=r"has 9 sources .* a source mask is one byte"):
+        layout.check_sources(nine)

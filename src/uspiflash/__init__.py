@@ -8,4 +8,8 @@ from __future__ import annotations
 
 from ._version import __version__
 
-__all__ = ["__version__"]
+#: The spiflash version the generated C's output is verified byte-identical
+#: to (the parity tests run in full against it; uv.lock pins it).
+VERIFIED_SPIFLASH = "0.0.post74"
+
+__all__ = ["VERIFIED_SPIFLASH", "__version__"]

@@ -14,7 +14,8 @@ Conventions
   reaches 0xFFFF bytes) wide.
 - A **source mask** is one byte: bit *i* set for ``SOURCES[i]``
   (:data:`SOURCES`: flashrom, flashprog, linux, u-boot, openocd,
-  openfpgaloader, spiflash's priority order).
+  openfpgaloader, qemu, zephyr, spiflash's priority order). Eight sources
+  fill the byte: :func:`build` refuses a ninth (:func:`check_sources`).
 - A **blob table** (``opsets``, ``namelists``, ``conflicts``, ``ext``,
   ``records``, ``dslists``) is a run of variable-length blobs, each stored once however
   many entries share it; entries point at a blob by its ``u16`` offset.
@@ -486,6 +487,17 @@ def _ops_of(f: Flash, sel: Selection) -> list[str]:
     return [n for n, o in f.opcodes.items() if o.operation.kind in sel.op_kinds]
 
 
+def check_sources(sources: tuple[Source, ...] = SOURCES) -> None:
+    """Refuse more sources than a one-byte source mask holds."""
+    if len(sources) > 8:
+        names = ", ".join(sources)
+        msg = (
+            f"spiflash has {len(sources)} sources ({names}), but a source mask is one "
+            "byte: widen the mask (layout, template and decode) for the ninth"
+        )
+        raise ValueError(msg)
+
+
 def mask(sources: Iterable[Source]) -> int:
     """The source mask: bit i for ``SOURCES[i]``."""
     return sum(1 << SOURCES.index(s) for s in sources)
@@ -521,6 +533,7 @@ _ATTR_TABLE = {"size": "sizes", "page_size": "pages", "sector_size": "sectors", 
 
 def build(snap: Snapshot, sel: Selection) -> Layout:
     """The baseline tables for ``sel`` over ``snap``."""
+    check_sources()
     has = sel.has
     used = {n for e in snap.entries for n in _ops_of(e.flash, sel)}
     ops = tuple(n for n in ALL_OPS if has(Field.OPERATIONS) and n in used)
