@@ -7,10 +7,11 @@ import os
 from pathlib import Path
 
 import pytest
+from spiflash.enums import FlashType
 
 from uspiflash import emit, ledger, measure, research
 from uspiflash.cli import main
-from uspiflash.levels import Selection
+from uspiflash.levels import LEVELS, Selection
 from uspiflash.measure import TARGETS, MeasureError, Sizes, Target
 from uspiflash.provenance import Config
 
@@ -172,6 +173,18 @@ def test_config_names_are_unique() -> None:
     names = [n for n, _ in measure.CONFIGS]
     assert len(set(names)) == len(names)
     assert len({t.name for t in TARGETS}) == len(TARGETS)
+
+
+def test_spi_nor_is_measured_first_at_every_level() -> None:
+    """SPI NOR is the primary target: a NOR-only build of every level leads
+    the ledger, and the README's headline figures are NOR-only."""
+    nor = [f"{level}:nor" for level in LEVELS]
+    assert [n for n, _ in measure.CONFIGS[: len(nor)]] == nor
+    for name, config in measure.CONFIGS[: len(nor)]:
+        assert config.selection.chips.types == (FlashType.NOR,), name
+    assert set(ledger.HEADLINE) <= set(nor)
+    names = [n for n, _ in measure.CONFIGS]
+    assert {*LEVELS, "read:nand", "full:nand"} <= set(names)
 
 
 # The ledger and ``uspiflash measure`` (uspiflash.ledger, uspiflash.cli).
@@ -339,14 +352,14 @@ def test_write_updates_the_readme_figures(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.setattr(measure, "CONFIGS", (("read", ID), ("full", ID)))
+    monkeypatch.setattr(measure, "CONFIGS", tuple((name, ID) for name in ledger.HEADLINE))
     top = tmp_path / "README.md"
     top.write_text(f"# x\n\n{ledger.BEGIN}\nstale\n{ledger.END}\n\nmore\n")
     assert main(["measure", "--write", "--root", str(tmp_path)]) == 0
     text = top.read_text()
     data = json.loads((tmp_path / "sizes" / "ledger.json").read_text())
     assert text == f"# x\n\n{ledger.BEGIN}\n{ledger.summary(data)}\n{ledger.END}\n\nmore\n"
-    total = data["sizes"][small[0].name]["full"]["total"]
+    total = data["sizes"][small[0].name]["full:nor"]["total"]
     assert f"**{total:,} bytes**" in text
     top.write_text(text.replace(f"{total:,}", "1"))
     capsys.readouterr()

@@ -175,6 +175,10 @@ def readme(ledger: dict[str, Any]) -> str:
         "",
         "## Configurations",
         "",
+        "SPI NOR is the primary target: its builds (`--type nor`, the `:nor` rows)",
+        "come first, and the default (all types) and NAND builds are listed for",
+        "comparison.",
+        "",
         "| Configuration | `uspiflash generate` options |",
         "|---|---|",
         *(f"| `{c['name']}` | `{' '.join(c['options'])}` |" for c in ledger["configs"]),
@@ -214,17 +218,24 @@ def tool_mismatches(ledger: dict[str, Any]) -> list[str]:
     return out
 
 
+#: The configurations the top-level README quotes: SPI NOR, the primary target.
+HEADLINE = ("read:nor", "full:nor")
+
+
 def summary(ledger: dict[str, Any]) -> str:
-    """The headline figures the top-level README quotes: ``read`` and
-    ``full`` on the first target (Cortex-M0)."""
+    """The headline figures the top-level README quotes: the SPI NOR
+    builds' ``read`` and ``full`` (:data:`HEADLINE`) on the first target
+    (Cortex-M0)."""
     t = ledger["targets"][0]
     sizes = ledger["sizes"][t["name"]]
+    read, full = (sizes[name]["total"] for name in HEADLINE)
     return "\n".join(
         [
-            f"Compiled for `{t['name']}` with {ledger['tools'][t['compiler']]} at `-Os`,",
-            f"the `read` level costs **{sizes['read']['total']:,} bytes** of flash and `full`",
-            f"**{sizes['full']['total']:,} bytes**, code and tables together, with no static RAM.",
-            "Every configuration and target, and how they are measured:",
+            f"For SPI NOR flash (`--type nor`), compiled for `{t['name']}` with",
+            f"{ledger['tools'][t['compiler']]} at `-Os`, the `read` level costs",
+            f"**{read:,} bytes** of flash and `full` **{full:,} bytes**, code and tables",
+            "together, with no static RAM. Every configuration (all chip types, and",
+            "NAND), every target, and how they are measured:",
             f"[`sizes/README.md`]({_REPO}/sizes/README.md).",
         ]
     )

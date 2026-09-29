@@ -23,8 +23,17 @@ counts the raw table bytes before compiling.
 
 ## Configurations
 
+SPI NOR is the primary target: its builds (`--type nor`, the `:nor` rows)
+come first, and the default (all types) and NAND builds are listed for
+comparison.
+
 | Configuration | `uspiflash generate` options |
 |---|---|
+| `id:nor` | `--level id --type nor` |
+| `read:nor` | `--level read --type nor` |
+| `write:nor` | `--level write --type nor` |
+| `describe:nor` | `--level describe --type nor` |
+| `full:nor` | `--level full --type nor` |
 | `id` | `--level id` |
 | `read` | `--level read` |
 | `write` | `--level write` |
@@ -33,9 +42,7 @@ counts the raw table bytes before compiling.
 | `full+datasheet` | `--level full --with datasheet` |
 | `full+datasheets` | `--level full --with datasheets` |
 | `full+records+provenance+jep106` | `--level full --with jep106 --with provenance --with records` |
-| `read:nor` | `--level read --type nor` |
 | `read:nand` | `--level read --type nand` |
-| `full:nor` | `--level full --type nor` |
 | `full:nand` | `--level full --type nand` |
 
 ## cortex-m0
@@ -44,6 +51,11 @@ Debian clang version 19.1.7 (3+b1): `clang --target=thumbv6m-none-eabi -mcpu=cor
 
 | Configuration | text | rodata | total |
 |---|--:|--:|--:|
+| `id:nor` | 754 | 3,388 | **4,142** |
+| `read:nor` | 1,272 | 10,003 | **11,275** |
+| `write:nor` | 1,380 | 14,820 | **16,200** |
+| `describe:nor` | 3,760 | 35,683 | **39,443** |
+| `full:nor` | 7,266 | 46,436 | **53,702** |
 | `id` | 874 | 3,944 | **4,818** |
 | `read` | 1,424 | 11,333 | **12,757** |
 | `write` | 1,532 | 16,406 | **17,938** |
@@ -52,9 +64,7 @@ Debian clang version 19.1.7 (3+b1): `clang --target=thumbv6m-none-eabi -mcpu=cor
 | `full+datasheet` | 7,618 | 98,337 | **105,955** |
 | `full+datasheets` | 8,482 | 166,019 | **174,501** |
 | `full+records+provenance+jep106` | 8,386 | 201,522 | **209,908** |
-| `read:nor` | 1,272 | 10,003 | **11,275** |
 | `read:nand` | 726 | 1,441 | **2,167** |
-| `full:nor` | 7,266 | 46,436 | **53,702** |
 | `full:nand` | 4,254 | 5,543 | **9,797** |
 
 ## rv32imc
@@ -63,6 +73,11 @@ Debian clang version 19.1.7 (3+b1): `clang --target=riscv32-unknown-elf -march=r
 
 | Configuration | text | rodata | total |
 |---|--:|--:|--:|
+| `id:nor` | 910 | 3,332 | **4,242** |
+| `read:nor` | 1,598 | 9,907 | **11,505** |
+| `write:nor` | 1,744 | 14,708 | **16,452** |
+| `describe:nor` | 5,040 | 35,475 | **40,515** |
+| `full:nor` | 9,548 | 46,140 | **55,688** |
 | `id` | 1,052 | 3,888 | **4,940** |
 | `read` | 1,760 | 11,237 | **12,997** |
 | `write` | 1,906 | 16,294 | **18,200** |
@@ -71,9 +86,7 @@ Debian clang version 19.1.7 (3+b1): `clang --target=riscv32-unknown-elf -march=r
 | `full+datasheet` | 10,070 | 98,041 | **108,111** |
 | `full+datasheets` | 11,108 | 165,723 | **176,831** |
 | `full+records+provenance+jep106` | 10,976 | 201,218 | **212,194** |
-| `read:nor` | 1,598 | 9,907 | **11,505** |
 | `read:nand` | 914 | 1,345 | **2,259** |
-| `full:nor` | 9,548 | 46,140 | **55,688** |
 | `full:nand` | 5,530 | 5,303 | **10,833** |
 
 ## x86_64
@@ -82,6 +95,11 @@ gcc (Debian 14.2.0-19) 14.2.0: `gcc -std=c99 -Os -ffreestanding -fno-common -ffu
 
 | Configuration | text | rodata | total |
 |---|--:|--:|--:|
+| `id:nor` | 845 | 3,332 | **4,177** |
+| `read:nor` | 1,297 | 9,907 | **11,204** |
+| `write:nor` | 1,392 | 14,708 | **16,100** |
+| `describe:nor` | 3,501 | 35,475 | **38,976** |
+| `full:nor` | 6,739 | 46,140 | **52,879** |
 | `id` | 928 | 3,888 | **4,816** |
 | `read` | 1,433 | 11,237 | **12,670** |
 | `write` | 1,528 | 16,294 | **17,822** |
@@ -90,9 +108,7 @@ gcc (Debian 14.2.0-19) 14.2.0: `gcc -std=c99 -Os -ffreestanding -fno-common -ffu
 | `full+datasheet` | 6,937 | 98,041 | **104,978** |
 | `full+datasheets` | 7,594 | 165,723 | **173,317** |
 | `full+records+provenance+jep106` | 7,447 | 201,218 | **208,665** |
-| `read:nor` | 1,297 | 9,907 | **11,204** |
 | `read:nand` | 700 | 1,345 | **2,045** |
-| `full:nor` | 6,739 | 46,140 | **52,879** |
 | `full:nand` | 3,830 | 5,303 | **9,133** |
 
 ## Regenerate

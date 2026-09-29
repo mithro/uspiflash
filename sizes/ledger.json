@@ -11,6 +11,221 @@
       "manufacturers": [],
       "max_size": null,
       "min_size": null,
+      "types": [
+       "nor"
+      ]
+     },
+     "fields": [
+      "ident",
+      "probe"
+     ],
+     "level": "id",
+     "op_kinds": []
+    }
+   },
+   "name": "id:nor",
+   "options": [
+    "--level",
+    "id",
+    "--type",
+    "nor"
+   ]
+  },
+  {
+   "config": {
+    "filename": "uspiflash.h",
+    "prefix": "usf",
+    "selection": {
+     "chips": {
+      "families": [],
+      "ids": [],
+      "manufacturers": [],
+      "max_size": null,
+      "min_size": null,
+      "types": [
+       "nor"
+      ]
+     },
+     "fields": [
+      "ext",
+      "features",
+      "ident",
+      "operations",
+      "probe",
+      "size"
+     ],
+     "level": "read",
+     "op_kinds": [
+      "id",
+      "mode",
+      "read"
+     ]
+    }
+   },
+   "name": "read:nor",
+   "options": [
+    "--level",
+    "read",
+    "--type",
+    "nor"
+   ]
+  },
+  {
+   "config": {
+    "filename": "uspiflash.h",
+    "prefix": "usf",
+    "selection": {
+     "chips": {
+      "families": [],
+      "ids": [],
+      "manufacturers": [],
+      "max_size": null,
+      "min_size": null,
+      "types": [
+       "nor"
+      ]
+     },
+     "fields": [
+      "ext",
+      "features",
+      "ident",
+      "operations",
+      "page_size",
+      "probe",
+      "sector_size",
+      "size"
+     ],
+     "level": "write",
+     "op_kinds": [
+      "erase",
+      "id",
+      "mode",
+      "program",
+      "read",
+      "register"
+     ]
+    }
+   },
+   "name": "write:nor",
+   "options": [
+    "--level",
+    "write",
+    "--type",
+    "nor"
+   ]
+  },
+  {
+   "config": {
+    "filename": "uspiflash.h",
+    "prefix": "usf",
+    "selection": {
+     "chips": {
+      "families": [],
+      "ids": [],
+      "manufacturers": [],
+      "max_size": null,
+      "min_size": null,
+      "types": [
+       "nor"
+      ]
+     },
+     "fields": [
+      "descriptions",
+      "ext",
+      "features",
+      "ident",
+      "manufacturer",
+      "names",
+      "operations",
+      "page_size",
+      "probe",
+      "sector_size",
+      "size",
+      "text",
+      "voltage"
+     ],
+     "level": "describe",
+     "op_kinds": [
+      "erase",
+      "id",
+      "mode",
+      "program",
+      "read",
+      "register"
+     ]
+    }
+   },
+   "name": "describe:nor",
+   "options": [
+    "--level",
+    "describe",
+    "--type",
+    "nor"
+   ]
+  },
+  {
+   "config": {
+    "filename": "uspiflash.h",
+    "prefix": "usf",
+    "selection": {
+     "chips": {
+      "families": [],
+      "ids": [],
+      "manufacturers": [],
+      "max_size": null,
+      "min_size": null,
+      "types": [
+       "nor"
+      ]
+     },
+     "fields": [
+      "conflicts",
+      "descriptions",
+      "ext",
+      "features",
+      "ident",
+      "json",
+      "manufacturer",
+      "names",
+      "operations",
+      "page_size",
+      "probe",
+      "sector_size",
+      "size",
+      "sources",
+      "text",
+      "voltage"
+     ],
+     "level": "full",
+     "op_kinds": [
+      "erase",
+      "id",
+      "mode",
+      "program",
+      "read",
+      "register"
+     ]
+    }
+   },
+   "name": "full:nor",
+   "options": [
+    "--level",
+    "full",
+    "--type",
+    "nor"
+   ]
+  },
+  {
+   "config": {
+    "filename": "uspiflash.h",
+    "prefix": "usf",
+    "selection": {
+     "chips": {
+      "families": [],
+      "ids": [],
+      "manufacturers": [],
+      "max_size": null,
+      "min_size": null,
       "types": []
      },
      "fields": [
@@ -366,45 +581,6 @@
       "max_size": null,
       "min_size": null,
       "types": [
-       "nor"
-      ]
-     },
-     "fields": [
-      "ext",
-      "features",
-      "ident",
-      "operations",
-      "probe",
-      "size"
-     ],
-     "level": "read",
-     "op_kinds": [
-      "id",
-      "mode",
-      "read"
-     ]
-    }
-   },
-   "name": "read:nor",
-   "options": [
-    "--level",
-    "read",
-    "--type",
-    "nor"
-   ]
-  },
-  {
-   "config": {
-    "filename": "uspiflash.h",
-    "prefix": "usf",
-    "selection": {
-     "chips": {
-      "families": [],
-      "ids": [],
-      "manufacturers": [],
-      "max_size": null,
-      "min_size": null,
-      "types": [
        "nand"
       ]
      },
@@ -430,58 +606,6 @@
     "read",
     "--type",
     "nand"
-   ]
-  },
-  {
-   "config": {
-    "filename": "uspiflash.h",
-    "prefix": "usf",
-    "selection": {
-     "chips": {
-      "families": [],
-      "ids": [],
-      "manufacturers": [],
-      "max_size": null,
-      "min_size": null,
-      "types": [
-       "nor"
-      ]
-     },
-     "fields": [
-      "conflicts",
-      "descriptions",
-      "ext",
-      "features",
-      "ident",
-      "json",
-      "manufacturer",
-      "names",
-      "operations",
-      "page_size",
-      "probe",
-      "sector_size",
-      "size",
-      "sources",
-      "text",
-      "voltage"
-     ],
-     "level": "full",
-     "op_kinds": [
-      "erase",
-      "id",
-      "mode",
-      "program",
-      "read",
-      "register"
-     ]
-    }
-   },
-   "name": "full:nor",
-   "options": [
-    "--level",
-    "full",
-    "--type",
-    "nor"
    ]
   },
   {
@@ -633,6 +757,90 @@
     },
     "text": 3912,
     "total": 43732
+   },
+   "describe:nor": {
+    "bss": 0,
+    "data": 0,
+    "rodata": 35683,
+    "sections": {
+     "rodata": {
+      ".ARM.exidx.text.usf__ask": 8,
+      ".ARM.exidx.text.usf__dec": 8,
+      ".ARM.exidx.text.usf__human": 8,
+      ".ARM.exidx.text.usf__idhex": 8,
+      ".ARM.exidx.text.usf__opstr": 8,
+      ".ARM.exidx.text.usf__volt": 8,
+      ".ARM.exidx.text.usf_bank": 8,
+      ".ARM.exidx.text.usf_family": 8,
+      ".ARM.exidx.text.usf_has_feature": 8,
+      ".ARM.exidx.text.usf_id": 8,
+      ".ARM.exidx.text.usf_lookup": 8,
+      ".ARM.exidx.text.usf_manufacturer": 8,
+      ".ARM.exidx.text.usf_name": 8,
+      ".ARM.exidx.text.usf_name_count": 8,
+      ".ARM.exidx.text.usf_op_count": 8,
+      ".ARM.exidx.text.usf_op_description": 8,
+      ".ARM.exidx.text.usf_op_find": 8,
+      ".ARM.exidx.text.usf_op_get": 8,
+      ".ARM.exidx.text.usf_op_name": 8,
+      ".ARM.exidx.text.usf_page_size": 8,
+      ".ARM.exidx.text.usf_print": 8,
+      ".ARM.exidx.text.usf_probe": 8,
+      ".ARM.exidx.text.usf_sector_size": 8,
+      ".ARM.exidx.text.usf_size": 8,
+      ".ARM.exidx.text.usf_type": 8,
+      ".ARM.exidx.text.usf_voltage": 8,
+      ".rodata.cst4": 4,
+      ".rodata.str1.1": 180,
+      ".rodata.usf__entries": 9438,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__famnames": 12,
+      ".rodata.usf__featnames": 36,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__ids": 2606,
+      ".rodata.usf__mfrs": 62,
+      ".rodata.usf__namelists": 3534,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 4031,
+      ".rodata.usf__p10": 40,
+      ".rodata.usf__pages": 20,
+      ".rodata.usf__sectors": 24,
+      ".rodata.usf__sizes": 80,
+      ".rodata.usf__str": 13703,
+      ".rodata.usf__volts": 52
+     },
+     "text": {
+      ".text": 0,
+      ".text.usf__ask": 102,
+      ".text.usf__dec": 76,
+      ".text.usf__human": 136,
+      ".text.usf__idhex": 124,
+      ".text.usf__opstr": 92,
+      ".text.usf__volt": 124,
+      ".text.usf_bank": 20,
+      ".text.usf_family": 36,
+      ".text.usf_has_feature": 56,
+      ".text.usf_id": 60,
+      ".text.usf_lookup": 380,
+      ".text.usf_manufacturer": 96,
+      ".text.usf_name": 104,
+      ".text.usf_name_count": 36,
+      ".text.usf_op_count": 36,
+      ".text.usf_op_description": 16,
+      ".text.usf_op_find": 50,
+      ".text.usf_op_get": 104,
+      ".text.usf_op_name": 16,
+      ".text.usf_page_size": 48,
+      ".text.usf_print": 1492,
+      ".text.usf_probe": 336,
+      ".text.usf_sector_size": 60,
+      ".text.usf_size": 60,
+      ".text.usf_type": 36,
+      ".text.usf_voltage": 64
+     }
+    },
+    "text": 3760,
+    "total": 39443
    },
    "full": {
     "bss": 0,
@@ -1309,6 +1517,36 @@
     "text": 874,
     "total": 4818
    },
+   "id:nor": {
+    "bss": 0,
+    "data": 0,
+    "rodata": 3388,
+    "sections": {
+     "rodata": {
+      ".ARM.exidx.text.usf__ask": 8,
+      ".ARM.exidx.text.usf_bank": 8,
+      ".ARM.exidx.text.usf_family": 8,
+      ".ARM.exidx.text.usf_id": 8,
+      ".ARM.exidx.text.usf_lookup": 8,
+      ".ARM.exidx.text.usf_probe": 8,
+      ".ARM.exidx.text.usf_type": 8,
+      ".rodata.usf__entries": 726,
+      ".rodata.usf__ids": 2606
+     },
+     "text": {
+      ".text": 0,
+      ".text.usf__ask": 102,
+      ".text.usf_bank": 12,
+      ".text.usf_family": 36,
+      ".text.usf_id": 60,
+      ".text.usf_lookup": 172,
+      ".text.usf_probe": 336,
+      ".text.usf_type": 36
+     }
+    },
+    "text": 754,
+    "total": 4142
+   },
    "read": {
     "bss": 0,
     "data": 0,
@@ -1491,6 +1729,57 @@
     },
     "text": 1532,
     "total": 17938
+   },
+   "write:nor": {
+    "bss": 0,
+    "data": 0,
+    "rodata": 14820,
+    "sections": {
+     "rodata": {
+      ".ARM.exidx.text.usf__ask": 8,
+      ".ARM.exidx.text.usf_bank": 8,
+      ".ARM.exidx.text.usf_family": 8,
+      ".ARM.exidx.text.usf_has_feature": 8,
+      ".ARM.exidx.text.usf_id": 8,
+      ".ARM.exidx.text.usf_lookup": 8,
+      ".ARM.exidx.text.usf_op_count": 8,
+      ".ARM.exidx.text.usf_op_find": 8,
+      ".ARM.exidx.text.usf_op_get": 8,
+      ".ARM.exidx.text.usf_page_size": 8,
+      ".ARM.exidx.text.usf_probe": 8,
+      ".ARM.exidx.text.usf_sector_size": 8,
+      ".ARM.exidx.text.usf_size": 8,
+      ".ARM.exidx.text.usf_type": 8,
+      ".rodata.usf__entries": 6534,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__ids": 2606,
+      ".rodata.usf__ops": 480,
+      ".rodata.usf__opsets": 4031,
+      ".rodata.usf__pages": 20,
+      ".rodata.usf__sectors": 24,
+      ".rodata.usf__sizes": 80
+     },
+     "text": {
+      ".text": 0,
+      ".text.usf__ask": 102,
+      ".text.usf_bank": 20,
+      ".text.usf_family": 36,
+      ".text.usf_has_feature": 56,
+      ".text.usf_id": 60,
+      ".text.usf_lookup": 380,
+      ".text.usf_op_count": 36,
+      ".text.usf_op_find": 50,
+      ".text.usf_op_get": 100,
+      ".text.usf_page_size": 48,
+      ".text.usf_probe": 336,
+      ".text.usf_sector_size": 60,
+      ".text.usf_size": 60,
+      ".text.usf_type": 36
+     }
+    },
+    "text": 1380,
+    "total": 16200
    }
   },
   "rv32imc": {
@@ -1551,6 +1840,64 @@
     },
     "text": 5206,
     "total": 44818
+   },
+   "describe:nor": {
+    "bss": 0,
+    "data": 0,
+    "rodata": 35475,
+    "sections": {
+     "rodata": {
+      ".rodata.cst4": 4,
+      ".rodata.str1.1": 180,
+      ".rodata.usf__entries": 9438,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__famnames": 12,
+      ".rodata.usf__featnames": 36,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__ids": 2606,
+      ".rodata.usf__mfrs": 62,
+      ".rodata.usf__namelists": 3534,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 4031,
+      ".rodata.usf__p10": 40,
+      ".rodata.usf__pages": 20,
+      ".rodata.usf__sectors": 24,
+      ".rodata.usf__sizes": 80,
+      ".rodata.usf__str": 13703,
+      ".rodata.usf__volts": 52
+     },
+     "text": {
+      ".text": 0,
+      ".text.usf__ask": 128,
+      ".text.usf__dec": 128,
+      ".text.usf__human": 200,
+      ".text.usf__idhex": 162,
+      ".text.usf__opstr": 130,
+      ".text.usf__volt": 192,
+      ".text.usf_bank": 30,
+      ".text.usf_family": 50,
+      ".text.usf_has_feature": 74,
+      ".text.usf_id": 74,
+      ".text.usf_lookup": 444,
+      ".text.usf_manufacturer": 140,
+      ".text.usf_name": 150,
+      ".text.usf_name_count": 52,
+      ".text.usf_op_count": 52,
+      ".text.usf_op_description": 18,
+      ".text.usf_op_find": 64,
+      ".text.usf_op_get": 154,
+      ".text.usf_op_name": 14,
+      ".text.usf_page_size": 66,
+      ".text.usf_print": 2016,
+      ".text.usf_probe": 398,
+      ".text.usf_sector_size": 82,
+      ".text.usf_size": 82,
+      ".text.usf_type": 52,
+      ".text.usf_voltage": 88
+     }
+    },
+    "text": 5040,
+    "total": 40515
    },
    "full": {
     "bss": 0,
@@ -2006,6 +2353,29 @@
     "text": 1052,
     "total": 4940
    },
+   "id:nor": {
+    "bss": 0,
+    "data": 0,
+    "rodata": 3332,
+    "sections": {
+     "rodata": {
+      ".rodata.usf__entries": 726,
+      ".rodata.usf__ids": 2606
+     },
+     "text": {
+      ".text": 0,
+      ".text.usf__ask": 128,
+      ".text.usf_bank": 20,
+      ".text.usf_family": 50,
+      ".text.usf_id": 74,
+      ".text.usf_lookup": 188,
+      ".text.usf_probe": 398,
+      ".text.usf_type": 52
+     }
+    },
+    "text": 910,
+    "total": 4242
+   },
    "read": {
     "bss": 0,
     "data": 0,
@@ -2138,6 +2508,43 @@
     },
     "text": 1906,
     "total": 18200
+   },
+   "write:nor": {
+    "bss": 0,
+    "data": 0,
+    "rodata": 14708,
+    "sections": {
+     "rodata": {
+      ".rodata.usf__entries": 6534,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__ids": 2606,
+      ".rodata.usf__ops": 480,
+      ".rodata.usf__opsets": 4031,
+      ".rodata.usf__pages": 20,
+      ".rodata.usf__sectors": 24,
+      ".rodata.usf__sizes": 80
+     },
+     "text": {
+      ".text": 0,
+      ".text.usf__ask": 128,
+      ".text.usf_bank": 30,
+      ".text.usf_family": 50,
+      ".text.usf_has_feature": 74,
+      ".text.usf_id": 74,
+      ".text.usf_lookup": 444,
+      ".text.usf_op_count": 52,
+      ".text.usf_op_find": 64,
+      ".text.usf_op_get": 148,
+      ".text.usf_page_size": 66,
+      ".text.usf_probe": 398,
+      ".text.usf_sector_size": 82,
+      ".text.usf_size": 82,
+      ".text.usf_type": 52
+     }
+    },
+    "text": 1744,
+    "total": 16452
    }
   },
   "x86_64": {
@@ -2214,6 +2621,80 @@
     },
     "text": 3637,
     "total": 43249
+   },
+   "describe:nor": {
+    "bss": 0,
+    "data": 0,
+    "rodata": 35475,
+    "sections": {
+     "bss": {
+      ".bss": 0
+     },
+     "data": {
+      ".data": 0
+     },
+     "rodata": {
+      ".rodata.digits.0": 17,
+      ".rodata.units.1": 4,
+      ".rodata.usf__entries": 9438,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__famnames": 12,
+      ".rodata.usf__featnames": 36,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__human.str1.1": 6,
+      ".rodata.usf__idhex.str1.1": 3,
+      ".rodata.usf__ids": 2606,
+      ".rodata.usf__mfrs": 62,
+      ".rodata.usf__namelists": 3534,
+      ".rodata.usf__ops": 720,
+      ".rodata.usf__opsets": 4031,
+      ".rodata.usf__p10": 40,
+      ".rodata.usf__pages": 20,
+      ".rodata.usf__sectors": 24,
+      ".rodata.usf__sizes": 80,
+      ".rodata.usf__str": 13703,
+      ".rodata.usf__typenames": 4,
+      ".rodata.usf__volts": 52,
+      ".rodata.usf_print.str1.1": 150
+     },
+     "text": {
+      ".text": 0,
+      ".text.usf__ask": 103,
+      ".text.usf__blank": 39,
+      ".text.usf__dec": 111,
+      ".text.usf__hex8": 65,
+      ".text.usf__human": 182,
+      ".text.usf__idhex": 110,
+      ".text.usf__idrec": 27,
+      ".text.usf__lit": 36,
+      ".text.usf__name": 25,
+      ".text.usf__opitem.isra.0": 38,
+      ".text.usf__puts": 48,
+      ".text.usf__volt": 100,
+      ".text.usf_bank": 18,
+      ".text.usf_family": 15,
+      ".text.usf_has_feature": 63,
+      ".text.usf_id": 38,
+      ".text.usf_lookup": 301,
+      ".text.usf_manufacturer": 56,
+      ".text.usf_name": 65,
+      ".text.usf_name_count": 30,
+      ".text.usf_op_count": 30,
+      ".text.usf_op_description": 45,
+      ".text.usf_op_find": 40,
+      ".text.usf_op_get": 99,
+      ".text.usf_op_name": 45,
+      ".text.usf_page_size": 46,
+      ".text.usf_print": 1103,
+      ".text.usf_probe": 439,
+      ".text.usf_sector_size": 49,
+      ".text.usf_size": 49,
+      ".text.usf_type": 18,
+      ".text.usf_voltage": 68
+     }
+    },
+    "text": 3501,
+    "total": 38976
    },
    "full": {
     "bss": 0,
@@ -2822,6 +3303,37 @@
     "text": 928,
     "total": 4816
    },
+   "id:nor": {
+    "bss": 0,
+    "data": 0,
+    "rodata": 3332,
+    "sections": {
+     "bss": {
+      ".bss": 0
+     },
+     "data": {
+      ".data": 0
+     },
+     "rodata": {
+      ".rodata.usf__entries": 726,
+      ".rodata.usf__ids": 2606
+     },
+     "text": {
+      ".text": 0,
+      ".text.usf__ask": 103,
+      ".text.usf__blank": 39,
+      ".text.usf__idrec": 27,
+      ".text.usf_bank": 14,
+      ".text.usf_family": 15,
+      ".text.usf_id": 38,
+      ".text.usf_lookup": 152,
+      ".text.usf_probe": 439,
+      ".text.usf_type": 18
+     }
+    },
+    "text": 845,
+    "total": 4177
+   },
    "read": {
     "bss": 0,
     "data": 0,
@@ -2985,6 +3497,51 @@
     },
     "text": 1528,
     "total": 17822
+   },
+   "write:nor": {
+    "bss": 0,
+    "data": 0,
+    "rodata": 14708,
+    "sections": {
+     "bss": {
+      ".bss": 0
+     },
+     "data": {
+      ".data": 0
+     },
+     "rodata": {
+      ".rodata.usf__entries": 6534,
+      ".rodata.usf__ext": 495,
+      ".rodata.usf__featsets": 438,
+      ".rodata.usf__ids": 2606,
+      ".rodata.usf__ops": 480,
+      ".rodata.usf__opsets": 4031,
+      ".rodata.usf__pages": 20,
+      ".rodata.usf__sectors": 24,
+      ".rodata.usf__sizes": 80
+     },
+     "text": {
+      ".text": 0,
+      ".text.usf__ask": 103,
+      ".text.usf__blank": 39,
+      ".text.usf__idrec": 27,
+      ".text.usf_bank": 18,
+      ".text.usf_family": 15,
+      ".text.usf_has_feature": 63,
+      ".text.usf_id": 38,
+      ".text.usf_lookup": 301,
+      ".text.usf_op_count": 30,
+      ".text.usf_op_find": 34,
+      ".text.usf_op_get": 123,
+      ".text.usf_page_size": 46,
+      ".text.usf_probe": 439,
+      ".text.usf_sector_size": 49,
+      ".text.usf_size": 49,
+      ".text.usf_type": 18
+     }
+    },
+    "text": 1392,
+    "total": 16100
    }
   }
  },
