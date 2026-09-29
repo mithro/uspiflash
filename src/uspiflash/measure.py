@@ -3,20 +3,29 @@ target and read the object's section sizes (spec §7.1, per-object part).
 
 Each :class:`Target` is a compiler and its target flags. The implementation
 is compiled on its own (``-c``, freestanding, ``-Os``, one section per
-function and per table) and ``llvm-size -A`` reads the object. Sections are
-summed into ``text`` (``.text*``), ``rodata`` (``.rodata*``, ``.srodata*``),
-``data`` (``.data*``, ``.sdata*``) and ``bss`` (``.bss*``, ``.sbss*``); the
-flash cost is ``total = text + rodata + data``. Anything else (unwind tables
-such as ``.ARM.exidx`` and ``.eh_frame``, notes, attributes) is kept in
-:attr:`Sizes.sections` but counted in none of them.
+function and per table, no unwind tables) and ``llvm-readobj --sections``
+reads the object. Sections are classified by their ELF flags, not their
+names, so everything that would occupy target memory is counted whatever it
+is called:
 
-The library has no writable static data, so :func:`measure` refuses an
-object with a non-empty ``data`` or ``bss``.
+- ``text``: ``SHF_ALLOC`` and ``SHF_EXECINSTR``, the code;
+- ``rodata``: every other ``SHF_ALLOC`` section that is not writable: tables
+  and strings, and anything else that lands in flash (``.ARM.exidx``, which
+  clang emits for Arm even without unwind tables, ``.srodata``, ...);
+- ``data``: ``SHF_ALLOC`` and ``SHF_WRITE``, with contents;
+- ``bss``: ``SHF_ALLOC`` and ``SHF_WRITE``, ``SHT_NOBITS``.
+
+The flash cost is ``total = text + rodata``: every allocated, non-writable
+section. Sections that are not allocated (symbols, relocations, notes,
+attributes) occupy no target memory and are not recorded. The library has
+no writable static data, so :func:`measure` refuses an object with a
+non-empty ``data`` or ``bss``.
 
 The committed record of these numbers is :mod:`uspiflash.ledger`'s."""
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -43,6 +52,8 @@ FLAGS = (
     "-fno-common",
     "-ffunction-sections",
     "-fdata-sections",
+    "-fno-unwind-tables",
+    "-fno-asynchronous-unwind-tables",
     "-Wall",
     "-Wextra",
     "-Wpedantic",
@@ -50,9 +61,13 @@ FLAGS = (
     "-Werror",
 )
 
-#: The size tool (LLVM's reads every target's objects), and its package.
-SIZE_TOOL = "llvm-size"
-_PACKAGES = {"clang": "clang", "gcc": "gcc", "llvm-size": "llvm"}
+#: The tool that reads section sizes and flags (LLVM's reads every target's
+#: objects), and each tool's Debian package.
+SIZE_TOOL = "llvm-readobj"
+_PACKAGES = {"clang": "clang", "gcc": "gcc", "llvm-readobj": "llvm"}
+KINDS = ("text", "rodata", "data", "bss")
+_SHF_WRITE, _SHF_ALLOC, _SHF_EXECINSTR = 0x1, 0x2, 0x4
+_SHT_NOBITS = 8
 
 
 class MeasureError(Exception):
@@ -103,56 +118,67 @@ CONFIGS: tuple[tuple[str, Config], ...] = (
 )
 
 
+def kind(flags: int, sh_type: int) -> str | None:
+    """Which of :data:`KINDS` a section with ELF ``flags`` and type
+    ``sh_type`` counts towards, or ``None`` if it is not allocated."""
+    if not flags & _SHF_ALLOC:
+        return None
+    if flags & _SHF_WRITE:
+        return "bss" if sh_type == _SHT_NOBITS else "data"
+    return "text" if flags & _SHF_EXECINSTR else "rodata"
+
+
 @dataclass(frozen=True)
 class Sizes:
-    """One object's section sizes, in bytes."""
+    """One object's allocated sections, by kind (one of :data:`KINDS`),
+    then name, in bytes."""
 
-    sections: Mapping[str, int]
+    sections: Mapping[str, Mapping[str, int]]
 
-    def _sum(self, pattern: str) -> int:
-        rx = re.compile(pattern)
-        return sum(n for s, n in self.sections.items() if rx.fullmatch(s))
+    def _sum(self, k: str) -> int:
+        return sum(self.sections.get(k, {}).values())
 
     @property
     def text(self) -> int:
-        """Code: ``.text`` and ``.text.*``."""
-        return self._sum(r"\.text(\..*)?")
+        """Code: allocated, executable sections."""
+        return self._sum("text")
 
     @property
     def rodata(self) -> int:
-        """Constant data: ``.rodata*`` and ``.srodata*``."""
-        return self._sum(r"\.s?rodata(\..*)?")
+        """Every other allocated, non-writable section."""
+        return self._sum("rodata")
 
     @property
     def data(self) -> int:
-        """Initialised writable data: ``.data*`` and ``.sdata*``."""
-        return self._sum(r"\.s?data(\..*)?")
+        """Allocated, writable sections with contents."""
+        return self._sum("data")
 
     @property
     def bss(self) -> int:
-        """Zeroed writable data: ``.bss*`` and ``.sbss*``."""
-        return self._sum(r"\.s?bss(\..*)?")
+        """Allocated, writable sections without contents."""
+        return self._sum("bss")
 
     @property
     def total(self) -> int:
-        """What the object puts in flash: ``text + rodata + data``."""
-        return self.text + self.rodata + self.data
+        """What the object puts in flash: every allocated, non-writable
+        section (``text + rodata``; ``data`` is 0, as :func:`measure` checks)."""
+        return self.text + self.rodata
 
     def to_json(self) -> dict[str, object]:
-        """The sums, and every section."""
+        """The sums, and every allocated section by kind."""
         return {
             "text": self.text,
             "rodata": self.rodata,
             "data": self.data,
             "bss": self.bss,
             "total": self.total,
-            "sections": dict(self.sections),
+            "sections": {k: dict(v) for k, v in self.sections.items() if v},
         }
 
 
 def find_tool(name: str) -> str | None:
     """``name`` on ``PATH``, else the highest-numbered ``name-NN`` there
-    (Debian installs ``clang-19`` and ``llvm-size-19`` without the plain
+    (Debian installs ``clang-19`` and ``llvm-readobj-19`` without the plain
     names); ``None`` if neither exists."""
     if found := shutil.which(name):
         return found
@@ -180,7 +206,7 @@ def tool(name: str) -> str:
 
 def version(name: str) -> str:
     """The version line of tool ``name``'s ``--version``: the first line
-    containing ``version`` (clang's and llvm-size's), else the first line
+    containing ``version`` (clang's and LLVM's), else the first line
     (gcc's). It names the build exactly, e.g. ``Debian clang version 19.1.7
     (3+b1)``."""
     res = subprocess.run([tool(name), "--version"], capture_output=True, text=True, check=False)
@@ -191,20 +217,26 @@ def version(name: str) -> str:
     return next((line for line in lines if re.search(r"\bversion\b", line)), lines[0])
 
 
-def section_sizes(obj: Path) -> dict[str, int]:
-    """Every section of ``obj`` and its size (``llvm-size -A``)."""
+def section_sizes(obj: Path) -> Sizes:
+    """``obj``'s allocated sections, classified by their flags
+    (``llvm-readobj --sections``, as JSON)."""
     res = subprocess.run(
-        [tool(SIZE_TOOL), "-A", str(obj)], capture_output=True, text=True, check=False
+        [tool(SIZE_TOOL), "--elf-output-style=JSON", "--sections", str(obj)],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if res.returncode != 0:
-        msg = f"{SIZE_TOOL} -A {obj} failed:\n{res.stderr}"
+        msg = f"{SIZE_TOOL} --sections {obj} failed:\n{res.stderr}"
         raise MeasureError(msg)
-    out: dict[str, int] = {}
-    for line in res.stdout.splitlines():
-        m = re.fullmatch(r"(\.\S+)\s+(\d+)\s+\d+", line.strip())
-        if m:
-            out[m[1]] = out.get(m[1], 0) + int(m[2])
-    return out
+    out: dict[str, dict[str, int]] = {k: {} for k in KINDS}
+    for entry in json.loads(res.stdout)[0]["Sections"]:
+        sec = entry["Section"]
+        k = kind(sec["Flags"]["Value"], sec["Type"]["Value"])
+        if k is not None:
+            name = sec["Name"]["Name"]
+            out[k][name] = out[k].get(name, 0) + sec["Size"]
+    return Sizes(out)
 
 
 def compile_command(target: Target, source: Path, obj: Path) -> list[str]:
@@ -229,7 +261,7 @@ def measure(config: Config, target: Target, workdir: Path) -> Sizes:
     if res.returncode != 0 or res.stderr:
         msg = f"{' '.join(cmd)} failed:\n{res.stderr}"
         raise MeasureError(msg)
-    sizes = Sizes(section_sizes(obj))
+    sizes = section_sizes(obj)
     if sizes.data or sizes.bss:
         msg = (
             f"{target.name}: the library has writable static data "

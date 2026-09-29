@@ -4,13 +4,17 @@
 
 What the generated library costs in flash, in bytes, for each configuration
 and target. Each configuration's header is generated with the default prefix,
-its implementation compiled on its own (`-c`), and the object read with
-`llvm-size -A`. **text** is code (`.text*`), **rodata** is tables and strings
-(`.rodata*`, `.srodata*`), and **total** is text + rodata + data. Every object
-has no writable static data: data and bss are 0 (the measurement refuses
-otherwise), so the library needs no RAM beyond its stack. Unwind tables
-(`.ARM.exidx`, `.eh_frame`) are not counted, and linking can add compiler
-helpers and alignment; `ledger.json` lists every section of every object.
+its implementation compiled on its own (`-c`, no unwind tables), and the
+object's sections read with `llvm-readobj --sections`. Sections count by
+their ELF flags, not their names: **text** is every allocated, executable
+section (code); **rodata** is every other allocated, read-only one (tables
+and strings, plus anything else that lands in flash, such as the
+`.ARM.exidx` entries clang emits for Arm even without unwind tables); and
+**total** is text + rodata, everything the object puts in flash. Every
+object has no allocated writable section (data and bss are 0; the
+measurement refuses otherwise), so the library needs no RAM beyond its
+stack. Linking can add compiler helpers and alignment. `ledger.json` lists
+every allocated section of every object.
 
 Measured against spiflash 0.0.post39 (database format 2).
 These are compiled objects; the
@@ -36,26 +40,26 @@ counts the raw table bytes before compiling.
 
 ## cortex-m0
 
-Debian clang version 19.1.7 (3+b1): `clang --target=thumbv6m-none-eabi -mcpu=cortex-m0 -mthumb -std=c99 -Os -ffreestanding -fno-common -ffunction-sections -fdata-sections -Wall -Wextra -Wpedantic -Wundef -Werror -c`
+Debian clang version 19.1.7 (3+b1): `clang --target=thumbv6m-none-eabi -mcpu=cortex-m0 -mthumb -std=c99 -Os -ffreestanding -fno-common -ffunction-sections -fdata-sections -fno-unwind-tables -fno-asynchronous-unwind-tables -Wall -Wextra -Wpedantic -Wundef -Werror -c`
 
 | Configuration | text | rodata | total |
 |---|--:|--:|--:|
-| `id` | 874 | 3,823 | **4,697** |
-| `read` | 1,424 | 10,681 | **12,105** |
-| `write` | 1,532 | 15,393 | **16,925** |
-| `describe` | 3,912 | 37,760 | **41,672** |
-| `full` | 7,418 | 47,665 | **55,083** |
-| `full+datasheet` | 7,618 | 94,990 | **102,608** |
-| `full+datasheets` | 8,482 | 162,558 | **171,040** |
-| `full+records+provenance+jep106` | 8,386 | 191,976 | **200,362** |
-| `read:nor` | 1,272 | 9,351 | **10,623** |
-| `read:nand` | 726 | 1,345 | **2,071** |
-| `full:nor` | 7,266 | 43,145 | **50,411** |
-| `full:nand` | 4,254 | 5,287 | **9,541** |
+| `id` | 874 | 3,879 | **4,753** |
+| `read` | 1,424 | 10,777 | **12,201** |
+| `write` | 1,532 | 15,505 | **17,037** |
+| `describe` | 3,912 | 37,968 | **41,880** |
+| `full` | 7,418 | 47,961 | **55,379** |
+| `full+datasheet` | 7,618 | 95,286 | **102,904** |
+| `full+datasheets` | 8,482 | 162,854 | **171,336** |
+| `full+records+provenance+jep106` | 8,386 | 192,280 | **200,666** |
+| `read:nor` | 1,272 | 9,447 | **10,719** |
+| `read:nand` | 726 | 1,441 | **2,167** |
+| `full:nor` | 7,266 | 43,441 | **50,707** |
+| `full:nand` | 4,254 | 5,527 | **9,781** |
 
 ## rv32imc
 
-Debian clang version 19.1.7 (3+b1): `clang --target=riscv32-unknown-elf -march=rv32imc -mabi=ilp32 -std=c99 -Os -ffreestanding -fno-common -ffunction-sections -fdata-sections -Wall -Wextra -Wpedantic -Wundef -Werror -c`
+Debian clang version 19.1.7 (3+b1): `clang --target=riscv32-unknown-elf -march=rv32imc -mabi=ilp32 -std=c99 -Os -ffreestanding -fno-common -ffunction-sections -fdata-sections -fno-unwind-tables -fno-asynchronous-unwind-tables -Wall -Wextra -Wpedantic -Wundef -Werror -c`
 
 | Configuration | text | rodata | total |
 |---|--:|--:|--:|
@@ -74,7 +78,7 @@ Debian clang version 19.1.7 (3+b1): `clang --target=riscv32-unknown-elf -march=r
 
 ## x86_64
 
-gcc (Debian 14.2.0-19) 14.2.0: `gcc -std=c99 -Os -ffreestanding -fno-common -ffunction-sections -fdata-sections -Wall -Wextra -Wpedantic -Wundef -Werror -c`
+gcc (Debian 14.2.0-19) 14.2.0: `gcc -std=c99 -Os -ffreestanding -fno-common -ffunction-sections -fdata-sections -fno-unwind-tables -fno-asynchronous-unwind-tables -Wall -Wextra -Wpedantic -Wundef -Werror -c`
 
 | Configuration | text | rodata | total |
 |---|--:|--:|--:|
@@ -97,14 +101,17 @@ Tools:
 
 - `clang`: Debian clang version 19.1.7 (3+b1)
 - `gcc`: gcc (Debian 14.2.0-19) 14.2.0
-- `llvm-size`: Debian LLVM version 19.1.7
+- `llvm-readobj`: Debian LLVM version 19.1.7
 
-These are Debian trixie's `clang-19`, `llvm-19` and `gcc`. Regenerate with
-the same versions (CI's `sizes` job checks in a `debian:trixie` container):
+These are the Debian packages `clang-19`, `llvm-19`, `gcc`, `libc6-dev`
+in `debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674`, the image CI's `sizes` job checks the ledger in. On a
+machine with the same versions, regenerate with:
 
 ```sh
 uv run python -m uspiflash.sandbox -- uv run uspiflash measure --write
 ```
 
 `uv run uspiflash measure --check` exits 1 when this ledger is stale, and 2
-when the installed tools differ from the ones above.
+when the installed tools differ from the ones above. The image changes only
+deliberately: a new digest and a ledger regenerated in it, in one commit
+(see [RELEASING.md](https://github.com/mithro/uspiflash/blob/main/RELEASING.md#the-size-ledgers-image)).

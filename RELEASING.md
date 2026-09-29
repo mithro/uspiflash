@@ -114,6 +114,43 @@ minimum changes, also bump both `python3-spiflash (>= …~)` bounds in
 `debian/control` (keeping the trailing `~`) to match. Review, commit, merge.
 The next green run publishes it.
 
+A new spiflash changes the generated tables, so it changes the size ledger
+too: regenerate it (`uv run uspiflash measure --write`, see below) in the
+same commit, or the `sizes` job fails.
+
+## The size ledger's image
+
+`sizes/ledger.json` is made and checked in one container image, Debian
+trixie for linux/amd64 pinned by digest. The digest appears in exactly two
+places, which a test keeps equal: `IMAGE` in `src/uspiflash/ledger.py` and
+the `sizes` job's `container:` in `.github/workflows/deb.yml`. The ledger
+records the image too, so changing the pin without regenerating fails
+`measure --check`.
+
+The pin moves only deliberately (for example when trixie's point release
+updates clang or gcc: the job then exits 2, naming the changed tool). To
+move it:
+
+1. Find the new digest of the linux/amd64 image:
+   `docker buildx imagetools inspect debian:trixie` lists it under
+   `Platform: linux/amd64`.
+2. Put it in both places above.
+3. Regenerate the ledger in that image, from the repository's root:
+
+   ```sh
+   IMAGE=debian:trixie@sha256:<digest>
+   docker run --rm -v "$PWD:/w" -w /w -e UV_PROJECT_ENVIRONMENT=/venv "$IMAGE" bash -ec '
+     apt-get update -q
+     apt-get install -y -q --no-install-recommends \
+       clang-19 llvm-19 gcc libc6-dev python3 ca-certificates git curl
+     curl -LsSf https://astral.sh/uv/install.sh | sh
+     git config --global --add safe.directory /w
+     ~/.local/bin/uv run uspiflash measure --write
+     chown -R "$(stat -c %u:%g /w)" sizes README.md'
+   ```
+
+4. Commit the digest and the regenerated `sizes/` and `README.md` together.
+
 ## Verifying a release
 
 - PyPI: <https://pypi.org/project/uspiflash/> shows the new `X.Y.postN`.

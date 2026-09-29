@@ -45,6 +45,14 @@ TOP_README = Path("README.md")
 BEGIN = "<!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->"
 END = "<!-- sizes: end -->"
 REGENERATE = "uv run python -m uspiflash.sandbox -- uv run uspiflash measure --write"
+#: The container image the ledger is made and checked in: Debian trixie for
+#: linux/amd64, pinned by digest. CI's ``sizes`` job runs in exactly this
+#: image (a test checks), and the ledger records it, so changing the pin
+#: makes ``--check`` fail until the ledger is regenerated in the new image.
+#: RELEASING.md says how to bump it.
+IMAGE = "debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674"
+#: The Debian packages the image needs for :data:`~uspiflash.measure.TARGETS`.
+PACKAGES = ("clang-19", "llvm-19", "gcc", "libc6-dev")
 _REPO = "https://github.com/mithro/uspiflash/blob/main"
 _STATS = "2026-09-28-database-statistics"
 
@@ -85,6 +93,7 @@ def build(
     }
     return {
         "format": FORMAT,
+        "environment": {"image": IMAGE, "packages": list(PACKAGES)},
         "spiflash": {"version": spiflash.__version__, "database_format": DB_FORMAT},
         "tools": versions,
         "configs": [
@@ -130,6 +139,7 @@ def tables(ledger: dict[str, Any]) -> str:
 def readme(ledger: dict[str, Any]) -> str:
     """``sizes/README.md``, generated from ``ledger``."""
     sf = ledger["spiflash"]
+    env = ledger["environment"]
     lines = [
         "# Sizes",
         "",
@@ -137,13 +147,17 @@ def readme(ledger: dict[str, Any]) -> str:
         "",
         "What the generated library costs in flash, in bytes, for each configuration",
         "and target. Each configuration's header is generated with the default prefix,",
-        "its implementation compiled on its own (`-c`), and the object read with",
-        "`llvm-size -A`. **text** is code (`.text*`), **rodata** is tables and strings",
-        "(`.rodata*`, `.srodata*`), and **total** is text + rodata + data. Every object",
-        "has no writable static data: data and bss are 0 (the measurement refuses",
-        "otherwise), so the library needs no RAM beyond its stack. Unwind tables",
-        "(`.ARM.exidx`, `.eh_frame`) are not counted, and linking can add compiler",
-        "helpers and alignment; `ledger.json` lists every section of every object.",
+        "its implementation compiled on its own (`-c`, no unwind tables), and the",
+        "object's sections read with `llvm-readobj --sections`. Sections count by",
+        "their ELF flags, not their names: **text** is every allocated, executable",
+        "section (code); **rodata** is every other allocated, read-only one (tables",
+        "and strings, plus anything else that lands in flash, such as the",
+        "`.ARM.exidx` entries clang emits for Arm even without unwind tables); and",
+        "**total** is text + rodata, everything the object puts in flash. Every",
+        "object has no allocated writable section (data and bss are 0; the",
+        "measurement refuses otherwise), so the library needs no RAM beyond its",
+        "stack. Linking can add compiler helpers and alignment. `ledger.json` lists",
+        "every allocated section of every object.",
         "",
         f"Measured against spiflash {sf['version']} (database format {sf['database_format']}).",
         "These are compiled objects; the",
@@ -163,15 +177,18 @@ def readme(ledger: dict[str, Any]) -> str:
         "",
         *(f"- `{name}`: {v}" for name, v in sorted(ledger["tools"].items())),
         "",
-        "These are Debian trixie's `clang-19`, `llvm-19` and `gcc`. Regenerate with",
-        "the same versions (CI's `sizes` job checks in a `debian:trixie` container):",
+        f"These are the Debian packages {', '.join(f'`{p}`' for p in env['packages'])}",
+        f"in `{env['image']}`, the image CI's `sizes` job checks the ledger in. On a",
+        "machine with the same versions, regenerate with:",
         "",
         "```sh",
         REGENERATE,
         "```",
         "",
         "`uv run uspiflash measure --check` exits 1 when this ledger is stale, and 2",
-        "when the installed tools differ from the ones above.",
+        "when the installed tools differ from the ones above. The image changes only",
+        "deliberately: a new digest and a ledger regenerated in it, in one commit",
+        f"(see [RELEASING.md]({_REPO}/RELEASING.md#the-size-ledgers-image)).",
     ]
     return "\n".join(lines) + "\n"
 

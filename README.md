@@ -13,8 +13,8 @@ GCC, LLVM and SDCC versions.
 
 <!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->
 Compiled for `cortex-m0` with Debian clang version 19.1.7 (3+b1) at `-Os`,
-the `read` level costs **12,105 bytes** of flash and `full`
-**55,083 bytes**, code and tables together, with no static RAM.
+the `read` level costs **12,201 bytes** of flash and `full`
+**55,379 bytes**, code and tables together, with no static RAM.
 Every configuration and target, and how they are measured:
 [`sizes/README.md`](https://github.com/mithro/uspiflash/blob/main/sizes/README.md).
 <!-- sizes: end -->

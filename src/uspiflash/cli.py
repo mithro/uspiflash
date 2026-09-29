@@ -188,8 +188,8 @@ def _check_ledger(root: Path) -> int:
                 "uspiflash: the installed tools differ from the ones that made "
                 f"{ledger.LEDGER}:\n"
                 + "".join(f"  {m}\n" for m in mismatches)
-                + "Regenerate the ledger with those tools (Debian trixie's clang-19, "
-                "llvm-19 and gcc; see sizes/README.md), or check it there.",
+                + f"Regenerate the ledger with those tools (in {ledger.IMAGE}; "
+                "see sizes/README.md), or check it there.",
                 file=sys.stderr,
             )
             return 2

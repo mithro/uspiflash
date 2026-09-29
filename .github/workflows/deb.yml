@@ -83,13 +83,15 @@ jobs:
 
   # The size ledger (sizes/ledger.json) must match a fresh measurement. The
   # numbers only reproduce with the tools that made them, so this runs in the
-  # environment the ledger is regenerated in: Debian trixie's clang-19,
-  # llvm-19 and gcc. `measure --check` exits 2 if the tools' version lines
-  # differ from the ledger's, and 1 (with a diff) if the sizes do.
+  # environment the ledger is made in: Debian trixie (linux/amd64) pinned by
+  # digest, with clang-19, llvm-19 and gcc. The digest must equal
+  # uspiflash.ledger.IMAGE (a test checks); RELEASING.md says how to bump both.
+  # `measure --check` exits 2 if the tools' version lines differ from the
+  # ledger's, and 1 (with a diff) if the sizes do.
   sizes:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    container: debian:trixie
+    container: debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674
     steps:
       # git before checkout, so actions/checkout makes a real clone: hatch-vcs
       # derives the version from its history and tags.
@@ -110,7 +112,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Tool versions
-        run: clang-19 --version && llvm-size-19 --version && gcc --version
+        run: clang-19 --version && llvm-readobj-19 --version && gcc --version
 
       - name: Check the size ledger
         run: uv run uspiflash measure --check
