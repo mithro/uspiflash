@@ -9,6 +9,7 @@
 
 design
 usage
+generated-file
 developing
 experiments
 sizes

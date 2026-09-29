@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,9 @@ from uspiflash import research
 
 if TYPE_CHECKING:
     from sphinx.application import Sphinx
+
+# The {fields} directive (docs/_ext/fields_table.py), not installed as a package.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "_ext"))
 
 project = "uspiflash"
 author = "Tim Ansell"
@@ -24,10 +28,11 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
+    "fields_table",
 ]
 source_suffix = {".md": "markdown", ".rst": "restructuredtext"}
 exclude_patterns = ["_build", "superpowers", "Thumbs.db", ".DS_Store"]
-myst_enable_extensions = ["colon_fence", "deflist", "attrs_inline"]
+myst_enable_extensions = ["colon_fence", "deflist", "attrs_inline", "attrs_block"]
 myst_heading_anchors = 3
 autosummary_generate = True
 autodoc_default_options = {"members": True, "undoc-members": True, "member-order": "bysource"}

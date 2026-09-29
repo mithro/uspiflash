@@ -48,32 +48,63 @@ if TYPE_CHECKING:
 
 
 class Field(StrEnum):
-    """A piece of data or code the generated file can include."""
+    """A piece of data or code the generated file can include.
+
+    Each member's attribute docstring is the short description
+    :mod:`docs._ext.fields_table` reads to build the Levels and Extras
+    tables in the documentation, so it stays a plain descriptive phrase
+    (no trailing period)."""
 
     IDENT = "ident"
+    """the chip's ids, family, type and JEP106 bank"""
     PROBE = "probe"
+    """probing the bus (`usf_probe`)"""
     EXT = "ext"
+    """extended-id narrowing"""
     SIZE = "size"
+    """the chip's size"""
     FEATURES = "features"
+    """features (erase types, protocol, and the like)"""
     OPERATIONS = "operations"
+    """the flash's operations, as `usf_op` entries"""
     PAGE_SIZE = "page_size"
+    """page size"""
     SECTOR_SIZE = "sector_size"
+    """sector size"""
     VOLTAGE = "voltage"
+    """supply voltage"""
     MANUFACTURER = "manufacturer"
+    """the manufacturer's name"""
     NAMES = "names"
+    """part names"""
     DESCRIPTIONS = "descriptions"
+    """operation descriptions"""
     TEXT = "text"
+    """the text printer (`usf_print`)"""
     SOURCES = "sources"
+    """which sources say what"""
     CONFLICTS = "conflicts"
+    """where sources disagree (printed only: adds nothing without `text` or `json`)"""
     JSON = "json"
+    """the JSON printer (`usf_print_json`)"""
     RECORDS = "records"
+    """each upstream entry's source, raw name and extended id"""
     PROVENANCE = "provenance"
+    """each entry's upstream file:line"""
     DATASHEET = "datasheet"
+    """the best datasheet's URL, the text output's `datasheet:` line"""
     DATASHEETS = "datasheets"
+    """every datasheet, as the JSON lists them"""
     JEP106 = "jep106"
+    """every JEP106 manufacturer name"""
     SFDP = "sfdp"
+    """read the chip's own SFDP tables over the bus and decode the Basic Flash
+    Parameter Table (`usf_sfdp_read`)"""
     SFDP_SUMMARY = "sfdp_summary"
+    """the text output's `sfdp:` lines for the database's SFDP dumps
+    (printed only: adds nothing without `text`)"""
     SFDP_DUMPS = "sfdp_dumps"
+    """the database's SFDP dumps, decoded, as the JSON's `sfdp` list"""
 
 
 F = Field
