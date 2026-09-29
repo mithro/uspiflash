@@ -80,3 +80,75 @@ jobs:
 
       - name: Tests + coverage gate
         run: uv run pytest
+
+  build-deb:
+    name: build-deb (${{ matrix.suite }} ${{ matrix.arch }})
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [bookworm, trixie, forky, sid]
+        arch: [all]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # full history + tags: the version is git describe's
+
+      # The shared build: debian:<suite>, build deps from debian/control, and
+      # the version from the shared deb-version.py (with ~deb<R>, and ~pr<P>
+      # on a pull request). Writes the .debs to built-debs/.
+      - name: Build
+        id: build
+        uses: mithro/apt-repo-action/build-deb@main
+        with:
+          suite: ${{ matrix.suite }}
+          arch: ${{ matrix.arch }}
+
+      # Install what was just built into a clean container of the same suite,
+      # with its dependencies from the Debian archive, and run it.
+      - name: Install test
+        env:
+          SUITE: ${{ matrix.suite }}
+          APT_SOURCES: ${{ steps.build.outputs.apt-sources }}
+        run: |
+          docker run --rm \
+            -v "$APT_SOURCES:/apt-sources:ro" \
+            -v "${PWD}/built-debs:/debs:ro" \
+            -v "${PWD}/packaging:/packaging:ro" \
+            "docker.io/library/debian:$SUITE" \
+            sh -ec 'sh /apt-sources/install.sh
+                    apt-get update -q
+                    apt-get install -y -q --no-install-recommends /debs/*.deb
+                    sh /packaging/install-test.sh'
+
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: debs-${{ matrix.suite }}-${{ matrix.arch }}
+          path: built-debs/*.deb
+          retention-days: 14
+
+  publish-apt:
+    # Build and install-test pull requests, but never publish from one (or
+    # from any branch but main): that would overwrite the live repository
+    # with unreviewed packages.
+    if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
+    needs: build-deb
+    # Scoped to this job alone. A job calling a reusable workflow sets the
+    # maximum permissions available to it, so the elevated Pages scopes stay
+    # here rather than applying to the whole workflow.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: mithro/apt-repo-action/.github/workflows/publish-apt.yml@main
+    with:
+      suites: "bookworm trixie forky sid"
+      # Pure Python: one Architecture: all deb serves every architecture.
+      architectures: "all"
+      description: "uspiflash: tiny C libraries that detect SPI flash chips"
+    secrets:
+      gpg-private-key: ${{ secrets.APT_GPG_PRIVATE_KEY }}
