@@ -153,7 +153,17 @@ void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ct
 /* How the library talks to the chip: send `txlen` bytes, then clock in
  * `rxlen` bytes, with chip select held for the whole transaction.
  * Define USF_XFER(bus, tx, txlen, rx, rxlen) yourself to inline your SPI
- * driver; otherwise a struct usf_bus holding a function pointer is used. */
+ * driver; otherwise a struct usf_bus holding a function pointer is used.
+ *
+ * The first transaction is RES (0xAB), which wakes a chip from deep
+ * power-down; the chip then ignores commands for tRES1 (3-30 us). The probe
+ * calls USF_DELAY_US(30) after it: define USF_DELAY_US(us) as your delay, or
+ * leave it undefined (it does nothing) and make the transport itself allow
+ * 30 us after the first transaction.
+ */
+#ifndef USF_DELAY_US
+#define USF_DELAY_US(us) ((void)0)
+#endif
 #ifndef USF_XFER
 typedef void (*usf_xfer_fn)(void *ctx, const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen);
 struct usf_bus { usf_xfer_fn xfer; void *ctx; };
@@ -171,7 +181,9 @@ typedef struct usf_probe_result {
 
 /* Identify the chip; returns r->count. Sends only id commands (RES,
  * RDID, REMS, AT25F RDID, M95 RDID), and only those some chip in this
- * file answers, so it cannot change the chip. */
+ * file answers, so it cannot change the chip. After RES it waits
+ * USF_DELAY_US(30) for the chip to wake: without that hook, the transport
+ * must allow tRES1 after the first transaction (see USF_XFER above). */
 uint8_t usf_probe(usf_bus *bus, usf_probe_result *r);
 #endif
 
@@ -1279,6 +1291,7 @@ uint8_t usf_probe(usf_bus *bus, usf_probe_result *r)
 #if USF__PROBE_RES
     tx[0] = 0xAB;                       /* RES: also wakes from deep power-down */
     USF_XFER(bus, tx, 4, res, 2);
+    USF_DELAY_US(30);                   /* tRES1: the chip is waking up */
 #endif
 
     tx[0] = 0x9F;                       /* JEDEC read-id */
@@ -1295,7 +1308,19 @@ uint8_t usf_probe(usf_bus *bus, usf_probe_result *r)
     /* SPI NAND: read-id after one dummy (or address) byte. The same command,
      * so it is safe for any chip; a NAND chip answers plain 0x9F with a
      * dummy byte first, which is why the first answer can be non-blank. */
-    if (usf__ask(bus, r, USF_FAMILY_JEDEC, tx, 2, USF_RDID_LEN - 1))
+    usf__ask(bus, r, USF_FAMILY_JEDEC, tx, 2, USF_RDID_LEN - 1);
+#if USF_HAVE_NOR
+    /* A NOR chip answers this with its id shifted by one byte: looked up as
+     * NOR, that could name a chip that isn't there. Only NAND answers count
+     * (a lookup gives NOR first, then NAND, at most one of each). */
+    if (r->count && usf_type(&r->chip[r->count - 1]) == USF_TYPE_NAND) {
+        r->chip[0] = r->chip[r->count - 1];
+        r->count = 1;
+    } else {
+        r->count = 0;
+    }
+#endif
+    if (r->count)
         return r->count;
 #endif
 

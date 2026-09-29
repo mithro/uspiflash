@@ -1,7 +1,9 @@
 /* A simulated SPI flash for the tests: answers id commands from a table
  * (a "spec", see tests/test_probe.py) and RDSFDP (0x5A) from an SFDP image,
- * logging every transaction. Shared by tests/c/harness.c and
- * tests/linux/fake_spidev.c. */
+ * logging every transaction. A "CC/N=HEX" reply answers command CC sent
+ * with N bytes; read-id (0x9F) sent at a length no reply gives answers as a
+ * NOR chip does: its "9F/1" reply, shifted by the extra bytes.
+ * Shared by tests/c/harness.c and tests/linux/fake_spidev.c. */
 #ifndef SIMCHIP_H
 #define SIMCHIP_H
 
@@ -80,12 +82,21 @@ static void sim_xfer(void *ctx, const uint8_t *tx, uint8_t txlen, uint8_t *rx, u
         for (i = 0; i < rxlen; i++)
             rx[i] = addr + i < s->sfdp_len ? s->sfdp[addr + i] : 0xFF;
     } else {
-        for (k = 0; k < s->nreplies; k++)
-            if (s->replies[k].cmd == tx[0] && s->replies[k].txlen == txlen) {
-                for (i = 0; i < rxlen && i < s->replies[k].len; i++)
-                    rx[i] = s->replies[k].data[i];
-                break;
+        const struct sim_reply *r = NULL;
+        unsigned skip = 0;
+        for (k = 0; k < s->nreplies && !r; k++)
+            if (s->replies[k].cmd == tx[0] && s->replies[k].txlen == txlen)
+                r = &s->replies[k];
+        /* Read-id at a length the spec doesn't give: a NOR chip starts
+         * sending its id right after the command, so the bytes clocked out
+         * during the rest of tx are lost and the id arrives shifted. */
+        for (k = 0; k < s->nreplies && !r && tx[0] == 0x9F && txlen > 1; k++)
+            if (s->replies[k].cmd == 0x9F && s->replies[k].txlen == 1) {
+                r = &s->replies[k];
+                skip = txlen - 1u;
             }
+        for (i = 0; r && i < rxlen && skip + i < r->len; i++)
+            rx[i] = r->data[skip + i];
     }
     if (s->log) {
         fputs("> ", s->log);

@@ -140,3 +140,45 @@ def test_probe_through_a_macro_transport(tmp_path: Path, compilers: list[str]) -
         obj = tmp_path / f"macro-{cc}.o"
         compile_c(cc, [unit], obj, ["-Os", "-c", "-ffreestanding", f"-I{tmp_path}"])
         assert undefined_symbols(obj) == ["my_xfer"]
+
+
+DELAY_HOOK = """\
+#include <stdio.h>
+#include <stdint.h>
+static void my_delay(unsigned us) { printf("delay %u\\n", us); }
+#define USF_DELAY_US(us) my_delay(us)
+#define USF_IMPLEMENTATION
+#include "uspiflash.h"
+
+static void xfer(void *ctx, const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen)
+{
+    uint8_t i;
+    (void)ctx;
+    (void)txlen;
+    for (i = 0; i < rxlen; i++)
+        rx[i] = 0xFF;
+    printf("xfer %02x\\n", tx[0]);
+}
+
+int main(void)
+{
+    usf_bus bus;
+    usf_probe_result r;
+    bus.xfer = xfer;
+    bus.ctx = NULL;
+    return usf_probe(&bus, &r);
+}
+"""
+
+
+def test_the_probe_waits_trs1_after_res(tmp_path: Path, compilers: list[str]) -> None:
+    """USF_DELAY_US(30) runs right after RES, before any other command."""
+    generate(tmp_path, Config(Selection.make("id")))
+    src = tmp_path / "delay.c"
+    src.write_text(DELAY_HOOK)
+    for cc in compilers:
+        exe = tmp_path / f"delay-{cc}"
+        compile_c(cc, [src], exe, [f"-I{tmp_path}"])
+        res = subprocess.run([str(exe)], capture_output=True, text=True, check=True)
+        assert res.stdout.splitlines()[:3] == ["xfer ab", "delay 30", "xfer 9f"], cc
+        assert res.stdout.count("delay") == 1, cc
