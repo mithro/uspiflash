@@ -10,7 +10,6 @@ from spiflash.db import database
 
 from . import layout
 from .cgen import byte_array, defines
-from .levels import Field
 from .model import FAMILIES, Snapshot
 from .provenance import header
 
@@ -59,9 +58,6 @@ def render(config: Config, snapshot: Snapshot | None = None) -> str:
             f"prefix {config.prefix!r} starts with an underscore: C reserves "
             "identifiers that do (at file scope, and _ with a capital everywhere)"
         )
-        raise ValueError(msg)
-    if config.selection.has(Field.SFDP):
-        msg = "sfdp is not available yet (the SFDP milestone adds it)"
         raise ValueError(msg)
     snap = snapshot or Snapshot.build(config.selection.chips.apply(database()))
     if not snap.entries:

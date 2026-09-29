@@ -15,8 +15,8 @@ Extras (``--with``): ``records`` (each upstream entry's source, raw name and
 extended id), ``provenance`` (each entry's upstream file:line), ``datasheet``
 (the best datasheet's URL, the text output's ``datasheet:`` line),
 ``datasheets`` (every datasheet, as the JSON lists them), ``jep106`` (every
-JEP106 manufacturer name), ``sfdp`` (read and decode SFDP on the chip; not
-available yet: ``uspiflash generate`` refuses it until the SFDP milestone).
+JEP106 manufacturer name) and ``sfdp`` (read the chip's own SFDP tables over
+the bus and decode the Basic Flash Parameter Table: ``usf_sfdp_read``).
 
 Conflicts are only ever printed, so selecting ``conflicts`` without a printer
 (``text`` or ``json``) adds nothing to the file (see

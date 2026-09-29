@@ -38,6 +38,9 @@ CONFIGS = [
     Config(Selection.make("describe", with_=["datasheet"])),
     Config(Selection.make("full", with_=["datasheet", "datasheets"], chips=ONE_TYPE[1])),
     Config(Selection.make("full", with_=["datasheet", "datasheets"], chips=NO_DATASHEET)),
+    # The SFDP reader alone, NOR first.
+    Config(Selection.make("id", with_=["sfdp"], chips=ONE_TYPE[0])),
+    Config(Selection.make("read", with_=["sfdp"], chips=ONE_TYPE[0])),
     # A renamed header: every symbol and table under another prefix.
     Config(Selection.make("full"), "fl", "flashid.h"),
     # Renamed, NAND only (--type nand --prefix x).
@@ -65,7 +68,7 @@ def test_implementation_compiles_and_needs_no_symbols(
 def test_header_and_implementation_compile_as_cpp(tmp_path: Path, cxx: str) -> None:
     if shutil.which(cxx) is None:
         pytest.skip(f"{cxx} not installed")
-    generate(tmp_path, Config(Selection.make("full", with_=["jep106"])))
+    generate(tmp_path, Config(Selection.make("full", with_=["jep106", "sfdp"])))
     src = tmp_path / "use.cpp"
     src.write_text(
         '#include "uspiflash.h"\n'  # declarations, as a C++ user sees them
@@ -164,8 +167,8 @@ void my_xfer(const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen);
 @pytest.mark.parametrize("bus", ["defined", "incomplete"])
 def test_probe_through_a_macro_transport(tmp_path: Path, compilers: list[str], bus: str) -> None:
     """With its own USF_XFER, the user's struct usf_bus may be anything,
-    or not defined at all."""
-    generate(tmp_path, Config(Selection.make("id")))
+    or not defined at all; the SFDP reader uses it too."""
+    generate(tmp_path, Config(Selection.make("id", with_=["sfdp"])))
     unit = tmp_path / "macro.c"
     source = MACRO_XFER
     if bus == "incomplete":
