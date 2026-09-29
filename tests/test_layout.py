@@ -277,6 +277,32 @@ def test_sfdp_tables_round_trip(snap: Snapshot) -> None:
         assert len(layout.sfdp_lines(f)) == len(f.sfdp_dumps)
 
 
+@pytest.mark.parametrize(
+    ("token", "error"),
+    [
+        (layout.T_LIST | layout.T_ITEM, "item flag disagrees with its parent"),
+        (layout.T_DICT_END + 1, "sfdptree token 0x0b at "),
+    ],
+)
+def test_a_corrupt_sfdp_token_is_refused(snap: Snapshot, token: int, error: str) -> None:
+    """One byte changed in sfdptree: the root value's token marked as an
+    array element, or a kind no token has."""
+    lay = layout.build(snap, Selection.make("full", with_=["sfdp_dumps"]))
+    i = next(i for i, e in enumerate(snap.entries) if e.flash.sfdp_dumps)
+    at = next(
+        r
+        for r in range(0, len(lay.tables["sfdprows"]), lay.defines["SFDP_ROW"])
+        if int.from_bytes(lay.tables["sfdprows"][r : r + 2], "little") == i
+    )
+    tree = bytearray(lay.tables["sfdptree"])
+    root = int.from_bytes(lay.tables["sfdprows"][at + lay.defines["SFDP_TREE"] :][:2], "little")
+    assert tree[root] == layout.T_LIST  # the "sfdp" list itself
+    tree[root] = token
+    bad = replace(lay, tables={**lay.tables, "sfdptree": bytes(tree)})
+    with pytest.raises(ValueError, match=error):
+        decode.sfdp_json(bad, i)
+
+
 def test_sfdp_tables_are_left_out_when_no_chip_has_a_dump() -> None:
     nand = Snapshot.build(ChipFilter(types=(FlashType.NAND,)).apply(database()))
     lay = layout.build(nand, Selection.make("full", with_=["sfdp_dumps"]))

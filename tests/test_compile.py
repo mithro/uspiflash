@@ -49,6 +49,10 @@ CONFIGS = [
     Config(Selection.make("write", with_=["sfdp_dumps"])),
     Config(Selection.make("full", with_=["sfdp", "sfdp_dumps"])),
     Config(Selection.make("full", with_=["sfdp_dumps"], chips=ONE_TYPE[1])),
+    # The JSON list without the text's summary; and the reader with the list,
+    # NOR only and renamed (--type nor --prefix nor).
+    Config(Selection.make("full", with_=["sfdp_dumps"], without=["sfdp_summary"])),
+    Config(Selection.make("full", with_=["sfdp", "sfdp_dumps"], chips=ONE_TYPE[0]), "nor"),
     # A renamed header: every symbol and table under another prefix.
     Config(Selection.make("full"), "fl", "flashid.h"),
     # Renamed, NAND only (--type nand --prefix x).
