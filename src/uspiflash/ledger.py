@@ -295,7 +295,10 @@ def committed(root: Path) -> dict[str, Any] | None:
     return data
 
 
-def measure_fresh() -> dict[str, Any]:
-    """:func:`build`, with its scratch files in a temporary directory."""
-    with tempfile.TemporaryDirectory(prefix="uspiflash-measure-") as d:
+def measure_fresh(root: Path) -> dict[str, Any]:
+    """:func:`build`, with its scratch files in a temporary directory under
+    ``root/tmp`` (never ``/tmp``), removed afterwards."""
+    scratch = root / "tmp"
+    scratch.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="uspiflash-measure-", dir=scratch) as d:
         return build(Path(d))

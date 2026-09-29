@@ -279,6 +279,31 @@ def test_measure_prints_the_tables(small: list[Target], capsys: pytest.CaptureFi
     assert "| `id` |" in out
 
 
+def test_scratch_files_go_in_the_roots_tmp_and_are_removed(
+    tmp_path: Path, small: list[Target]
+) -> None:
+    del small
+    data = ledger.measure_fresh(tmp_path)
+    assert data["configs"][0]["name"] == "id"
+    assert (tmp_path / "tmp").is_dir()
+    assert list((tmp_path / "tmp").iterdir()) == []
+
+
+def test_measure_outside_a_repository_uses_the_current_directorys_tmp(
+    tmp_path: Path,
+    small: list[Target],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    del small
+    monkeypatch.chdir(tmp_path)
+    find_root = research.find_root
+    monkeypatch.setattr(research, "find_root", lambda d: find_root(d, ceiling=tmp_path))
+    assert main(["measure"]) == 0
+    assert "| `id` |" in capsys.readouterr().out
+    assert list((tmp_path / "tmp").iterdir()) == []
+
+
 def test_measure_without_tools_names_them(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

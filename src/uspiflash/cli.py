@@ -193,7 +193,7 @@ def _check_ledger(root: Path) -> int:
                 file=sys.stderr,
             )
             return 2
-    changes = ledger.diff(root, ledger.measure_fresh())
+    changes = ledger.diff(root, ledger.measure_fresh(root))
     if changes:
         sys.stdout.write(changes)
         print(
@@ -209,12 +209,17 @@ def _measure(args: argparse.Namespace) -> int:
     """Print the sizes, or write or check the committed ledger."""
     try:
         if not (args.write or args.check):
-            sys.stdout.write(ledger.tables(ledger.measure_fresh()))
+            # Scratch files go in the repository's tmp/, or ./tmp outside one.
+            try:
+                scratch = args.root or research.find_root(Path.cwd())
+            except FileNotFoundError:
+                scratch = Path.cwd()
+            sys.stdout.write(ledger.tables(ledger.measure_fresh(scratch)))
             return 0
         root = args.root or research.find_root(Path.cwd())
         if args.check:
             return _check_ledger(root)
-        ledger.write(root, ledger.measure_fresh())
+        ledger.write(root, ledger.measure_fresh(root))
     except (MeasureError, FileNotFoundError, ValueError) as e:
         print(f"uspiflash: {e}", file=sys.stderr)
         return 2
