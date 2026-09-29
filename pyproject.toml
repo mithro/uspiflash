@@ -80,7 +80,7 @@ select = [
 ]
 
 [tool.mypy]
-files = ["src/uspiflash", "tests"]
+files = ["src/uspiflash", "tests", "docs/conf.py"]
 mypy_path = ["src"]
 strict = true
 
