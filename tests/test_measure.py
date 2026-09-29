@@ -110,7 +110,9 @@ def test_find_tool_prefers_the_plain_name_then_the_newest(
     assert measure.find_tool("gcc") is None
 
 
-@pytest.mark.parametrize(("name", "package"), [("clang", "clang"), ("llvm-readobj", "llvm")])
+@pytest.mark.parametrize(
+    ("name", "package"), [("clang", "clang"), ("llvm-readobj", "llvm"), ("llvm-nm", "llvm")]
+)
 def test_a_missing_tool_names_its_package(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, package: str
 ) -> None:
@@ -152,6 +154,41 @@ def test_writable_static_data_is_refused(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr(emit, "render", lambda _c: "int usf_counter = 1;\nint usf_zero;\n")
     with pytest.raises(MeasureError, match=r"writable static data \(data 4, bss 4 bytes\)"):
         measure.measure(ID, target, tmp_path)
+
+
+@pytest.mark.parametrize("target", TARGETS, ids=lambda t: t.name)
+def test_an_undefined_symbol_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: Target
+) -> None:
+    """Links nothing: a call out of the library fails measuring, on every
+    target."""
+    if not (available(target) and measure.find_tool(measure.NM_TOOL)):
+        pytest.skip(f"{target.compiler}, {measure.SIZE_TOOL} or {measure.NM_TOOL} not installed")
+    code = "int usf_ext(int x);\nint usf_f(int x);\nint usf_f(int x) { return usf_ext(x); }\n"
+    monkeypatch.setattr(emit, "render", lambda _c: code)
+    with pytest.raises(MeasureError, match=f"{target.name}: .* from elsewhere: usf_ext"):
+        measure.measure(ID, target, tmp_path)
+
+
+def test_a_compiler_helper_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    target = next(t for t in TARGETS if t.name == "cortex-m0")
+    if not (available(target) and measure.find_tool(measure.NM_TOOL)):
+        pytest.skip("clang or LLVM not installed")
+    code = (
+        "unsigned usf_div(unsigned a, unsigned b);\n"
+        "unsigned usf_div(unsigned a, unsigned b) { return a / b; }\n"
+    )
+    monkeypatch.setattr(emit, "render", lambda _c: code)
+    with pytest.raises(MeasureError, match="from elsewhere: __aeabi_uidiv"):
+        measure.measure(ID, target, tmp_path)
+
+
+def test_an_unreadable_object_has_no_symbol_list(tmp_path: Path) -> None:
+    if measure.find_tool(measure.NM_TOOL) is None:
+        pytest.skip("llvm-nm not installed")
+    (tmp_path / "junk.o").write_text("not an object")
+    with pytest.raises(MeasureError, match="--undefined-only"):
+        measure.undefined_symbols(tmp_path / "junk.o")
 
 
 def test_a_compiler_diagnostic_is_an_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

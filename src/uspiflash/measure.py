@@ -19,7 +19,9 @@ The flash cost is ``total = text + rodata``: every allocated, non-writable
 section. Sections that are not allocated (symbols, relocations, notes,
 attributes) occupy no target memory and are not recorded. The library has
 no writable static data, so :func:`measure` refuses an object with a
-non-empty ``data`` or ``bss``.
+non-empty ``data`` or ``bss``; and it links nothing (no libc, no compiler
+helper), so :func:`measure` also refuses an object with an undefined symbol
+(``llvm-nm -u``), for every measured target.
 
 The committed record of these numbers is :mod:`uspiflash.ledger`'s."""
 
@@ -64,7 +66,10 @@ FLAGS = (
 #: The tool that reads section sizes and flags (LLVM's reads every target's
 #: objects), and each tool's Debian package.
 SIZE_TOOL = "llvm-readobj"
-_PACKAGES = {"clang": "clang", "gcc": "gcc", "llvm-readobj": "llvm"}
+#: The tool that lists an object's undefined symbols (LLVM's reads every
+#: target's objects).
+NM_TOOL = "llvm-nm"
+_PACKAGES = {"clang": "clang", "gcc": "gcc", "llvm-readobj": "llvm", "llvm-nm": "llvm"}
 KINDS = ("text", "rodata", "data", "bss")
 _SHF_WRITE, _SHF_ALLOC, _SHF_EXECINSTR = 0x1, 0x2, 0x4
 _SHT_NOBITS = 8
@@ -248,6 +253,20 @@ def section_sizes(obj: Path) -> Sizes:
     return Sizes(out)
 
 
+def undefined_symbols(obj: Path) -> list[str]:
+    """The symbols ``obj`` needs from elsewhere (``llvm-nm -u``)."""
+    res = subprocess.run(
+        [tool(NM_TOOL), "--undefined-only", "--format=just-symbols", str(obj)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if res.returncode != 0:
+        msg = f"{NM_TOOL} --undefined-only {obj} failed:\n{res.stderr}"
+        raise MeasureError(msg)
+    return res.stdout.split()
+
+
 def compile_command(target: Target, source: Path, obj: Path) -> list[str]:
     """The command that compiles ``source`` to ``obj`` for ``target``."""
     return [tool(target.compiler), *target.flags, "-c", str(source), "-o", str(obj)]
@@ -276,5 +295,8 @@ def measure(config: Config, target: Target, workdir: Path) -> Sizes:
             f"{target.name}: the library has writable static data "
             f"(data {sizes.data}, bss {sizes.bss} bytes)"
         )
+        raise MeasureError(msg)
+    if needed := undefined_symbols(obj):
+        msg = f"{target.name}: the library needs symbols from elsewhere: {', '.join(needed)}"
         raise MeasureError(msg)
     return sizes

@@ -13,8 +13,10 @@ and strings, plus anything else that lands in flash, such as the
 **total** is text + rodata, everything the object puts in flash. Every
 object has no allocated writable section (data and bss are 0; the
 measurement refuses otherwise), so the library needs no RAM beyond its
-stack. Linking can add compiler helpers and alignment. `ledger.json` lists
-every allocated section of every object.
+stack; and no object has an undefined symbol (`llvm-nm -u` is empty, or
+the measurement fails), so it calls no libc function and no compiler
+helper. Linking can add alignment. `ledger.json` lists every allocated
+section of every object.
 
 Measured against spiflash 0.0.post74 (database format 3).
 These are compiled objects; the
