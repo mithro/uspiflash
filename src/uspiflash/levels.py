@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 from spiflash.db import Database
 from spiflash.enums import FlashType, IdFamily, OperationKind
+from spiflash.model import strip_continuation
 from spiflash.vendors import canonical
 
 if TYPE_CHECKING:
@@ -126,7 +127,12 @@ def _close(fields: set[Field]) -> set[Field]:
 
 @dataclass(frozen=True)
 class ChipFilter:
-    """Which chips to keep; an empty criterion keeps everything."""
+    """Which chips to keep; an empty criterion keeps everything.
+
+    ``ids`` are matched without extended-id bytes and without leading
+    ``0x7f`` continuation codes: each wanted id is reduced as spiflash's
+    :func:`~spiflash.model.strip_continuation` does, so ``7f7f7fc84018`` and
+    ``c84018`` keep the same chip id (its bank is not compared)."""
 
     manufacturers: tuple[str, ...] = ()
     ids: tuple[bytes, ...] = ()
@@ -141,7 +147,7 @@ class ChipFilter:
             wanted = {(canonical(m) or m).lower() for m in self.manufacturers}
             if (f.manufacturer or "").lower() not in wanted:
                 return False
-        if self.ids and f.id not in self.ids:
+        if self.ids and f.id not in {strip_continuation(i)[1] for i in self.ids}:
             return False
         if self.types and f.type not in self.types:
             return False

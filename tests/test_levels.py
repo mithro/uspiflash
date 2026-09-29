@@ -97,3 +97,30 @@ def test_filter_keeps_a_kept_chips_datasheets() -> None:
     kept = ChipFilter(ids=(with_sheets.id,), types=(with_sheets.type,)).apply(db)
     (found,) = [f for f in kept.flashes if f.id == with_sheets.id and f.type == with_sheets.type]
     assert found.datasheets == with_sheets.datasheets
+
+
+def test_filter_by_id_ignores_continuation_codes() -> None:
+    """A wanted id as a chip in a later bank sends it (0x7f codes first)
+    keeps the same chip id as its core bytes do."""
+    db = database()
+    f = next(f for f in db.flashes if f.bank > 0)
+    sent = b"\x7f" * f.bank + f.id
+    by_core = ChipFilter(ids=(f.id,)).apply(db)
+    by_sent = ChipFilter(ids=(sent,)).apply(db)
+    assert f.id in {k.id for k in by_sent.flashes}
+    assert [k.id for k in by_sent.flashes] == [k.id for k in by_core.flashes]
+
+
+def test_filter_by_max_size() -> None:
+    db = database()
+    kept = ChipFilter(max_size=1 << 20).apply(db)
+    assert kept.flashes
+    assert all(f.size is not None and f.size <= 1 << 20 for f in kept.flashes)
+    # Chips of unknown size and bigger ones are dropped.
+    assert any(f.size is None for f in db.flashes)
+    assert any((f.size or 0) > 1 << 20 for f in db.flashes)
+
+
+def test_unknown_level_is_refused() -> None:
+    with pytest.raises(ValueError, match="unknown level 'nonsense': one of id, read"):
+        Selection.make("nonsense")
