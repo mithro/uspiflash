@@ -121,7 +121,7 @@ jobs:
             "docker.io/library/debian:$SUITE" \
             sh -ec 'sh /apt-sources/install.sh
                     apt-get update -q
-                    apt-get install -y -q --no-install-recommends /debs/*.deb
+                    apt-get install -y -q --no-install-recommends /debs/*.deb gcc libc6-dev
                     sh /packaging/install-test.sh'
 
       - name: Upload
