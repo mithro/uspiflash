@@ -15,6 +15,7 @@ build/
 dist/
 *.egg-info/
 .coverage
+.coverage.*
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
