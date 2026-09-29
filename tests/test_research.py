@@ -101,3 +101,11 @@ def test_the_statistics_experiment_counts_the_database() -> None:
     stats = ns["collect"]()
     assert stats["chip_ids"] == len(database().flashes)
     assert stats["layout_bytes"]["full"] > stats["layout_bytes"]["id"]
+    # The per-table sizes add up to each selection's total.
+    assert stats["layout_bytes"] == {
+        sel: sum(tables.values()) for sel, tables in stats["layout_tables"].items()
+    }
+    # Per id, a shared name counts again; deduplicated, it does not.
+    assert stats["names_per_id"] >= stats["names"]
+    assert stats["max_names_per_id"] >= 1
+    assert set(stats["host"]) == {"python", "python_implementation", "system", "machine"}

@@ -6,95 +6,100 @@ what does the baseline layout cost at each detail level?
 **Why.** The encoding research (M4) needs to know where the bytes are; the
 spec's claim that per-chip data is highly shareable needs a number.
 
+**Hypothesis.** Part names and record names dominate: the strings, not the
+per-chip attributes, are where the bytes are (the M1 plan's expectation,
+from spec §3's 1,202 part names in 11,238 bytes and about 19 KB of record
+names).
+
 **Method.** `uv run uspiflash research run 2026-09-28-database-statistics`
 counts the database through `uspiflash.model.Snapshot` and builds the
-baseline `uspiflash.layout` at every level. See `run.py`'s `collect()`.
+baseline `uspiflash.layout` at every level, recording each table's size.
+See `run.py`'s `collect()`. `results/stats.json` also records the
+`spiflash` version, each upstream's commit, and the Python version,
+implementation, OS and machine it ran on. Two runs on the same inputs give
+byte-identical results.
 
-**Result.** From `results/stats.json`, against `spiflash` **0.0.post39**
-(spec §3's table was recorded at 0.0.post36 by a throwaway script; every
-count below is from the live package, not that recorded table).
+**Result.** From `results/stats.json`, against `spiflash` **0.0.post39**.
+Spec §3 recorded its table from spiflash at commit `0556ad6` (2026-09-27)
+with a throwaway script. **Every §3 number reproduces exactly** from the
+live package:
 
-Counts (spec §3):
+| Quantity | Value | `stats.json` key(s) |
+|---|---|---|
+| Chip ids (`Flash` objects) | 778 (651 NOR, 127 NAND) | `chip_ids`, `types` |
+| Id families | JEDEC 751, RES2 12, REMS 6, RES1 4, AT25F 4, ST95 1 | `families` |
+| Id lengths (bytes, after continuation codes) | 3: 660, 2: 110, 1: 5, 5: 3 | `id_lengths` |
+| JEP106 banks used | 0: 727, 1: 26, 6: 24, 7: 1 | `banks` |
+| Manufacturers | 37 (224 bytes of names) | `manufacturers`, `manufacturer_name_bytes` |
+| Part names, counted per id | 1,202 (11,238 bytes; 3,584 bytes zlib -9), up to 19 per id | `names_per_id`, `name_bytes_per_id`, `name_bytes_per_id_zlib9`, `max_names_per_id` |
+| Part-name alphabet | 40 characters: `)-.0-9A-Z_` | `name_alphabet` |
+| Distinct opcode sets / with source attribution | 215 / 314 (of 58 operations used) | `opcode_sets`, `opcode_sets_with_sources`, `operations_used` |
+| Distinct feature sets | 126 | `feature_sets` |
+| Distinct (size, page, sector, voltage) tuples | 163 | `geometry_tuples` |
+| Ids whose sources conflict | 60 | `conflicting_ids` |
+| Ids with extended-id variants | 21 (67 records) | `ext_ids`, `ext_records` |
 
-| Quantity | Value |
-|---|---|
-| Chip ids (`Flash` objects) | 778 (651 NOR, 127 NAND) |
-| Id families | JEDEC 751, RES2 12, REMS 6, RES1 4, AT25F 4, ST95 1 |
-| Id lengths (bytes, after continuation codes) | 3: 660, 2: 110, 1: 5, 5: 3 |
-| JEP106 banks used | 0: 727, 1: 26, 6: 24, 7: 1 |
-| Manufacturers | 37 |
-| Part names (deduplicated across the database) | 1,165 (10,909 bytes; 3,339 bytes zlib -9) |
-| Part-name alphabet | 40 characters: `)-.0-9A-Z_` |
-| Distinct opcode sets / with source attribution | 215 / 314 |
-| Distinct feature sets | 126 |
-| Distinct (size, page, sector, voltage) tuples | 163 |
-| Ids whose sources conflict | 60 |
-| Ids with extended-id variants | 21 (67 records) |
+§3's part-name figures count names per chip id (`sum(len(f.names))`: a
+name two ids share counts twice) and compress them NUL-separated in
+database order. Deduplicated, as the layout's string pool stores them,
+there are **1,165** distinct part names in **10,909** bytes (3,339 bytes
+zlib -9, sorted and newline-separated): `names`, `name_bytes`,
+`name_bytes_zlib9`.
 
-The extra facts the M1 index calls out, over every upstream `Record` (not
-deduplicated — these are raw upstream strings, one instance per record, and
-none of them are stored by the baseline layout at any level):
+The extra facts the M1 index calls out, over every upstream `Record`:
 
-| Quantity | Bytes |
-|---|---|
-| Record names (`Record.name`, before parsing into part numbers) | 19,519 |
-| Opcode "via" strings (why a source claims an operation) | 400,398 |
-| Upstream notes (`Record.notes`) | 164,813 |
-| Record locations (`Record.url`: `file:line`, despite the name) | 49,702 |
-| JEP106 manufacturer names (`Database.manufacturers`, one row per bank/id) | 47,526 |
+| Quantity | Bytes, per record | Distinct strings (bytes) |
+|---|---|---|
+| Record names (`Record.name`, before parsing into part numbers) | 19,519 | 1,324 (13,626) |
+| Opcode "via" strings (why a source claims an operation) | 400,398 | not stored at any level |
+| Upstream notes (`Record.notes`) | 164,813 | not stored at any level |
+| Record locations (`Record.url`: `file:line`, despite the name) | 49,702 | 1,946 (49,702) |
+| JEP106 manufacturer names (`Database.manufacturers`, one row per bank/id) | 47,526 | 2,283 (46,970) |
 
 Baseline layout size (`uspiflash.layout.build`, sum of `Layout.tables`),
-bytes, by level:
+and its biggest tables (`layout_tables` has every table at every level):
 
-| Level | Bytes |
-|---|---|
-| `id` | 3,823 |
-| `read` | 10,681 |
-| `write` | 15,393 |
-| `describe` | 37,813 |
-| `full` | 47,351 |
-| `full` + `records` + `provenance` + `jep106` | 191,646 |
+| Level | Bytes | Largest tables |
+|---|---|---|
+| `id` | 3,823 | `ids` 2,999, `entries` 824 |
+| `read` | 10,681 | `entries` 5,768, `ids` 2,999, `opsets` 841 |
+| `write` | 15,393 | `entries` 7,416, `opsets` 3,635, `ids` 2,999 |
+| `describe` | 37,540 | `str` 14,766, `entries` 10,712, `namelists` 3,675, `opsets` 3,635, `ids` 2,999 |
+| `full` | 47,236 | `str` 14,892, `entries` 13,184, `opsets` 10,143, `namelists` 3,675, `ids` 2,999 |
+| `full` + `records` + `provenance` + `jep106` | 191,517 | `str` 123,505, `records` 20,858, `entries` 14,832, `jep106` 11,530, `opsets` 10,143 |
 
-**Conclusion.** `chip_ids`, the id families, id lengths and JEP106 banks
-match spec §3's table exactly (778 chip ids, the same family and length
-breakdowns) — the shape of *which* chips exist has not moved between
-0.0.post36 and 0.0.post39. What has moved slightly is the part-name count
-(1,165 here vs. 1,202 in the spec's table) and its byte totals (10,909 vs.
-11,238; 3,339 vs. 3,584 bytes zlib -9): three point releases of upstream
-data changed a handful of part names, as expected — this experiment reports
-the live package on every rerun, not a frozen snapshot, so future reruns
-are expected to drift the same way.
+**Conclusion.** The shape of the data has not moved since spec §3 was
+written: every number in its table reproduces.
 
-The layout numbers answer "where are the bytes" directly:
+The hypothesis holds for part names at the default levels, but not for
+record names:
 
-- Going from `id` (3,823 bytes — just enough to probe the bus and identify
-  a chip) to `full` (47,351 bytes — everything the text and JSON output
-  need) is a 12× jump. Most of that growth lands between `write` and
-  `describe` (15,393 → 37,813 bytes, +22,420): that step adds the
-  deduplicated part-name pool (10,909 bytes) and operation descriptions
-  alongside voltage and manufacturer data — confirming the spec's
-  expectation that **part names are the largest single string cost in the
-  baseline `full` build**.
-- Turning on `records` + `provenance` + `jep106` more than quadruples that
-  again, to 191,646 bytes (+144,295 over `full`). Those extras store, per
-  record rather than per deduplicated part name: the raw record name
-  (19,519 bytes, almost twice `full`'s deduplicated 10,909-byte name pool,
-  because it is per-*record*, unparsed, and not deduplicated across
-  upstreams the way part names are), each record's `file:line` location
-  (49,702 bytes) and the full JEP106 table (47,526 bytes, one row per
-  bank/id pair rather than the ~37 names `describe`'s `manufacturer` field
-  already carries). **Record-level provenance, not part names, is where M4
-  should look first if `records`/`provenance`/`jep106` are ever selected
-  together** — they are optional extras precisely because this experiment
-  shows they roughly quadruple the file.
-- The two facts the layout never stores at any level — `via` (400,398
-  bytes) and upstream `notes` (164,813 bytes) — are bigger than everything
-  else in this table combined. They exist only in spiflash's own JSON, and
-  uspiflash deliberately has no field for them (levels.py's `Field` enum has
-  none): this experiment measures them only to confirm that decision is
-  cheap to keep. If a future milestone ever needs to expose *why* an
-  upstream claims an operation, this is the number it would have to budget
-  for.
+- At `describe` and `full` the string pool, `str`, is the largest table
+  (14,766 and 14,892 bytes), and part names are most of it: the 1,165
+  distinct names take 10,909 bytes plus 1,165 NULs (12,074 bytes); the rest
+  is manufacturer names, operation names and descriptions and the printers'
+  name arrays. With `namelists` (3,675 bytes of offsets pointing at them),
+  part names cost about 15,700 of `describe`'s 37,540 bytes, the largest
+  single cost. It is not the whole story, though: `entries`, the fixed-width
+  per-entry rows of indices and offsets, is nearly as big (10,712 at
+  `describe`, 13,184 at `full`), and at `full` the per-operation source
+  masks make `opsets` 10,143 bytes. The per-chip attribute values are
+  shareable (the value tables total a few hundred bytes at every level), but
+  the baseline's one-byte-per-field rows and per-chip operation lists are
+  where M4 should look next after the strings.
+- With `records` + `provenance` + `jep106` the file quadruples (191,517
+  bytes), and `str` grows to 123,505 bytes. Record names are deduplicated
+  in the pool (1,324 distinct, 13,626 bytes), so they are not what grows
+  it: every record's location is distinct (1,946 locations, 49,702 bytes)
+  and so is nearly every JEP106 name (2,283 distinct, 46,970 bytes). Those
+  two, not record names, dominate the extras; the tables that point at
+  them (`records` 20,858, `jep106` 11,530) add about a quarter as much
+  again. They are opt-in extras for that reason.
+- The two facts the layout never stores at any level, `via` (400,398
+  bytes) and upstream `notes` (164,813 bytes), are bigger than everything
+  above combined. They exist only in spiflash's own JSON, and uspiflash has
+  no field for them (`levels.Field` has none): this experiment measures them
+  only to confirm that keeping them out is the right call.
 
 No code changed because of this experiment (it establishes the convention
 and the baseline measurement M4 will compare against).
