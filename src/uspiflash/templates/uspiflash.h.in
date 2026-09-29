@@ -172,7 +172,7 @@ typedef uint32_t usf__off_t;
     || USF_HAVE_JSON)
 #define USF__NEED_U32 (USF_SIZE_COUNT || USF_SECTOR_COUNT)
 #define USF__NEED_U16 (USF__NEED_U32 || USF__NEED_OFF || USF_PAGE_COUNT || USF_VOLT_COUNT \
-    || USF_EXT_COUNT || USF_OP_COUNT || USF_CONF_COUNT || USF_HAVE_RECORDS)
+    || USF_EXT_COUNT || USF_OP_COUNT || USF_CONF_COUNT || USF_HAVE_RECORDS || USF_DS_COUNT)
 
 #if USF__NEED_U16
 /* Every byte is widened to an unsigned type before it is shifted: a byte
@@ -618,6 +618,20 @@ static uint32_t usf__confint(uint8_t attr, uint8_t i)
     return 0;
 }
 #endif
+
+#if USF_DS_COUNT
+/* The chip's datasheet list: n, then n x (row u16[, id_confirmed u8]). */
+static usf__p usf__dslist(const usf_chip *c)
+{
+    return usf__dslists + usf__u16(usf__row(c) + USF_E_DS);
+}
+
+/* The dsrows row a list item points at. */
+static usf__p usf__dsrow(usf__p item)
+{
+    return usf__dsrows + (uint16_t)(USF_DS_ROW * usf__u16(item));
+}
+#endif
 #endif
 
 #if USF_HAVE_TEXT
@@ -797,6 +811,15 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
     usf__lit("\n    from: ", sink, ctx);
     usf__srclist(usf_sources(c), ", ", sink, ctx);
 #endif
+#if USF_HAVE_DATASHEET && USF_DS_COUNT
+    {   /* the best datasheet */
+        usf__p ds = usf__dslist(c);
+        if (*ds) {
+            usf__lit("\n    datasheet: ", sink, ctx);
+            usf__puts(usf__off(usf__dsrow(ds + 1)), sink, ctx);
+        }
+    }
+#endif
 
     if (!(flags & USF_PRINT_OPCODES))
         return;
@@ -947,6 +970,20 @@ static void usf__jidhex(usf__json *j, const usf_chip *c, uint8_t bank)
     j->sink(j->ctx, '"');
 }
 
+#if USF_HAVE_DATASHEETS && USF_DS_COUNT
+/* Two decimal digits (a month or a day), without division. */
+static void usf__dec2(uint8_t v, usf_putc_fn sink, void *ctx)
+{
+    char tens = '0';
+    while (v >= 10) {
+        v = (uint8_t)(v - 10);
+        tens++;
+    }
+    sink(ctx, tens);
+    sink(ctx, (char)('0' + v));
+}
+#endif
+
 #if USF_CONF_COUNT
 /* Conflict value `i` of attribute `attr`: an int, or [min, max] for voltage. */
 static void usf__jvalue(usf__json *j, uint8_t attr, uint8_t i)
@@ -1071,6 +1108,48 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
         }
 #endif
     usf__jclose(j, '}');
+
+#if USF_HAVE_DATASHEETS
+    usf__jkey(j, "datasheets");
+    usf__jopen(j, '[');
+#if USF_DS_COUNT
+    p = usf__dslist(c);
+    for (n = *p++; n; n--, p += USF_DS_ITEM) {
+        usf__p ds = usf__dsrow(p);
+        usf__p when = ds + 3 * USF_OFF_BYTES;   /* year u16, month, day, official */
+        uint16_t year = usf__u16(when);
+        usf__jitem(j);
+        usf__jopen(j, '{');
+        usf__jkey(j, "url");
+        usf__jpool(j, usf__off(ds));
+        usf__jkey(j, "title");
+        usf__jpool(j, usf__off(ds + USF_OFF_BYTES));
+        usf__jkey(j, "revision");
+        if (usf__off(ds + 2 * USF_OFF_BYTES) == USF_NONE_OFF)
+            usf__jnull(j);
+        else
+            usf__jpool(j, usf__off(ds + 2 * USF_OFF_BYTES));
+        usf__jkey(j, "date");
+        if (!year) {
+            usf__jnull(j);
+        } else {
+            j->sink(j->ctx, '"');
+            usf__dec(year, j->sink, j->ctx);
+            j->sink(j->ctx, '-');
+            usf__dec2(when[2], j->sink, j->ctx);
+            j->sink(j->ctx, '-');
+            usf__dec2(when[3], j->sink, j->ctx);
+            j->sink(j->ctx, '"');
+        }
+        usf__jkey(j, "official");
+        usf__lit(when[4] ? "true" : "false", j->sink, j->ctx);
+        usf__jkey(j, "id_confirmed");
+        usf__lit(p[2] ? "true" : "false", j->sink, j->ctx);
+        usf__jclose(j, '}');
+    }
+#endif
+    usf__jclose(j, ']');
+#endif
 
 #if USF_HAVE_RECORDS
     usf__jkey(j, "records");

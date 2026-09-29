@@ -8,6 +8,7 @@ import subprocess
 from typing import TYPE_CHECKING
 
 import pytest
+from spiflash.db import database
 from spiflash.enums import FlashType
 
 from harness import compile_c, generate, impl_source, name, undefined_symbols
@@ -18,6 +19,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 ONE_TYPE = [ChipFilter(types=(FlashType.NOR,)), ChipFilter(types=(FlashType.NAND,))]
+_BARE = next(f for f in database().flashes if not f.datasheets)
+#: One chip id without a datasheet: DS_COUNT is 0 (every type has chips with one).
+NO_DATASHEET = ChipFilter(ids=(_BARE.id,), types=(_BARE.type,), families=(_BARE.family,))
 CONFIGS = [
     *(Config(Selection.make(level)) for level in LEVELS),
     Config(Selection.make("full", with_=["records", "provenance", "jep106"])),
@@ -30,6 +34,12 @@ CONFIGS = [
     # JSON without TEXT (Task 11).
     Config(Selection.make("write", with_=["json"])),
     Config(Selection.make("full", without=["text"])),
+    # Datasheets (Task 11b), and with no datasheet among the chips.
+    Config(Selection.make("full", with_=["datasheet"])),
+    Config(Selection.make("full", with_=["datasheets"])),
+    Config(Selection.make("describe", with_=["datasheet"])),
+    Config(Selection.make("full", with_=["datasheet", "datasheets"], chips=ONE_TYPE[1])),
+    Config(Selection.make("full", with_=["datasheet", "datasheets"], chips=NO_DATASHEET)),
     # A renamed header: every symbol and table under another prefix.
     Config(Selection.make("full"), "fl", "flashid.h"),
     # Single-type selections, whose counted tables can be empty.

@@ -65,8 +65,8 @@ def undefined_symbols(obj: Path) -> list[str]:
 
 
 def name(config: Config) -> str:
-    """A test id: the level, then ``+extra``, ``-removed`` and ``:type``
-    filters, and ``@prefix`` when the prefix is not ``usf``."""
+    """A test id: the level, then ``+extra``, ``-removed``, ``:type`` and
+    ``#id`` filters, and ``@prefix`` when the prefix is not ``usf``."""
     sel = config.selection
     base = LEVELS[sel.level]
     return "".join(
@@ -75,6 +75,7 @@ def name(config: Config) -> str:
             *(f"+{f}" for f in sorted(sel.fields - base)),
             *(f"-{f}" for f in sorted(base - sel.fields)),
             *(f":{t.value}" for t in sel.chips.types),
+            *(f"#{i.hex()}" for i in sel.chips.ids),
             *([f"@{config.prefix}"] if config.prefix != "usf" else []),
         ]
     )
