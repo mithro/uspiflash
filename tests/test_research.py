@@ -37,8 +37,19 @@ def test_find_root_walks_up(tmp_path: Path) -> None:
 
 
 def test_find_root_missing_raises(tmp_path: Path) -> None:
+    deep = tmp_path / "a"
+    deep.mkdir()
     with pytest.raises(FileNotFoundError, match="no experiments/"):
-        research.find_root(tmp_path)
+        research.find_root(deep, ceiling=tmp_path)
+
+
+def test_find_root_looks_no_higher_than_the_ceiling(tmp_path: Path) -> None:
+    root = make(tmp_path)
+    deep = root / "a" / "b"
+    deep.mkdir(parents=True)
+    assert research.find_root(deep, ceiling=root) == root
+    with pytest.raises(FileNotFoundError, match="no experiments/"):
+        research.find_root(deep, ceiling=root / "a")
 
 
 def test_run_writes_results_in_the_experiment(tmp_path: Path) -> None:

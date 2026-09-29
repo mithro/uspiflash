@@ -10,11 +10,18 @@ import runpy
 from pathlib import Path
 
 
-def find_root(start: Path) -> Path:
-    """The nearest directory at or above ``start`` holding ``experiments/``."""
-    for d in (start.resolve(), *start.resolve().parents):
+def find_root(start: Path, ceiling: Path | None = None) -> Path:
+    """The nearest directory at or above ``start`` holding ``experiments/``,
+    looking no higher than ``ceiling`` (default: the filesystem root). The
+    tests' scratch directories are inside the repository (``tmp/``), so a
+    test for "no repository here" sets the ceiling to its own directory."""
+    here = start.resolve()
+    top = ceiling.resolve() if ceiling is not None else None
+    for d in (here, *here.parents):
         if (d / "experiments").is_dir():
             return d
+        if d == top:
+            break
     msg = f"no experiments/ directory at or above {start}"
     raise FileNotFoundError(msg)
 

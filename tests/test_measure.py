@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from uspiflash import emit, ledger, measure
+from uspiflash import emit, ledger, measure, research
 from uspiflash.cli import main
 from uspiflash.levels import Selection
 from uspiflash.measure import TARGETS, MeasureError, Sizes, Target
@@ -278,6 +278,9 @@ def test_write_needs_a_repository(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.chdir(tmp_path)
+    # tmp_path is inside the repository (tmp/): look no higher than it.
+    find_root = research.find_root
+    monkeypatch.setattr(research, "find_root", lambda d: find_root(d, ceiling=tmp_path))
     assert main(["measure", "--write"]) == 2
     assert "no experiments/ directory" in capsys.readouterr().err
 
