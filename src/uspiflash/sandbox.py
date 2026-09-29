@@ -21,6 +21,7 @@ import argparse
 import math
 import os
 import shutil
+import signal
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -92,14 +93,16 @@ def current_limits() -> Limits:
         Path("/proc/meminfo").read_text(encoding="ascii"),
         Path("/proc/loadavg").read_text(encoding="ascii"),
         psi.read_text(encoding="ascii") if psi.exists() else "",
-        os.cpu_count() or 1,
+        len(os.sched_getaffinity(0)),
     )
 
 
-def wrap(argv: Sequence[str], limits: Limits, timeout: int) -> list[str]:
-    """``argv`` run in a transient systemd user scope with ``limits``, at low
-    priority, killed after ``timeout`` seconds. ``{jobs}`` arguments become
-    the CPU count."""
+def wrap(argv: Sequence[str], limits: Limits, timeout: int, unit: str) -> list[str]:
+    """``argv`` run in a transient systemd user scope named ``unit`` with
+    ``limits``, at low priority, killed after ``timeout`` seconds. ``{jobs}``
+    arguments become the CPU count. The scope's PID is ``timeout``'s: both
+    ``systemd-run --scope`` and ``nice`` exec straight into the next program
+    rather than forking, so the outer process's PID survives unchanged."""
     inner = [str(limits.cpus) if a == "{jobs}" else a for a in argv]
     return [
         "systemd-run",
@@ -107,6 +110,7 @@ def wrap(argv: Sequence[str], limits: Limits, timeout: int) -> list[str]:
         "--scope",
         "--quiet",
         "--collect",
+        f"--unit={unit}",
         *(f"-p{p}" for p in limits.properties()),
         "nice",
         "-n",
@@ -127,14 +131,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = ap.parse_args(argv)
     limits = current_limits()
     if args.print_limits:
-        print(f"memory {limits.memory_bytes // (1 << 20)} MiB, cpus {limits.cpus}")
-    cmd = [a for a in args.command if a != "--"]
+        print(f"memory {limits.memory_bytes // (1 << 20)} MiB, cpus {limits.cpus}", flush=True)
+    cmd = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not cmd:
         return 0
     if shutil.which("systemd-run") is None:
         msg = "systemd-run is not available: refusing to run unsandboxed"
         raise SystemExit(msg)
-    return subprocess.run(wrap(cmd, limits, args.timeout), check=False).returncode
+    unit = f"uspiflash-sandbox-{os.getpid()}"
+    proc = subprocess.Popen(wrap(cmd, limits, args.timeout, unit))
+    try:
+        return proc.wait()
+    except KeyboardInterrupt:
+        # `timeout --kill-after=30` is the backstop: SIGTERM asks the child
+        # to exit; if it doesn't within 30s, timeout SIGKILLs it for us.
+        proc.send_signal(signal.SIGTERM)
+        proc.wait()
+        return 130
 
 
 if __name__ == "__main__":
