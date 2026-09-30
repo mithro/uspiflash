@@ -15,10 +15,11 @@ It can also look an id up offline, like `spiflash id HEX`, with no device.
 make                 # build/uspiflash-linux, statically linked
 make LDFLAGS=        # dynamically linked
 make CC=clang        # any C99 compiler with the Linux headers
+make USPIFLASH=uspiflash   # an installed uspiflash, not `uv run uspiflash`
 ```
 
-`make` first generates `build/uspiflash.h` with the installed uspiflash
-(through `uv run`):
+`make` first generates `build/uspiflash.h` with uspiflash (by default
+through `uv run`):
 
 ```sh
 uspiflash generate -o build/uspiflash.h --level full --type nor --type nand \
@@ -31,6 +32,8 @@ extra that changes what `spiflash id` prints, so the tool has the whole
 database. It has no size budget: the static binary is about 1 MiB on
 x86-64 with glibc, the dynamic one about 300 KiB. `uspiflash-linux
 --version` names the uspiflash (and spiflash) that generated its header.
+`make` remakes the header, and so the tool, whenever that version changes
+(it keeps it in `build/version`).
 
 A static glibc build needs `libc.a` (Debian: `libc6-dev`). musl builds are
 for a later milestone: `musl-gcc` has no `linux/spi/spidev.h`.
@@ -57,6 +60,19 @@ uspiflash-linux --version | -h | --help
   `0xEF4018`, `ef 40 18`, `ef:40:18`). `--method` is one of `jedec`,
   `rems`, `res1`, `res2`, `at25f`, `st95` (default `jedec`).
 - `-h`, `--help`: the usage, on standard output.
+
+What differs from `spiflash id`:
+
+- No `-v`/`--verbose` (every upstream entry) and no `--type`: the tool's
+  header has both chip types, and it prints every answer, as `spiflash id`
+  does without `--type`.
+- `--method` takes exactly spiflash's id families, `st95` included
+  (spiflash accepts it too, though its `--help` lists only `rems`, `res1`,
+  `res2` and `at25f`).
+- In `id HEX`, only ASCII whitespace separates bytes; spiflash also takes
+  Unicode whitespace (a no-break space, say), which the tool refuses.
+- An id longer than 255 bytes is a usage error (`usf_lookup` takes up to
+  255); spiflash looks it up.
 
 Each transaction is one `SPI_IOC_MESSAGE(2)` with chip select held: the
 command bytes, then the answer. The probe sends RES (`ab`, which also wakes
