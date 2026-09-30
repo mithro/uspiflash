@@ -16,18 +16,35 @@ pip install uspiflash
 uspiflash generate -o uspiflash.h --level full
 ```
 
+Include the header wherever you need it; in exactly one C file, define
+`USF_IMPLEMENTATION` first, so that file holds the library's code:
+
 ```c
+#define USF_IMPLEMENTATION
 #include "uspiflash.h"
 
-usf_probe(&bus, &r);
-usf_print(r.chip, r.count, USF_PRINT_OPCODES, my_putc, my_ctx);
+/* Yours, defined elsewhere: an SPI transaction (chip select held: send
+ * txlen bytes, then read rxlen), and a console that takes one character. */
+void my_xfer(void *ctx, const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen);
+void my_putc(void *ctx, char ch);
+
+void show_flash(void)
+{
+    usf_bus bus = { my_xfer, 0 };
+    usf_probe_result r;
+
+    usf_probe(&bus, &r);
+    usf_print(r.chip, r.count, USF_PRINT_OPCODES, my_putc, 0);
+}
 ```
 
 The full C API, with a worked example of each step above:
-[the docs](https://uspiflash.readthedocs.io/) (`docs/generated-file.md`).
+[`docs/generated-file.md`](https://github.com/mithro/uspiflash/blob/main/docs/generated-file.md)
+(also at <https://uspiflash.readthedocs.io/>).
 Already on Linux with a spidev device: skip the generator and use
 [`uspiflash-linux`](https://github.com/mithro/uspiflash/blob/main/examples/linux/README.md)
-instead, from source or the apt repository below.
+instead, built from source or `sudo apt install uspiflash-linux` from the
+apt repository below.
 
 ## Size
 
@@ -70,13 +87,22 @@ tables in flash rather than copied to RAM.
 pip install uspiflash          # or: uv tool install uspiflash
 ```
 
-Or, as a Debian package, from the signed apt repository at
+Or, as Debian packages, from the signed apt repository at
 <https://mith.ro/uspiflash/>. There is one per suite (bookworm, trixie, forky
-and sid), and the package is `Architecture: all`, so it installs on any
-architecture. `python3-uspiflash` depends on `python3-spiflash`, which is not
-in this repository, so add spiflash's own apt repository first, then
-uspiflash's. Put your suite's name in place of `trixie` below (Raspberry Pi
-OS uses Debian's codenames):
+and sid), with two packages:
+
+- `python3-uspiflash`, the generator (the `uspiflash` command). It is
+  `Architecture: all`, so it installs on any architecture, and it depends
+  on `python3-spiflash`, which is not in this repository: add spiflash's
+  own apt repository first, then uspiflash's.
+- `uspiflash-linux`, the spidev tool. It depends only on libc, so it needs
+  only uspiflash's repository. It is built for amd64, i386, arm64, armhf
+  and riscv64 (riscv64 from trixie on). The armhf package is Debian's armhf
+  (ARMv7 and later): Raspberry Pi OS 32-bit on an ARMv6 board (Pi 1, Zero)
+  cannot run it; a 64-bit Pi uses the arm64 package.
+
+Put your suite's name in place of `trixie` below (Raspberry Pi OS uses
+Debian's codenames). For the generator, spiflash's repository:
 
 ```sh
 sudo install -d -m0755 /etc/apt/keyrings
@@ -89,7 +115,10 @@ spiflash's repository's signing key is
 `B528 6C61 A99A 9E6A 5B8A  8E5B 6B2D 7683 DE01 081D`
 (`gpg --show-keys /etc/apt/keyrings/spiflash.gpg` shows it).
 
+For either package, uspiflash's repository:
+
 ```sh
+sudo install -d -m0755 /etc/apt/keyrings
 curl -fsSL https://mith.ro/uspiflash/uspiflash.gpg | sudo tee /etc/apt/keyrings/uspiflash.gpg > /dev/null
 echo "deb [signed-by=/etc/apt/keyrings/uspiflash.gpg] https://mith.ro/uspiflash/trixie/ ./" \
   | sudo tee /etc/apt/sources.list.d/uspiflash.list
@@ -102,6 +131,7 @@ uspiflash's repository's signing key is
 ```sh
 sudo apt update
 sudo apt install python3-uspiflash      # provides the uspiflash command
+sudo apt install uspiflash-linux        # the spidev tool
 ```
 
 Work in progress: the design is in
