@@ -287,11 +287,13 @@ typedef const USF_ROM uint8_t *usf__p;
 /*
  * Arithmetic that calls no compiler helper, on any CPU.
  *
- * USF_SOFT_MUL is 1 where the CPU has no multiply instruction: rv32i and
- * rv32e without M or Zmmul, msp430 (whose multiplier is an optional
- * peripheral), the 8051, the 68HC08/S08, the 6502 and the Padauk. A
- * multiply by a table's row size (12, 5, 3, ...) calls __mulsi3,
- * __mspabi_mpyi or _mulint there, so USF__MUL shifts and adds instead.
+ * USF_SOFT_MUL is 1 where a multiply by a table's row size (12, 5, 3, ...)
+ * calls a helper (__mulsi3, __mspabi_mpyi or _mulint), so USF__MUL shifts
+ * and adds instead: rv32i and rv32e without M or Zmmul, msp430 (whose
+ * multiplier is an optional peripheral), and SDCC's 8051, 68HC08/S08, 6502,
+ * Padauk, STM8 and f8 ports. The STM8 and the f8 have a multiplier, but
+ * SDCC 4.5.0 calls _mulint for some row sizes there (13 on the STM8). Its
+ * Z80-family ports multiply inline, where shift-and-add is larger.
  * Define USF_SOFT_MUL as 0 or 1 to override the guess.
  *
  * USF__NOINLINE keeps GCC and clang from inlining such a helper into a
@@ -309,7 +311,7 @@ typedef const USF_ROM uint8_t *usf__p;
     || defined(__MSP430__) || defined(__SDCC_mcs51) || defined(__SDCC_ds390) \
     || defined(__SDCC_hc08) || defined(__SDCC_s08) || defined(__SDCC_mos6502) \
     || defined(__SDCC_mos65c02) || defined(__SDCC_pdk13) || defined(__SDCC_pdk14) \
-    || defined(__SDCC_pdk15)
+    || defined(__SDCC_pdk15) || defined(__SDCC_stm8) || defined(__SDCC_f8)
 #define USF_SOFT_MUL 1
 #else
 #define USF_SOFT_MUL 0
