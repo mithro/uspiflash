@@ -154,3 +154,45 @@ void print_chips(const usf_chip *chips, uint8_t n)
 #endif
 }
 ```
+
+## SDCC and CPUs without a multiplier
+
+The generated file builds with SDCC (`--std-c99 --Werror`) on the 8051,
+68HC08/S08, STM8, Z80 and 6502 ports, and with GCC and clang on CPUs that
+have no multiply instruction or barrel shifter. On every CPU and compiler
+in the size matrix it calls no arithmetic helper and no C library
+function: no multiply, divide or shift routine, no `memcpy`, no
+jump-table dispatcher. The matrix checks this, and
+[its README](https://github.com/mithro/uspiflash/blob/main/sizes/matrix/README.md)
+lists the only symbols a port may still need: its calling-convention
+runtime.
+
+- **Callbacks on SDCC's non-reentrant ports** (8051, 68HC08/S08, 6502,
+  Padauk) must be declared reentrant. Write `USF_REENTRANT` after the
+  parameter list:
+
+  ```c
+  static void my_putc(void *ctx, char ch) USF_REENTRANT { /* ... */ }
+  ```
+
+  It is `__reentrant` there and empty everywhere else.
+- **Tables in program memory on the 8051:** define `USF_ROM` as `__code`.
+- **Memory model on the 8051:** the default (small) model keeps each
+  function's locals in the 128 bytes of internal RAM. A whole program with
+  the text printer does not fit there, so use `--model-large`.
+- **`USF_SOFT_MUL` and `USF_SOFT_SHIFT`** are set automatically:
+  - where a multiply by a table's row size would call a helper, table row
+    offsets are computed by shift and add: on rv32i/rv32e without M,
+    msp430, and SDCC's 8051, 68HC08/S08, 6502, Padauk, STM8 and f8 ports.
+    The STM8 and the f8 have a multiplier, but SDCC calls its `_mulint`
+    helper for some row sizes there. SDCC's Z80-family ports multiply
+    inline, and shift and add would be larger;
+  - on msp430 and SDCC, sizes are printed without a shift by a variable
+    count: msp430 calls a helper for one, and SDCC's inline shift loop is
+    larger.
+
+  Define either as 0 or 1 to override. The generated file behaves
+  identically either way (the tests run both).
+- **What an SDCC port still links:** its own calling-convention runtime,
+  such as the 8051's generic-pointer routines (`__gptrget`). The size
+  matrix lists them per port (`sizes/matrix/README.md`).
