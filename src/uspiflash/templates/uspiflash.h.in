@@ -340,10 +340,10 @@ typedef const USF_ROM uint8_t *usf__p;
 
 /*
  * USF_SOFT_SHIFT is 1 where a 32-bit shift by a variable count calls a
- * helper (__mspabi_srll on msp430; SDCC's ports). There, usf__human
- * divides by 1024 one step at a time, through a function the optimiser
- * may not merge into one variable shift. Define it as 0 or 1 to
- * override the guess.
+ * helper (__mspabi_srll on msp430) or is larger than the alternative (on
+ * SDCC's ports, which inline a shift loop). There, usf__human divides by
+ * 1024 one step at a time, through a function the optimiser may not merge
+ * into one variable shift. Define it as 0 or 1 to override the guess.
  */
 #ifndef USF_SOFT_SHIFT
 #if defined(__MSP430__) || defined(__SDCC)
@@ -1697,7 +1697,8 @@ static uint32_t usf__sfdp_dw(usf_bus *bus, uint32_t addr)
  * states in 4:0), and the byte offset and mask of its support bit (in DW1;
  * for 2-2-2 and 4-4-4, in DW5). Byte offsets rather than bit numbers: each
  * is read from its own address, so no 32-bit value is shifted by a
- * variable count (a helper call on msp430 and SDCC's ports). */
+ * variable count (a helper call on msp430, __mspabi_srll; an inline shift
+ * loop on SDCC's ports, which is larger). */
 static const USF_ROM uint8_t usf__sfdp_modes[6][3] = {
     {12, 2, 0x01}, {14, 2, 0x10}, {10, 2, 0x40}, {8, 2, 0x20},
     {22, 16, 0x01}, {26, 16, 0x10},
