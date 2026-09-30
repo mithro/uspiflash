@@ -144,21 +144,27 @@ def image() -> str:
         return tag
     # Not limited: `docker build` (BuildKit) ignores --memory. The build is
     # apt-get and dpkg-deb only.
-    res = subprocess.run(
-        [
-            "docker",
-            "build",
-            "--tag",
-            tag,
-            *(f"--build-arg={k}={v}" for k, v in build_args.items()),
-            str(HERE),
-        ],
-        capture_output=True,
-        text=True,
-        errors="replace",
-        check=False,
-        timeout=BUILD_TIMEOUT,
-    )
+    cmd = [
+        "docker",
+        "build",
+        "--tag",
+        tag,
+        *(f"--build-arg={k}={v}" for k, v in build_args.items()),
+        str(HERE),
+    ]
+    try:
+        res = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=False,
+            timeout=BUILD_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        # BuildKit cancels the build when its client, killed here, goes.
+        msg = f"docker build timed out after {BUILD_TIMEOUT} s: {shlex.join(cmd)}"
+        raise SystemExit(msg) from None
     check(res, "docker build")
     return tag
 
