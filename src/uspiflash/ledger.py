@@ -29,7 +29,8 @@ from typing import TYPE_CHECKING, Any
 import spiflash
 from spiflash.db import FORMAT as DB_FORMAT
 
-from . import measure
+from . import measure, provenance
+from .levels import Selection
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -41,6 +42,9 @@ FORMAT = 1
 LEDGER = Path("sizes/ledger.json")
 README = Path("sizes/README.md")
 TOP_README = Path("README.md")
+#: The sizes the generated header quotes (spec §5.5), shipped in the
+#: package; generated from the ledger like its README.
+REFERENCE = Path("src/uspiflash/reference_sizes.json")
 #: The lines around the top-level README's size figures.
 BEGIN = "<!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->"
 END = "<!-- sizes: end -->"
@@ -239,6 +243,21 @@ def tool_mismatches(ledger: dict[str, Any]) -> list[str]:
     return out
 
 
+def reference_sizes(ledger: dict[str, Any]) -> dict[str, Any]:
+    """Each measured selection's total on each target, keyed by
+    :func:`uspiflash.provenance.selection_key`, for the header's size
+    lines."""
+    targets = [t["name"] for t in ledger["targets"]]
+    configs = {}
+    for c in ledger["configs"]:
+        key = provenance.selection_key(Selection.from_json(c["config"]["selection"]))
+        configs[key] = {
+            "name": c["name"],
+            "total": {t: ledger["sizes"][t][c["name"]]["total"] for t in targets},
+        }
+    return {"spiflash": ledger["spiflash"]["version"], "targets": targets, "configs": configs}
+
+
 #: The configurations the top-level README quotes: SPI NOR, the primary target.
 HEADLINE = ("read:nor", "full:nor")
 
@@ -275,9 +294,14 @@ def splice(text: str, ledger: dict[str, Any]) -> str:
 
 def files(ledger: dict[str, Any], root: Path) -> dict[Path, str]:
     """Every file generated from ``ledger``, by path from the repository
-    ``root``: the ledger, its README, and the top-level README's size
-    figures (when ``root`` has a README)."""
-    out = {LEDGER: dumps(ledger), README: readme(ledger)}
+    ``root``: the ledger, its README, the packaged reference sizes the
+    generated header quotes, and the top-level README's size figures (when
+    ``root`` has a README)."""
+    out = {
+        LEDGER: dumps(ledger),
+        README: readme(ledger),
+        REFERENCE: json.dumps(reference_sizes(ledger), sort_keys=True, indent=1) + "\n",
+    }
     top = root / TOP_README
     if top.is_file():
         out[TOP_README] = splice(top.read_text(encoding="utf-8"), ledger)

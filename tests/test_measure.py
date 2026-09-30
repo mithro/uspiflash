@@ -355,6 +355,7 @@ def test_the_committed_files_match_the_committed_ledger() -> None:
     assert data is not None
     files = ledger.files(data, ROOT)
     assert ledger.TOP_README in files
+    assert ledger.REFERENCE in files
     for path, text in files.items():
         assert (ROOT / path).read_text(encoding="utf-8") == text, path
     assert [c["name"] for c in data["configs"]] == [n for n, _ in measure.CONFIGS]
