@@ -376,6 +376,25 @@ CONFIGS: tuple[tuple[str, Config], ...] = (
     ("full:nand", _config("full", types=_NAND)),
 )
 
+#: What a CPU with 16-bit addresses is measured at: SPI NOR only, every
+#: level, and the SFDP reader. Each fits a 16-bit address space; the extras
+#: do not. Every other CPU is measured at every CONFIGS entry.
+SMALL_CONFIGS: tuple[str, ...] = (
+    "id:nor",
+    "read:nor",
+    "write:nor",
+    "describe:nor",
+    "full:nor",
+    "id+sfdp:nor",
+)
+
+
+def configs_for(cpu: str) -> list[tuple[str, Config]]:
+    """The configurations ``cpu`` (a :data:`CPUS` name) is measured at."""
+    if CPUS[cpu].small:
+        return [(n, c) for n, c in CONFIGS if n in SMALL_CONFIGS]
+    return list(CONFIGS)
+
 
 def kind(flags: int, sh_type: int) -> str | None:
     """Which of :data:`KINDS` a section with ELF ``flags`` and type
