@@ -684,7 +684,8 @@ merging.
       extra: the numbers no longer depend on an environment's LLVM, or on
       which targets that LLVM supports (bullseye's LLVM 11 has no JSON
       output). mypy --strict needs no override for an untyped library.
-    - The reference ledger's `tools` then lists compilers only.
+    - The reference ledger's `tools` then lists compilers and linkers
+      (amendment 22), no size tools.
 15. **Ledger history is git's** (§7.3 said JSON-lines with a row per
     commit).
     - `sizes/ledger.json` is the reference: the three M1 targets, every
