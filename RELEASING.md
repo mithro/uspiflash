@@ -170,9 +170,14 @@ commit, merge. The next green run publishes it.
 
 A new spiflash changes the generated tables, so it changes the size ledger
 too: regenerate it (`uv run uspiflash measure --write`, see below) in the
-same commit, or the `sizes` job fails; and rerun the database-statistics
-experiment (`uv run uspiflash research run 2026-09-28-database-statistics`)
-and update its README's numbers.
+same commit, or the `sizes` job fails; and rerun every experiment whose
+results record `spiflash_version` (`grep -rl spiflash_version
+experiments/*/results/*.json` finds them all; as of this writing,
+`2026-09-28-database-statistics` and `2026-09-29-sfdp-vs-database`) with
+`uv run uspiflash research run <slug>`, and update each one's README
+numbers that changed (search for the old value; a run that changes
+nothing but the version needs only that line updated, and two runs in a
+row must be byte-identical).
 
 ## The size ledger's image
 
@@ -229,11 +234,27 @@ release's clang or gcc). To move them:
      echo "Acquire::Check-Valid-Until \"false\";" > /etc/apt/apt.conf.d/99snapshot
      apt-get update -q
      apt-get install -y -q --no-install-recommends \
-       clang-19 llvm-19 gcc libc6-dev python3 ca-certificates git curl
+       clang-19 lld-19 gcc libc6-dev python3 ca-certificates git curl
      curl -LsSf https://astral.sh/uv/install.sh | sh
      git config --global --add safe.directory /w
      ~/.local/bin/uv run --locked uspiflash measure --write
      chown -R "$(stat -c %u:%g /w)" /w'
+   ```
+
+   From a `git worktree` (e.g. `.worktrees/<name>`), `-v "$PWD:/w"` alone
+   fails (`fatal: not a git repository`): a worktree's `.git` is a file
+   pointing at an absolute host path under the main repository's `.git/`,
+   which the container cannot see. Mount the main repository at its own
+   host path instead, and run there:
+
+   ```sh
+   ROOT=/path/to/main/checkout   # git rev-parse --show-toplevel, from main
+   WT="$PWD"                     # the worktree, e.g. .../.worktrees/<name>
+   docker run --rm -v "$ROOT:$ROOT" -w "$WT" -e UV_PROJECT_ENVIRONMENT=/venv "$IMAGE" bash -ec '
+     ...
+     git config --global --add safe.directory "*"
+     ~/.local/bin/uv run --locked uspiflash measure --write
+     chown -R "$(stat -c %u:%g '"$WT"')" '"$WT"''
    ```
 
 4. Commit the digest, the timestamp and the regenerated `sizes/` and

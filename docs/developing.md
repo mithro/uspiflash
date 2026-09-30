@@ -50,7 +50,7 @@ runs), `uspiflash measure` works in `tmp/`, and the sandbox sets `TMPDIR` to
 each target, and `sizes/README.md` and the README's two headline figures
 are generated from it. A change that alters the generated C changes those
 numbers; regenerate them in the same commit, with the tool versions the
-ledger names (Debian trixie's `clang-19`, `llvm-19` and `gcc`):
+ledger names (Debian trixie's `clang-19`, `lld-19` and `gcc`):
 
 ```console
 uv run python -m uspiflash.sandbox -- uv run uspiflash measure --write

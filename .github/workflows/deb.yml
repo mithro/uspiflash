@@ -86,7 +86,7 @@ jobs:
   # The size ledger (sizes/ledger.json) must match a fresh measurement. The
   # numbers only reproduce with the tools that made them, so this runs in the
   # environment the ledger is made in: Debian trixie (linux/amd64) pinned by
-  # digest, with clang-19, llvm-19 and gcc installed from snapshot.debian.org
+  # digest, with clang-19 and gcc installed from snapshot.debian.org
   # at a fixed timestamp, not the live mirror. The digest and the timestamp
   # must equal uspiflash.ledger.IMAGE and SNAPSHOT (a test checks);
   # RELEASING.md says how to bump them.
@@ -106,7 +106,7 @@ jobs:
           echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot
           apt-get update -q
           apt-get install -y -q --no-install-recommends \
-            clang-19 llvm-19 gcc libc6-dev python3 ca-certificates git
+            clang-19 lld-19 gcc libc6-dev python3 ca-certificates git
 
       - uses: actions/checkout@v5
         with:
@@ -119,7 +119,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Tool versions
-        run: clang-19 --version && llvm-readobj-19 --version && gcc --version
+        run: clang-19 --version && gcc --version
 
       - name: Check the size ledger
         run: uv run uspiflash measure --check

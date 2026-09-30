@@ -141,7 +141,7 @@ spiflash's QEMU dumps come from) and in this image.
    ```
 
    The tool's first 39 lines are byte for byte `spiflash id 9d7019
-   --opcodes` (spiflash 0.0.post92); the last three are Debian's QEMU
+   --opcodes` (spiflash 0.0.post108); the last three are Debian's QEMU
    10.0.13's SFDP table, equal to spiflash's copy of it from `81ce3a87`.
    The guest takes under 3 s from power-on; the whole run, with the
    image cached, about 15 s.

@@ -488,7 +488,7 @@ runner (`uspiflash.sandbox`):
 
 - Python ≥ 3.11, `uv`-managed, hatch-vcs rolling versions (as spiflash).
 - **Required dependency:** only `spiflash`. Optional extras enable more:
-  - `uspiflash[measure]`: `pyelftools`
+  - `uspiflash[measure]`: (no extra: amendment 14)
   - `uspiflash[sim]`: `unicorn`
   - `uspiflash[docs]`
   - `uspiflash[research]`: plotting
@@ -674,3 +674,152 @@ merging.
       same build made.
     - The static build stays the Makefile's default (`examples/linux/`),
       for use outside Debian: glibc now, musl in M2.
+
+## 14. Amendments (M2 plan, 2026-09-30)
+
+14. **The measurement reads ELF itself.**
+    - `uspiflash.elf` (stdlib `struct`) reads sections, symbols and
+      relocations of 32- and 64-bit, little- and big-endian objects.
+    - It replaces `llvm-readobj`/`llvm-nm` and spec §9's `pyelftools`
+      extra: the numbers no longer depend on an environment's LLVM, or on
+      which targets that LLVM supports (bullseye's LLVM 11 has no JSON
+      output). mypy --strict needs no override for an untyped library.
+    - The reference ledger's `tools` then lists compilers and linkers
+      (amendment 22), no size tools.
+15. **Ledger history is git's** (§7.3 said JSON-lines with a row per
+    commit).
+    - `sizes/ledger.json` is the reference: the three M1 targets, every
+      configuration, per-section and per-symbol sizes, stack, linked image.
+    - `sizes/matrix/<environment>.json` has one entry per toolchain × CPU
+      × matrix configuration.
+    - Both hold only HEAD's numbers and are checked byte for byte; their
+      history is `git log -p sizes/`.
+    - The PR size-difference comment compares a pull request's committed
+      files with its base branch's.
+16. **Toolchains.**
+    - Debian packages from snapshot.debian.org in digest-pinned
+      `debian:{bullseye,bookworm,trixie,sid}` images, each at the snapshot
+      its image was built from.
+    - sha256-pinned release tarballs: xPack `arm-none-eabi-gcc` and
+      `riscv-none-elf-gcc`; Bootlin uClibc-ng.
+    - WCH MounRiver 1.92 (maintainer decision, 2026-10-01): pinned by
+      sha256 from a third-party GitHub mirror (WCH's own URL answers 403),
+      labelled "vendor fork, unofficial mirror", in an environment of its
+      own (`wch`), so the mirror disappearing breaks only WCH's rows.
+    - The inventory is `src/uspiflash/toolchains.toml`, in the package, so
+      `uspiflash toolchains list` works from an install.
+    - Images on ghcr.io are optional caches, built by `tools/images/` only.
+17. **"Links nothing", per CPU** (controller ruling, 2026-10-01).
+    - No undefined symbol, except a port's non-arithmetic runtime routines,
+      each listed per CPU with the reason: SDCC's generic-pointer and
+      calling-convention routines, and the ELFv2 TOC base.
+    - Measured on SDCC 4.5.0 (Task 9's research, 2026-09-30):
+      - mcs51: `__gptrget`, `__gptrput` (generic-pointer access);
+      - hc08: `___SDCC_hc08_ret2`, `___SDCC_hc08_ret3` (return registers);
+      - z80: `___sdcc_call_iy`, `___sdcc_enter_ix`;
+      - mos6502: `REGTEMP`, `DPTR`, `__sdcc_indirect_jsr`,
+        `___SDCC_m6502_ret2`, `___SDCC_m6502_ret3`.
+    - ppc64le may need `.TOC.` (the ELFv2 TOC base, defined by the linker).
+    - An arithmetic helper (multiply, divide, shift) is never allowed, nor
+      a C library function (`memcpy`) or a switch-table dispatcher
+      (`__gnu_thumb1_case_uqi`).
+18. **Arithmetic without helpers** (per-CPU switches in the template now,
+    with per-compiler defaults: controller ruling, 2026-10-01; M4's
+    `Target` classes may take them over).
+    - `USF_SOFT_MUL` (row offsets by shift-and-add) and `USF_SOFT_SHIFT`
+      (no variable 32-bit shift) are 1 automatically where the CPU needs
+      them, and can be overridden. An index times `USF_OFF_BYTES` is a
+      shift when that is 2.
+    - A constant multiply or shift chain is kept out of the optimiser's
+      reach with `__attribute__((noinline))` under GNU C: GCC and clang
+      fold both back into the helper call.
+    - The SFDP reader reads each field from its own byte address, so it
+      never shifts by a variable count on any CPU. `usf__dec2` no longer
+      subtracts in a loop, which clang turns into `__udivsi3`.
+    - Both switches are also tested on the host (parity with spiflash) with
+      the switch forced on.
+    - On Cortex-M0 with GCC, the JSON tree walker dispatches by range, not
+      by a dense `switch` (a Thumb-1 jump table calls libgcc), and the
+      NAND probe copies `usf_chip` member by member (a 2-byte-aligned
+      struct copy called `memcpy`).
+19. **SDCC.**
+    - The callback typedefs carry `USF_REENTRANT`:
+      - `__reentrant` on the non-reentrant ports (mcs51, ds390, hc08, s08,
+        mos6502, mos65c02, pdk13–15);
+      - empty elsewhere (stm8, z80 and the other ports reject the keyword).
+    - The default memory model therefore works. A user's `putc`/`xfer`
+      functions must be declared `USF_REENTRANT` too.
+    - SDCC builds use `--std-c99 --opt-code-size --Werror --disable-warning
+      110` (controller ruling, 2026-10-01). Warning 110 ("conditional flow
+      changed by optimizer") reports the optimiser deleting a branch that a
+      one-type header (`USF_LOOKUP_MAX` 1) makes constant. It is not about
+      the source.
+    - "No static data" is checked for real: a second compile with
+      `--stack-auto` moves every local to the stack, and any writable area
+      left is static data, refused. Only then are the default model's
+      writable areas reported as static frames.
+    - SDCC reports no stack use: stm8's and z80's stacks are not measured
+      until M3.
+    - A whole program on the 8051 needs `--model-large`: the small model's
+      internal RAM cannot hold its locals.
+20. **AVR is measured on avrxmega3 (ATmega4809)**, where flash is in the
+    data address space, with avr-gcc only: clang 19's AVR backend still
+    references `__do_copy_data` there.
+    - Classic AVR (ATmega328P) copies `.rodata` to RAM
+      (`__do_copy_data`).
+    - The library would need every table and string literal in `__flash`
+      there. That is M4's (controller ruling, 2026-10-01: AVR is not a
+      stated target).
+21. **libc matrix scope** (§6.2):
+    - The generated library needs no libc.
+    - The Linux tool is built against glibc (static and dynamic), musl,
+      dietlibc and uClibc-ng.
+    - The host tests run on glibc (Ubuntu, Debian) and musl (Alpine).
+    - A bare-metal example links against newlib, newlib-nano, picolibc (Arm
+      and RISC-V), avr-libc and SDCC's library.
+    - Deferred:
+      - Zephyr's, the LiteX BIOS's and MicroPython's libcs arrive with
+        M5–M7;
+      - LLVM-libc: Debian ships it only as an overlay on glibc.
+22. **Stack, the linked image, and instruction counts.**
+    - Each function's frame comes from `-fstack-usage`. GCC's
+      `dynamic,bounded` (stack realignment, as on i386) counts its bound,
+      and an unbounded `dynamic` frame is refused. A static peak is
+      computed over the call graph, read from the object's relocations.
+      Callbacks (`putc`, `xfer`) are excluded, because they are the
+      caller's.
+    - "Linked" is the implementation linked alone, every public function
+      kept as an entry, with no C library or start-up code. §7.1 says "a
+      minimal program that calls the API, linked with and without the
+      library". The two agree on what they count (alignment, pools,
+      veneers), and this one needs no per-target start-up code. The
+      linkers' version lines are recorded beside the compilers'.
+    - The simulator's measured peak and instruction counts are M3's.
+23. **LiteX's hard CPUs are measured, for size tracking only.**
+    - From `litex/soc/cores/cpu` at LiteX `8c01073afb71aa0a0709f02f8e24247589e8f5e4`
+      (2026-09-30), the "hardcore" CPUs and LiteX's own compiler flags:
+      - zynq7000 and cyclonev_hps: Cortex-A9 (`-mcpu=cortex-a9 -mfpu=vfpv3
+        -mfloat-abi=hard`);
+      - zynqmp and agilex_hps: Cortex-A53 (`aarch64-none-elf`);
+      - eos_s3: Cortex-M4F;
+      - gowin_emcu: Cortex-M3 (`-march=armv7-m -mthumb`);
+      - gowin_ae350: RISC-V (`-march=rv32imafdc -mabi=ilp32`).
+    - They are `measure.CPUS` entries (cortex-m3, cortex-m4, cortex-a9,
+      cortex-a53, rv32imafdc) marked LiteX, with sections of their own in
+      the size matrix.
+24. **What M2 defers** (each recorded, none silent):
+    - CPU flags enumerated from GCC's and LLVM's `-mcpu` lists (§7.2): M2
+      takes each CPU's flags from the compilers' documented triples and,
+      for LiteX, from LiteX's own sources (decision 23). The full
+      enumeration is M4's, when the `Target` classes choose per CPU.
+    - musl builds of the Linux tool for arm64, armhf and riscv64 (§8): M2
+      builds musl, dietlibc and uClibc-ng for x86-64. Other architectures
+      wait for M7's real Pi, with Bootlin's musl toolchains, pinned the
+      same way.
+    - A per-architecture parity job (arm64, i386) at the locked spiflash
+      (issue #7): M8.
+    - §7.3's charts of the ledger in the docs: M8. M2's docs render the
+      ledgers as tables.
+    - Classic AVR (decision 20): M4.
+    - The simulator-measured stack and instruction counts (decision 22):
+      M3.

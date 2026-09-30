@@ -19,7 +19,7 @@ See `run.py`'s `collect()`. `results/stats.json` also records the
 implementation, OS and machine it ran on. Two runs on the same inputs give
 byte-identical results.
 
-**Result.** From `results/stats.json`, against `spiflash` **0.0.post92**.
+**Result.** From `results/stats.json`, against `spiflash` **0.0.post108**.
 Spec §3 recorded its table from spiflash at commit `0556ad6` (2026-09-27)
 with a throwaway script. **Every §3 number reproduced exactly** from the
 live package at spiflash 0.0.post39 (this experiment's first run, commit

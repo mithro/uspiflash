@@ -4,11 +4,14 @@ entry measured on every :data:`~uspiflash.measure.TARGETS` entry, and
 quotes two figures from it, between markers that ``--write`` rewrites.
 
 The ledger holds only what determines the numbers: the spiflash version,
-each configuration's selection, each tool's version line and each target's
-flags. It has no timestamp, host name or uspiflash version, so measuring the
-same inputs with the same tools writes the same bytes, and
-``uspiflash measure --check`` can compare a fresh measurement with the
-committed one byte for byte.
+each configuration's selection, each compiler's and linker's version line,
+and each target's flags. It has no timestamp, host name or uspiflash
+version, so measuring the same inputs with the same tools writes the same
+bytes, and ``uspiflash measure --check`` can compare a fresh measurement
+with the committed one byte for byte.
+
+The linked figure also depends on the target's link flags, which the
+ledger does not yet record.
 
 Tool versions come first: the numbers are only reproducible with the tools
 that made them, so :func:`check` compares the installed tools' version lines
@@ -29,7 +32,8 @@ from typing import TYPE_CHECKING, Any
 import spiflash
 from spiflash.db import FORMAT as DB_FORMAT
 
-from . import measure
+from . import measure, provenance
+from .levels import Selection
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -41,6 +45,9 @@ FORMAT = 1
 LEDGER = Path("sizes/ledger.json")
 README = Path("sizes/README.md")
 TOP_README = Path("README.md")
+#: The sizes the generated header quotes (spec §5.5), shipped in the
+#: package; generated from the ledger like its README.
+REFERENCE = Path("src/uspiflash/reference_sizes.json")
 #: The lines around the top-level README's size figures.
 BEGIN = "<!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->"
 END = "<!-- sizes: end -->"
@@ -52,11 +59,11 @@ REGENERATE = "uv run python -m uspiflash.sandbox -- uv run uspiflash measure --w
 #: RELEASING.md says how to bump it.
 IMAGE = "debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674"
 #: The Debian packages the image needs for :data:`~uspiflash.measure.TARGETS`.
-PACKAGES = ("clang-19", "llvm-19", "gcc", "libc6-dev")
+PACKAGES = ("clang-19", "lld-19", "gcc", "libc6-dev")
 #: The snapshot.debian.org timestamp the packages are installed from, so the
 #: tools are the same whatever the live trixie mirror holds today. It is the
-#: snapshot the image itself was built from, and its clang-19, llvm-19 and
-#: gcc are the versions the ledger records.
+#: snapshot the image itself was built from, and its clang-19 and gcc are
+#: the versions the ledger records.
 SNAPSHOT = "20260918T000000Z"
 #: The one apt source the image uses (in place of its defaults). Snapshots
 #: are older than their Valid-Until, so apt needs
@@ -78,8 +85,10 @@ def _options(config: Config) -> list[str]:
 
 
 def tools(targets: Sequence[Target]) -> list[str]:
-    """Every tool measuring ``targets`` needs, sorted."""
-    return sorted({t.compiler for t in targets} | {measure.SIZE_TOOL})
+    """Every compiler and linker measuring ``targets`` needs, sorted."""
+    names = {t.compiler for t in targets}
+    names |= {n for t in targets if (n := measure.linker(t)) is not None}
+    return sorted(names)
 
 
 def build(
@@ -89,9 +98,20 @@ def build(
 ) -> dict[str, Any]:
     """Measure every configuration on every target (by default,
     :data:`~uspiflash.measure.CONFIGS` and :data:`~uspiflash.measure.TARGETS`),
-    with scratch files in ``workdir``."""
+    with scratch files in ``workdir``.
+
+    Refuses a native target (no ``target_flags``) whose compiler does not
+    default to building for the CPU it is named for: on an i386 or arm64
+    host, that would silently record host-CPU code under the wrong
+    target's name."""
     configs = measure.CONFIGS if configs is None else configs
     targets = measure.TARGETS if targets is None else targets
+    for t in targets:
+        if not t.target_flags:
+            machine = measure.default_machine(t.compiler)
+            if machine != t.name:
+                msg = f"{t.name}: {t.compiler} builds for {machine} by default"
+                raise measure.MeasureError(msg)
     versions = {name: measure.version(name) for name in tools(targets)}
     sizes = {
         t.name: {
@@ -122,10 +142,18 @@ def dumps(ledger: dict[str, Any]) -> str:
 
 
 def _table(ledger: dict[str, Any], target: str) -> list[str]:
-    rows = ["| Configuration | text | rodata | total |", "|---|--:|--:|--:|"]
+    rows = [
+        "| Configuration | text | rodata | total | linked | stack |",
+        "|---|--:|--:|--:|--:|--:|",
+    ]
     for c in ledger["configs"]:
         s = ledger["sizes"][target][c["name"]]
-        rows.append(f"| `{c['name']}` | {s['text']:,} | {s['rodata']:,} | **{s['total']:,}** |")
+        stack = f"{s['stack']['peak']:,}" if s.get("stack") else "-"
+        linked = f"{s['linked']:,}" if s.get("linked") is not None else "-"
+        rows.append(
+            f"| `{c['name']}` | {s['text']:,} | {s['rodata']:,} | **{s['total']:,}** "
+            f"| {linked} | {stack} |"
+        )
     return rows
 
 
@@ -157,18 +185,27 @@ def readme(ledger: dict[str, Any]) -> str:
         "What the generated library costs in flash, in bytes, for each configuration",
         "and target. Each configuration's header is generated with the default prefix,",
         "its implementation compiled on its own (`-c`, no unwind tables), and the",
-        "object's sections read with `llvm-readobj --sections`. Sections count by",
-        "their ELF flags, not their names: **text** is every allocated, executable",
-        "section (code); **rodata** is every other allocated, read-only one (tables",
-        "and strings, plus anything else that lands in flash, such as the",
-        "`.ARM.exidx` entries clang emits for Arm even without unwind tables); and",
-        "**total** is text + rodata, everything the object puts in flash. Every",
-        "object has no allocated writable section (data and bss are 0; the",
-        "measurement refuses otherwise), so the library needs no RAM beyond its",
-        "stack; and no object has an undefined symbol (`llvm-nm -u` is empty, or",
-        "the measurement fails), so it calls no libc function and no compiler",
-        "helper. Linking can add alignment. `ledger.json` lists every allocated",
-        "section of every object.",
+        "object's sections read by uspiflash's own ELF reader (`uspiflash.elf`).",
+        "Sections count by their ELF flags, not their names: **text** is every",
+        "allocated, executable section (code); **rodata** is every other allocated,",
+        "read-only one (tables and strings, plus anything else that lands in flash,",
+        "such as the `.ARM.exidx` entries clang emits for Arm even without unwind",
+        "tables); and **total** is text + rodata, everything the object puts in flash.",
+        "Every object has no allocated writable section (data and bss are 0; the",
+        "measurement refuses otherwise), so the library needs no RAM beyond its stack;",
+        "and no object has an undefined symbol (the object's undefined symbols are",
+        "none, or the measurement fails), so it calls no libc function and no compiler",
+        "helper. **linked** is the implementation linked on its own (every public",
+        "function kept, no C library): it adds alignment, pools and veneers, and",
+        "merges duplicate strings, so it can come out smaller. `ledger.json` lists",
+        "every allocated section of every object.",
+        "",
+        "**stack** is the deepest path through the library's call graph, in",
+        "bytes: each function's frame as the compiler reports it",
+        "(`-fstack-usage`), added along the calls its relocations show,",
+        "from any public function. Your `putc` and `xfer` callbacks' own",
+        "frames come on top. `ledger.json` has every frame, the peak's path,",
+        "and every function's and table's size.",
         "",
         f"Measured against spiflash {sf['version']} (database format {sf['database_format']}).",
         "These are compiled objects; the",
@@ -220,6 +257,21 @@ def tool_mismatches(ledger: dict[str, Any]) -> list[str]:
     return out
 
 
+def reference_sizes(ledger: dict[str, Any]) -> dict[str, Any]:
+    """Each measured selection's total on each target, keyed by
+    :func:`uspiflash.provenance.selection_key`, for the header's size
+    lines."""
+    targets = [t["name"] for t in ledger["targets"]]
+    configs = {}
+    for c in ledger["configs"]:
+        key = provenance.selection_key(Selection.from_json(c["config"]["selection"]))
+        configs[key] = {
+            "name": c["name"],
+            "total": {t: ledger["sizes"][t][c["name"]]["total"] for t in targets},
+        }
+    return {"spiflash": ledger["spiflash"]["version"], "targets": targets, "configs": configs}
+
+
 #: The configurations the top-level README quotes: SPI NOR, the primary target.
 HEADLINE = ("read:nor", "full:nor")
 
@@ -256,9 +308,14 @@ def splice(text: str, ledger: dict[str, Any]) -> str:
 
 def files(ledger: dict[str, Any], root: Path) -> dict[Path, str]:
     """Every file generated from ``ledger``, by path from the repository
-    ``root``: the ledger, its README, and the top-level README's size
-    figures (when ``root`` has a README)."""
-    out = {LEDGER: dumps(ledger), README: readme(ledger)}
+    ``root``: the ledger, its README, the packaged reference sizes the
+    generated header quotes, and the top-level README's size figures (when
+    ``root`` has a README)."""
+    out = {
+        LEDGER: dumps(ledger),
+        README: readme(ledger),
+        REFERENCE: json.dumps(reference_sizes(ledger), sort_keys=True, indent=1) + "\n",
+    }
     top = root / TOP_README
     if top.is_file():
         out[TOP_README] = splice(top.read_text(encoding="utf-8"), ledger)

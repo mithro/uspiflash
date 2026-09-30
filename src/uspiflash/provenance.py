@@ -4,10 +4,13 @@ and how to make it again. It embeds the configuration as one JSON line that
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import re
+import textwrap
 from dataclasses import dataclass
+from importlib import resources
 from typing import Any
 
 import spiflash
@@ -70,6 +73,53 @@ class Config:
         return out
 
 
+def selection_key(sel: Selection) -> str:
+    """The sha256 of ``sel``'s canonical JSON: what the size ledger's
+    numbers depend on (the prefix and file name do not change them)."""
+    text = json.dumps(sel.to_json(), sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+@functools.cache
+def _reference() -> dict[str, Any]:
+    text = resources.files("uspiflash").joinpath("reference_sizes.json").read_text("utf-8")
+    data: dict[str, Any] = json.loads(text)
+    return data
+
+
+def size_lines(config: Config) -> list[str]:
+    """The header's size lines: the reference targets' totals for this
+    selection from the size ledger, when the ledger measured it with the
+    installed spiflash; else a line saying why not (not a measured
+    selection, or measured with a different spiflash)."""
+    ref = _reference()
+    entry = ref["configs"].get(selection_key(config.selection))
+    if entry is None:
+        return textwrap.wrap(
+            "Size: this selection is not one the size ledger measures "
+            "(sizes/README.md in the repository lists the ones that are).",
+            width=72,
+            break_on_hyphens=False,
+            break_long_words=False,
+        )
+    if ref["spiflash"] != spiflash.__version__:
+        return textwrap.wrap(
+            f"Size: measured with spiflash {ref['spiflash']}, not this header's "
+            f"spiflash {spiflash.__version__}; see sizes/README.md in the repository.",
+            width=72,
+            break_on_hyphens=False,
+            break_long_words=False,
+        )
+    sizes = ", ".join(f"{t} {entry['total'][t]:,}" for t in ref["targets"])
+    return textwrap.wrap(
+        f"Size ({entry['name']} in sizes/ledger.json, spiflash {ref['spiflash']}): "
+        f"{sizes} bytes of flash for code and tables at -Os, and no static RAM.",
+        width=72,
+        break_on_hyphens=False,
+        break_long_words=False,
+    )
+
+
 def header(config: Config) -> str:
     """The provenance comment."""
     args = " ".join(_quote(a) for a in config.args())
@@ -90,6 +140,8 @@ def header(config: Config) -> str:
         f"  uvx --from 'uspiflash=={__version__}' --with 'spiflash=={spiflash.__version__}' \\",
         f"      uspiflash generate {args}",
         f"Check a committed copy is current with: uspiflash check {config.filename}",
+        "",
+        *size_lines(config),
         "",
         f"Configuration (sha256 {config.digest()}):",
         f"uspiflash-config: {json.dumps(config.to_json(), sort_keys=True)}",
