@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 SDCC = measure.find_tool("sdcc")
-pytestmark = pytest.mark.skipif(SDCC is None, reason="sdcc not installed")
+needs_sdcc = pytest.mark.skipif(SDCC is None, reason="sdcc not installed")
 PORTS = [c.name for c in measure.CPUS.values() if c.sdcc is not None]
 CONFIGS = [(n, c) for n, c in measure.CONFIGS if n in measure.SMALL_CONFIGS]
 
@@ -42,6 +42,7 @@ def test_the_small_configurations_are_spi_nor_and_measured() -> None:
     assert measure.configs_for("cortex-m0") == list(measure.CONFIGS)
 
 
+@needs_sdcc
 @pytest.mark.parametrize("port", PORTS)
 @pytest.mark.parametrize(("name", "config"), CONFIGS, ids=[n for n, _ in CONFIGS])
 def test_every_port_builds_and_links_only_its_runtime(
@@ -89,6 +90,7 @@ void run(void)
 """
 
 
+@needs_sdcc
 @pytest.mark.parametrize("port", PORTS)
 def test_a_user_program_with_callbacks_compiles(tmp_path: Path, port: str) -> None:
     """The callbacks, declared USF_REENTRANT as the header asks, can be
