@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 SHT_SYMTAB, SHT_RELA, SHT_NOBITS, SHT_REL = 2, 4, 8, 9
+_SHT_NULL = 0
 STT_OBJECT, STT_FUNC, STT_SECTION = 1, 2, 3
 STB_LOCAL = 0
 SHN_UNDEF = 0
@@ -83,14 +84,32 @@ class Elf:
         return out
 
 
-def _cstr(data: bytes, at: int) -> str:
-    end = data.index(b"\0", at)
-    return data[at:end].decode("ascii", errors="replace")
+def _cstr(data: bytes, table: Section, at: int) -> str:
+    """The NUL-terminated string at ``at`` in string table ``table``."""
+    end = data.find(b"\0", table.offset + at, table.offset + table.size)
+    if at >= table.size or end < 0:
+        msg = f"name {at} is outside string table {table.index}"
+        raise ValueError(msg)
+    return data[table.offset + at : end].decode("ascii", errors="replace")
+
+
+def _entries(sec: Section, size: int, what: str) -> range:
+    """The file offsets of ``sec``'s entries, each at least ``size`` bytes
+    (its ``sh_entsize`` apart)."""
+    if sec.entsize < size:
+        msg = f"{what} section {sec.index} has entry size {sec.entsize}, not at least {size}"
+        raise ValueError(msg)
+    return range(sec.offset, sec.offset + sec.size - size + 1, sec.entsize)
 
 
 def read(path: Path) -> Elf:
     """Read ``path``'s section headers, its symbol table and its
-    relocations."""
+    relocations.
+
+    Every table is bounded by the file: a header or a section that would
+    run past its end, a table without a usable entry size, or a name
+    outside its string table is an :class:`ElfError`, so a damaged or
+    crafted file is refused rather than read without end."""
     data = path.read_bytes()
     if data[:4] != b"\x7fELF" or len(data) < 64:
         msg = f"{path}: not an ELF file"
@@ -111,15 +130,28 @@ def read(path: Path) -> Elf:
             (shoff,) = struct.unpack_from(e + "I", data, 0x20)
             shentsize, shnum, shstrndx = struct.unpack_from(e + "HHH", data, 0x2E)
             shfmt = e + "IIIIIIIIII"
-        raw = [struct.unpack_from(shfmt, data, shoff + i * shentsize) for i in range(max(shnum, 1))]
+
+        def headers(count: int) -> list[tuple[int, ...]]:
+            if shentsize < struct.calcsize(shfmt) or shoff + count * shentsize > len(data):
+                msg = f"{count} section headers of {shentsize} bytes at {shoff} do not fit"
+                raise ValueError(msg)
+            return [struct.unpack_from(shfmt, data, shoff + i * shentsize) for i in range(count)]
+
+        raw = headers(max(shnum, 1))
         if shnum == 0:  # extended numbering: the count is section 0's size
-            shnum = raw[0][5]
-            raw = [struct.unpack_from(shfmt, data, shoff + i * shentsize) for i in range(shnum)]
+            raw = headers(raw[0][5])
         if shstrndx == _SHN_XINDEX:
             shstrndx = raw[0][6]
-        names_at = raw[shstrndx][4]
+        unnamed = [
+            Section(i, "", r[1], r[2], r[5], r[6], r[7], r[4], r[9]) for i, r in enumerate(raw)
+        ]
+        for sec in unnamed:
+            if sec.type not in (_SHT_NULL, SHT_NOBITS) and sec.offset + sec.size > len(data):
+                msg = f"section {sec.index} runs past the end of the file"
+                raise ValueError(msg)
+        names = unnamed[shstrndx]
         sections = tuple(
-            Section(i, _cstr(data, names_at + r[0]), r[1], r[2], r[5], r[6], r[7], r[4], r[9])
+            Section(i, _cstr(data, names, r[0]), r[1], r[2], r[5], r[6], r[7], r[4], r[9])
             for i, r in enumerate(raw)
         )
         symbols = _symbols(data, e, sections, is64=is64)
@@ -139,15 +171,14 @@ def _symbols(
     tab = next((s for s in sections if s.type == SHT_SYMTAB), None)
     if tab is None:
         return ()
-    strings = sections[tab.link].offset
-    size = 24 if is64 else 16
+    strings = sections[tab.link]
     out = []
-    for at in range(tab.offset, tab.offset + tab.size, size):
+    for at in _entries(tab, 24 if is64 else 16, "symbol table"):
         if is64:
             name, info, _other, shndx, value, sym_size = struct.unpack_from(e + "IBBHQQ", data, at)
         else:
             name, value, sym_size, info, _other, shndx = struct.unpack_from(e + "IIIBBH", data, at)
-        sym_name = _cstr(data, strings + name)
+        sym_name = _cstr(data, strings, name)
         out.append(Symbol(sym_name, value, sym_size, info & 0xF, info >> 4, shndx))
     return tuple(out)
 
@@ -164,9 +195,7 @@ def _relocations(
             fmt, size, shift = e + ("QQq" if rela else "QQ"), 24 if rela else 16, 32
         else:
             fmt, size, shift = e + ("IIi" if rela else "II"), 12 if rela else 8, 8
-        infos = (
-            struct.unpack_from(fmt, data, at)[1] for at in range(s.offset, s.offset + s.size, size)
-        )
+        infos = (struct.unpack_from(fmt, data, at)[1] for at in _entries(s, size, "relocation"))
         refs = tuple(i & 0xFFFFFFFF if sym_in_low_half else i >> shift for i in infos)
         out[s.info] = out.get(s.info, ()) + refs
     return out

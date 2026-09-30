@@ -142,6 +142,59 @@ def test_an_unknown_class_or_a_damaged_file(tmp_path: Path) -> None:
         elf.read(path)
 
 
+def _patched(tmp_path: Path, section: int, field: int, fmt: str, value: int) -> Path:
+    """A 64-bit little-endian :func:`build_elf` object with one field of
+    one section header (``field`` bytes into it) set to ``value``."""
+    data = bytearray(build_elf(64, "little"))
+    (shoff,) = struct.unpack_from("<Q", data, 0x28)
+    struct.pack_into("<" + fmt, data, shoff + section * 64 + field, value)
+    path = tmp_path / "t.o"
+    path.write_bytes(data)
+    return path
+
+
+def test_a_zero_header_size_with_a_huge_extended_count_is_refused(tmp_path: Path) -> None:
+    """``e_shentsize`` 0 would read section 0 again and again, as many
+    times as the (extended) count says."""
+    path = _patched(tmp_path, 0, 32, "Q", 2_000_000)  # section 0's sh_size
+    data = bytearray(path.read_bytes())
+    struct.pack_into("<HH", data, 0x3A, 0, 0)  # e_shentsize, e_shnum
+    path.write_bytes(data)
+    with pytest.raises(elf.ElfError, match="section headers"):
+        elf.read(path)
+    struct.pack_into("<H", data, 0x3A, 64)  # a real size: the count is past the file
+    path.write_bytes(data)
+    with pytest.raises(elf.ElfError, match="section headers"):
+        elf.read(path)
+
+
+def test_a_symbol_table_without_an_entry_size_is_refused(tmp_path: Path) -> None:
+    path = _patched(tmp_path, 4, 56, "Q", 0)  # .symtab's sh_entsize
+    with pytest.raises(elf.ElfError, match="entry size"):
+        elf.read(path)
+
+
+def test_a_relocation_section_without_an_entry_size_is_refused(tmp_path: Path) -> None:
+    path = _patched(tmp_path, 7, 56, "Q", 0)  # .rela.text's sh_entsize
+    with pytest.raises(elf.ElfError, match="entry size"):
+        elf.read(path)
+
+
+def test_a_section_past_the_end_of_the_file_is_refused(tmp_path: Path) -> None:
+    path = _patched(tmp_path, 2, 32, "Q", 1 << 40)  # .rodata's sh_size
+    with pytest.raises(elf.ElfError, match="past the end of the file"):
+        elf.read(path)
+
+
+def test_a_name_outside_its_string_table_is_refused(tmp_path: Path) -> None:
+    path = _patched(tmp_path, 1, 0, "I", 1000)  # .text's sh_name
+    with pytest.raises(elf.ElfError, match="string table"):
+        elf.read(path)
+    path = _patched(tmp_path, 5, 32, "Q", 3)  # .strtab's sh_size: "\0f\0" only
+    with pytest.raises(elf.ElfError, match="string table"):
+        elf.read(path)
+
+
 def test_classifies_as_measure_did(tmp_path: Path) -> None:
     path = tmp_path / "t.o"
     path.write_bytes(build_elf(32, "big"))

@@ -4,9 +4,9 @@ target and read the object's section sizes (spec §7.1, per-object part).
 Each :class:`Target` is a compiler and its target flags. The implementation
 is compiled on its own (``-c``, freestanding, ``-Os``, one section per
 function and per table, no unwind tables) and uspiflash's own ELF reader
-(:mod:`uspiflash.elf`) reads the object. Sections are classified by their ELF flags, not their
-names, so everything that would occupy target memory is counted whatever it
-is called:
+(:mod:`uspiflash.elf`) reads the object. Sections are classified by their
+ELF flags, not their names, so everything that would occupy target memory
+is counted whatever it is called:
 
 - ``text``: ``SHF_ALLOC`` and ``SHF_EXECINSTR``, the code;
 - ``rodata``: every other ``SHF_ALLOC`` section that is not writable: tables
