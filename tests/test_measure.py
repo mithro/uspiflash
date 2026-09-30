@@ -19,14 +19,14 @@ ID = Config(Selection.make("id"))
 
 
 def available(target: Target) -> bool:
-    """Whether ``target``'s compiler and the size tool are installed."""
-    return all(measure.find_tool(t) for t in (target.compiler, measure.SIZE_TOOL))
+    """Whether ``target``'s compiler is installed."""
+    return measure.find_tool(target.compiler) is not None
 
 
 @pytest.mark.parametrize("target", TARGETS, ids=lambda t: t.name)
 def test_id_measures_code_and_tables_and_no_ram(tmp_path: Path, target: Target) -> None:
     if not available(target):
-        pytest.skip(f"{target.compiler} or {measure.SIZE_TOOL} not installed")
+        pytest.skip(f"{target.compiler} not installed")
     sizes = measure.measure(ID, target, tmp_path)
     assert sizes.text > 0
     assert sizes.rodata > 0
@@ -82,7 +82,7 @@ def test_every_allocated_read_only_section_is_in_total(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: Target
 ) -> None:
     if not available(target):
-        pytest.skip(f"{target.compiler} or {measure.SIZE_TOOL} not installed")
+        pytest.skip(f"{target.compiler} not installed")
     monkeypatch.setattr(emit, "render", lambda _c: FLASHY)
     sizes = measure.measure(ID, target, tmp_path)
     assert sizes.sections["rodata"][".flashy"] == 7
@@ -110,9 +110,7 @@ def test_find_tool_prefers_the_plain_name_then_the_newest(
     assert measure.find_tool("gcc") is None
 
 
-@pytest.mark.parametrize(
-    ("name", "package"), [("clang", "clang"), ("llvm-readobj", "llvm"), ("llvm-nm", "llvm")]
-)
+@pytest.mark.parametrize(("name", "package"), [("clang", "clang"), ("gcc", "gcc")])
 def test_a_missing_tool_names_its_package(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, package: str
 ) -> None:
@@ -145,7 +143,7 @@ def test_version_is_the_line_naming_the_version(
 def _host() -> Target:
     target = next(t for t in TARGETS if t.name == "x86_64")
     if not available(target):
-        pytest.skip("gcc or llvm-readobj not installed")
+        pytest.skip("gcc not installed")
     return target
 
 
@@ -162,8 +160,8 @@ def test_an_undefined_symbol_is_refused(
 ) -> None:
     """Links nothing: a call out of the library fails measuring, on every
     target."""
-    if not (available(target) and measure.find_tool(measure.NM_TOOL)):
-        pytest.skip(f"{target.compiler}, {measure.SIZE_TOOL} or {measure.NM_TOOL} not installed")
+    if not available(target):
+        pytest.skip(f"{target.compiler} not installed")
     code = "int usf_ext(int x);\nint usf_f(int x);\nint usf_f(int x) { return usf_ext(x); }\n"
     monkeypatch.setattr(emit, "render", lambda _c: code)
     with pytest.raises(MeasureError, match=f"{target.name}: .* from elsewhere: usf_ext"):
@@ -172,8 +170,8 @@ def test_an_undefined_symbol_is_refused(
 
 def test_a_compiler_helper_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     target = next(t for t in TARGETS if t.name == "cortex-m0")
-    if not (available(target) and measure.find_tool(measure.NM_TOOL)):
-        pytest.skip("clang or LLVM not installed")
+    if not available(target):
+        pytest.skip("clang not installed")
     code = (
         "unsigned usf_div(unsigned a, unsigned b);\n"
         "unsigned usf_div(unsigned a, unsigned b) { return a / b; }\n"
@@ -183,27 +181,11 @@ def test_a_compiler_helper_is_refused(tmp_path: Path, monkeypatch: pytest.Monkey
         measure.measure(ID, target, tmp_path)
 
 
-def test_an_unreadable_object_has_no_symbol_list(tmp_path: Path) -> None:
-    if measure.find_tool(measure.NM_TOOL) is None:
-        pytest.skip("llvm-nm not installed")
-    (tmp_path / "junk.o").write_text("not an object")
-    with pytest.raises(MeasureError, match="--undefined-only"):
-        measure.undefined_symbols(tmp_path / "junk.o")
-
-
 def test_a_compiler_diagnostic_is_an_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     target = _host()
     monkeypatch.setattr(emit, "render", lambda _c: "static int unused;\n")
     with pytest.raises(MeasureError, match="unused"):
         measure.measure(ID, target, tmp_path)
-
-
-def test_an_unreadable_object_is_an_error(tmp_path: Path) -> None:
-    if measure.find_tool(measure.SIZE_TOOL) is None:
-        pytest.skip("llvm-readobj not installed")
-    (tmp_path / "junk.o").write_text("not an object")
-    with pytest.raises(MeasureError, match="--sections"):
-        measure.section_sizes(tmp_path / "junk.o")
 
 
 def test_config_names_are_unique() -> None:
@@ -234,7 +216,7 @@ def small(monkeypatch: pytest.MonkeyPatch) -> list[Target]:
     """Measure only ``id``, on the targets whose tools are installed."""
     targets = [t for t in TARGETS if available(t)]
     if not targets:
-        pytest.skip("no target's compiler and llvm-readobj installed")
+        pytest.skip("no target's compiler installed")
     monkeypatch.setattr(measure, "CONFIGS", (("id", ID),))
     monkeypatch.setattr(measure, "TARGETS", tuple(targets))
     return targets
@@ -247,7 +229,7 @@ def test_the_ledger_is_deterministic(tmp_path: Path, small: list[Target]) -> Non
     assert first.endswith("}\n")
     data = json.loads(first)
     assert [t["name"] for t in data["targets"]] == [t.name for t in small]
-    assert set(data["tools"]) == {*(t.compiler for t in small), measure.SIZE_TOOL}
+    assert set(data["tools"]) == {t.compiler for t in small}
     # Every type (the library's default) is spelt out: ``generate`` alone keeps SPI NOR.
     assert data["configs"][0]["options"] == ["--level", "id", "--type", "nor", "--type", "nand"]
     assert data["configs"][0]["config"] == ID.to_json()

@@ -4,8 +4,8 @@ entry measured on every :data:`~uspiflash.measure.TARGETS` entry, and
 quotes two figures from it, between markers that ``--write`` rewrites.
 
 The ledger holds only what determines the numbers: the spiflash version,
-each configuration's selection, each tool's version line and each target's
-flags. It has no timestamp, host name or uspiflash version, so measuring the
+each configuration's selection, each compiler's version line and each
+target's flags. It has no timestamp, host name or uspiflash version, so measuring the
 same inputs with the same tools writes the same bytes, and
 ``uspiflash measure --check`` can compare a fresh measurement with the
 committed one byte for byte.
@@ -52,11 +52,11 @@ REGENERATE = "uv run python -m uspiflash.sandbox -- uv run uspiflash measure --w
 #: RELEASING.md says how to bump it.
 IMAGE = "debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674"
 #: The Debian packages the image needs for :data:`~uspiflash.measure.TARGETS`.
-PACKAGES = ("clang-19", "llvm-19", "gcc", "libc6-dev")
+PACKAGES = ("clang-19", "gcc", "libc6-dev")
 #: The snapshot.debian.org timestamp the packages are installed from, so the
 #: tools are the same whatever the live trixie mirror holds today. It is the
-#: snapshot the image itself was built from, and its clang-19, llvm-19 and
-#: gcc are the versions the ledger records.
+#: snapshot the image itself was built from, and its clang-19 and gcc are
+#: the versions the ledger records.
 SNAPSHOT = "20260918T000000Z"
 #: The one apt source the image uses (in place of its defaults). Snapshots
 #: are older than their Valid-Until, so apt needs
@@ -78,8 +78,8 @@ def _options(config: Config) -> list[str]:
 
 
 def tools(targets: Sequence[Target]) -> list[str]:
-    """Every tool measuring ``targets`` needs, sorted."""
-    return sorted({t.compiler for t in targets} | {measure.SIZE_TOOL})
+    """Every compiler measuring ``targets`` needs, sorted."""
+    return sorted({t.compiler for t in targets})
 
 
 def build(
@@ -157,18 +157,18 @@ def readme(ledger: dict[str, Any]) -> str:
         "What the generated library costs in flash, in bytes, for each configuration",
         "and target. Each configuration's header is generated with the default prefix,",
         "its implementation compiled on its own (`-c`, no unwind tables), and the",
-        "object's sections read with `llvm-readobj --sections`. Sections count by",
-        "their ELF flags, not their names: **text** is every allocated, executable",
-        "section (code); **rodata** is every other allocated, read-only one (tables",
-        "and strings, plus anything else that lands in flash, such as the",
-        "`.ARM.exidx` entries clang emits for Arm even without unwind tables); and",
-        "**total** is text + rodata, everything the object puts in flash. Every",
-        "object has no allocated writable section (data and bss are 0; the",
-        "measurement refuses otherwise), so the library needs no RAM beyond its",
-        "stack; and no object has an undefined symbol (`llvm-nm -u` is empty, or",
-        "the measurement fails), so it calls no libc function and no compiler",
-        "helper. Linking can add alignment. `ledger.json` lists every allocated",
-        "section of every object.",
+        "object's sections read by uspiflash's own ELF reader (`uspiflash.elf`).",
+        "Sections count by their ELF flags, not their names: **text** is every",
+        "allocated, executable section (code); **rodata** is every other allocated,",
+        "read-only one (tables and strings, plus anything else that lands in flash,",
+        "such as the `.ARM.exidx` entries clang emits for Arm even without unwind",
+        "tables); and **total** is text + rodata, everything the object puts in flash.",
+        "Every object has no allocated writable section (data and bss are 0; the",
+        "measurement refuses otherwise), so the library needs no RAM beyond its stack;",
+        "and no object has an undefined symbol (the object's undefined symbols are",
+        "none, or the measurement fails), so it calls no libc function and no compiler",
+        "helper. Linking can add alignment. `ledger.json` lists every allocated section",
+        "of every object.",
         "",
         f"Measured against spiflash {sf['version']} (database format {sf['database_format']}).",
         "These are compiled objects; the",

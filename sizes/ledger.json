@@ -950,7 +950,6 @@
   "image": "debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674",
   "packages": [
    "clang-19",
-   "llvm-19",
    "gcc",
    "libc6-dev"
   ],
@@ -5043,7 +5042,6 @@
  ],
  "tools": {
   "clang": "Debian clang version 19.1.7 (3+b1)",
-  "gcc": "gcc (Debian 14.2.0-19) 14.2.0",
-  "llvm-readobj": "Debian LLVM version 19.1.7"
+  "gcc": "gcc (Debian 14.2.0-19) 14.2.0"
  }
 }

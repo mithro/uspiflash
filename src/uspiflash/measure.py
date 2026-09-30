@@ -3,8 +3,8 @@ target and read the object's section sizes (spec §7.1, per-object part).
 
 Each :class:`Target` is a compiler and its target flags. The implementation
 is compiled on its own (``-c``, freestanding, ``-Os``, one section per
-function and per table, no unwind tables) and ``llvm-readobj --sections``
-reads the object. Sections are classified by their ELF flags, not their
+function and per table, no unwind tables) and uspiflash's own ELF reader
+(:mod:`uspiflash.elf`) reads the object. Sections are classified by their ELF flags, not their
 names, so everything that would occupy target memory is counted whatever it
 is called:
 
@@ -21,13 +21,12 @@ attributes) occupy no target memory and are not recorded. The library has
 no writable static data, so :func:`measure` refuses an object with a
 non-empty ``data`` or ``bss``; and it links nothing (no libc, no compiler
 helper), so :func:`measure` also refuses an object with an undefined symbol
-(``llvm-nm -u``), for every measured target.
+(its undefined symbols), for every measured target.
 
 The committed record of these numbers is :mod:`uspiflash.ledger`'s."""
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import shutil
@@ -38,7 +37,7 @@ from typing import TYPE_CHECKING
 
 from spiflash.enums import FlashType
 
-from . import emit
+from . import elf, emit
 from .levels import ChipFilter, Selection
 from .provenance import Config
 
@@ -63,13 +62,8 @@ FLAGS = (
     "-Werror",
 )
 
-#: The tool that reads section sizes and flags (LLVM's reads every target's
-#: objects), and each tool's Debian package.
-SIZE_TOOL = "llvm-readobj"
-#: The tool that lists an object's undefined symbols (LLVM's reads every
-#: target's objects).
-NM_TOOL = "llvm-nm"
-_PACKAGES = {"clang": "clang", "gcc": "gcc", "llvm-readobj": "llvm", "llvm-nm": "llvm"}
+#: Each compiler's Debian package.
+_PACKAGES = {"clang": "clang", "gcc": "gcc"}
 KINDS = ("text", "rodata", "data", "bss")
 _SHF_WRITE, _SHF_ALLOC, _SHF_EXECINSTR = 0x1, 0x2, 0x4
 _SHT_NOBITS = 8
@@ -244,40 +238,32 @@ def version(name: str) -> str:
     return next((line for line in lines if re.search(r"\bversion\b", line)), lines[0])
 
 
-def section_sizes(obj: Path) -> Sizes:
-    """``obj``'s allocated sections, classified by their flags
-    (``llvm-readobj --sections``, as JSON)."""
-    res = subprocess.run(
-        [tool(SIZE_TOOL), "--elf-output-style=JSON", "--sections", str(obj)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if res.returncode != 0:
-        msg = f"{SIZE_TOOL} --sections {obj} failed:\n{res.stderr}"
-        raise MeasureError(msg)
+def _read(obj: Path) -> elf.Elf:
+    try:
+        return elf.read(obj)
+    except (OSError, elf.ElfError) as err:
+        msg = f"cannot read {obj}: {err}"
+        raise MeasureError(msg) from err
+
+
+def sizes_of(obj: elf.Elf) -> Sizes:
+    """``obj``'s allocated sections, classified by their flags."""
     out: dict[str, dict[str, int]] = {k: {} for k in KINDS}
-    for entry in json.loads(res.stdout)[0]["Sections"]:
-        sec = entry["Section"]
-        k = kind(sec["Flags"]["Value"], sec["Type"]["Value"])
+    for sec in obj.sections:
+        k = kind(sec.flags, sec.type)
         if k is not None:
-            name = sec["Name"]["Name"]
-            out[k][name] = out[k].get(name, 0) + sec["Size"]
+            out[k][sec.name] = out[k].get(sec.name, 0) + sec.size
     return Sizes(out)
 
 
+def section_sizes(obj: Path) -> Sizes:
+    """``obj``'s allocated sections, classified by their flags."""
+    return sizes_of(_read(obj))
+
+
 def undefined_symbols(obj: Path) -> list[str]:
-    """The symbols ``obj`` needs from elsewhere (``llvm-nm -u``)."""
-    res = subprocess.run(
-        [tool(NM_TOOL), "--undefined-only", "--format=just-symbols", str(obj)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if res.returncode != 0:
-        msg = f"{NM_TOOL} --undefined-only {obj} failed:\n{res.stderr}"
-        raise MeasureError(msg)
-    return res.stdout.split()
+    """The symbols ``obj`` needs from elsewhere, sorted."""
+    return _read(obj).undefined()
 
 
 def compile_command(target: Target, source: Path, obj: Path) -> list[str]:
