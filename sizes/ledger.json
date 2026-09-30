@@ -963,7 +963,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 44464,
+    "linked": 44460,
     "rodata": 40565,
     "sections": {
      "rodata": {
@@ -1037,7 +1037,7 @@
       ".text.usf_op_name": 16,
       ".text.usf_page_size": 48,
       ".text.usf_print": 1656,
-      ".text.usf_probe": 452,
+      ".text.usf_probe": 448,
       ".text.usf_sector_size": 60,
       ".text.usf_size": 60,
       ".text.usf_type": 36,
@@ -1123,14 +1123,14 @@
      "usf_op_name": 16,
      "usf_page_size": 48,
      "usf_print": 1656,
-     "usf_probe": 452,
+     "usf_probe": 448,
      "usf_sector_size": 60,
      "usf_size": 60,
      "usf_type": 36,
      "usf_voltage": 64
     },
-    "text": 4084,
-    "total": 44649
+    "text": 4080,
+    "total": 44645
    },
    "describe:nor": {
     "bss": 0,
@@ -1309,7 +1309,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 58992,
+    "linked": 58988,
     "rodata": 51699,
     "sections": {
      "rodata": {
@@ -1408,7 +1408,7 @@
       ".text.usf_page_size": 44,
       ".text.usf_print": 2124,
       ".text.usf_print_json": 2296,
-      ".text.usf_probe": 452,
+      ".text.usf_probe": 448,
       ".text.usf_sector_size": 56,
       ".text.usf_size": 56,
       ".text.usf_sources": 20,
@@ -1520,21 +1520,21 @@
      "usf_page_size": 44,
      "usf_print": 2124,
      "usf_print_json": 2296,
-     "usf_probe": 452,
+     "usf_probe": 448,
      "usf_sector_size": 56,
      "usf_size": 56,
      "usf_sources": 20,
      "usf_type": 36,
      "usf_voltage": 64
     },
-    "text": 7566,
-    "total": 59265
+    "text": 7562,
+    "total": 59261
    },
    "full+datasheet": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 106574,
+    "linked": 106570,
     "rodata": 99082,
     "sections": {
      "rodata": {
@@ -1635,7 +1635,7 @@
       ".text.usf_page_size": 48,
       ".text.usf_print": 2272,
       ".text.usf_print_json": 2312,
-      ".text.usf_probe": 452,
+      ".text.usf_probe": 448,
       ".text.usf_sector_size": 60,
       ".text.usf_size": 60,
       ".text.usf_sources": 20,
@@ -1749,21 +1749,21 @@
      "usf_page_size": 48,
      "usf_print": 2272,
      "usf_print_json": 2312,
-     "usf_probe": 452,
+     "usf_probe": 448,
      "usf_sector_size": 60,
      "usf_size": 60,
      "usf_sources": 20,
      "usf_type": 36,
      "usf_voltage": 64
     },
-    "text": 7766,
-    "total": 106848
+    "text": 7762,
+    "total": 106844
    },
    "full+datasheets": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 175092,
+    "linked": 175088,
     "rodata": 166776,
     "sections": {
      "rodata": {
@@ -1864,7 +1864,7 @@
       ".text.usf_page_size": 48,
       ".text.usf_print": 2200,
       ".text.usf_print_json": 3132,
-      ".text.usf_probe": 452,
+      ".text.usf_probe": 448,
       ".text.usf_sector_size": 60,
       ".text.usf_size": 60,
       ".text.usf_sources": 20,
@@ -1978,21 +1978,21 @@
      "usf_page_size": 48,
      "usf_print": 2200,
      "usf_print_json": 3132,
-     "usf_probe": 452,
+     "usf_probe": 448,
      "usf_sector_size": 60,
      "usf_size": 60,
      "usf_sources": 20,
      "usf_type": 36,
      "usf_voltage": 64
     },
-    "text": 8590,
-    "total": 175366
+    "text": 8586,
+    "total": 175362
    },
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 210542,
+    "linked": 210538,
     "rodata": 202279,
     "sections": {
      "rodata": {
@@ -2095,7 +2095,7 @@
       ".text.usf_page_size": 48,
       ".text.usf_print": 2200,
       ".text.usf_print_json": 2976,
-      ".text.usf_probe": 452,
+      ".text.usf_probe": 448,
       ".text.usf_sector_size": 60,
       ".text.usf_size": 60,
       ".text.usf_sources": 20,
@@ -2211,21 +2211,21 @@
      "usf_page_size": 48,
      "usf_print": 2200,
      "usf_print_json": 2976,
-     "usf_probe": 452,
+     "usf_probe": 448,
      "usf_sector_size": 60,
      "usf_size": 60,
      "usf_sources": 20,
      "usf_type": 36,
      "usf_voltage": 64
     },
-    "text": 8542,
-    "total": 210821
+    "text": 8538,
+    "total": 210817
    },
    "full+sfdp+sfdp_dumps": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 79217,
+    "linked": 79193,
     "rodata": 70711,
     "sections": {
      "rodata": {
@@ -2328,8 +2328,8 @@
       ".text.usf_op_name": 16,
       ".text.usf_page_size": 44,
       ".text.usf_print": 2124,
-      ".text.usf_print_json": 2896,
-      ".text.usf_probe": 452,
+      ".text.usf_print_json": 2876,
+      ".text.usf_probe": 448,
       ".text.usf_sector_size": 56,
       ".text.usf_sfdp_read": 552,
       ".text.usf_size": 56,
@@ -2371,7 +2371,7 @@
       "usf_op_name": 8,
       "usf_page_size": 0,
       "usf_print": 80,
-      "usf_print_json": 88,
+      "usf_print_json": 96,
       "usf_probe": 80,
       "usf_sector_size": 0,
       "usf_sfdp_read": 56,
@@ -2446,8 +2446,8 @@
      "usf_op_name": 16,
      "usf_page_size": 44,
      "usf_print": 2124,
-     "usf_print_json": 2896,
-     "usf_probe": 452,
+     "usf_print_json": 2876,
+     "usf_probe": 448,
      "usf_sector_size": 56,
      "usf_sfdp_read": 552,
      "usf_size": 56,
@@ -2455,14 +2455,14 @@
      "usf_type": 36,
      "usf_voltage": 64
     },
-    "text": 8794,
-    "total": 79505
+    "text": 8770,
+    "total": 79481
    },
    "full+sfdp_dumps:nor": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 73853,
+    "linked": 73833,
     "rodata": 66159,
     "sections": {
      "rodata": {
@@ -2561,7 +2561,7 @@
       ".text.usf_op_name": 16,
       ".text.usf_page_size": 44,
       ".text.usf_print": 2124,
-      ".text.usf_print_json": 2896,
+      ".text.usf_print_json": 2876,
       ".text.usf_probe": 336,
       ".text.usf_sector_size": 56,
       ".text.usf_size": 56,
@@ -2602,7 +2602,7 @@
       "usf_op_name": 8,
       "usf_page_size": 0,
       "usf_print": 80,
-      "usf_print_json": 88,
+      "usf_print_json": 96,
       "usf_probe": 72,
       "usf_sector_size": 0,
       "usf_size": 0,
@@ -2611,9 +2611,9 @@
       "usf_voltage": 16
      },
      "path": [
-      "usf_probe",
-      "usf__ask",
-      "usf_lookup"
+      "usf_print_json",
+      "usf__idhex",
+      "usf_id"
      ],
      "peak": 160
     },
@@ -2674,7 +2674,7 @@
      "usf_op_name": 16,
      "usf_page_size": 44,
      "usf_print": 2124,
-     "usf_print_json": 2896,
+     "usf_print_json": 2876,
      "usf_probe": 336,
      "usf_sector_size": 56,
      "usf_size": 56,
@@ -2682,8 +2682,8 @@
      "usf_type": 36,
      "usf_voltage": 64
     },
-    "text": 7966,
-    "total": 74125
+    "text": 7946,
+    "total": 74105
    },
    "full-sfdp_summary:nor": {
     "bss": 0,
@@ -3312,7 +3312,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 4826,
+    "linked": 4822,
     "rodata": 3944,
     "sections": {
      "rodata": {
@@ -3333,7 +3333,7 @@
       ".text.usf_family": 36,
       ".text.usf_id": 60,
       ".text.usf_lookup": 224,
-      ".text.usf_probe": 452,
+      ".text.usf_probe": 448,
       ".text.usf_type": 36
      }
     },
@@ -3362,11 +3362,11 @@
      "usf_family": 36,
      "usf_id": 60,
      "usf_lookup": 224,
-     "usf_probe": 452,
+     "usf_probe": 448,
      "usf_type": 36
     },
-    "text": 922,
-    "total": 4866
+    "text": 918,
+    "total": 4862
    },
    "id+sfdp:nor": {
     "bss": 0,
@@ -3502,7 +3502,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 12727,
+    "linked": 12723,
     "rodata": 11333,
     "sections": {
      "rodata": {
@@ -3537,7 +3537,7 @@
       ".text.usf_op_count": 36,
       ".text.usf_op_find": 50,
       ".text.usf_op_get": 100,
-      ".text.usf_probe": 452,
+      ".text.usf_probe": 448,
       ".text.usf_size": 60,
       ".text.usf_type": 36
      }
@@ -3581,12 +3581,12 @@
      "usf_op_count": 36,
      "usf_op_find": 50,
      "usf_op_get": 100,
-     "usf_probe": 452,
+     "usf_probe": 448,
      "usf_size": 60,
      "usf_type": 36
     },
-    "text": 1472,
-    "total": 12805
+    "text": 1468,
+    "total": 12801
    },
    "read+sfdp:nor": {
     "bss": 0,
@@ -3866,7 +3866,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 17892,
+    "linked": 17888,
     "rodata": 16406,
     "sections": {
      "rodata": {
@@ -3906,7 +3906,7 @@
       ".text.usf_op_find": 50,
       ".text.usf_op_get": 100,
       ".text.usf_page_size": 48,
-      ".text.usf_probe": 452,
+      ".text.usf_probe": 448,
       ".text.usf_sector_size": 60,
       ".text.usf_size": 60,
       ".text.usf_type": 36
@@ -3956,13 +3956,13 @@
      "usf_op_find": 50,
      "usf_op_get": 100,
      "usf_page_size": 48,
-     "usf_probe": 452,
+     "usf_probe": 448,
      "usf_sector_size": 60,
      "usf_size": 60,
      "usf_type": 36
     },
-    "text": 1580,
-    "total": 17986
+    "text": 1576,
+    "total": 17982
    },
    "write:nor": {
     "bss": 0,
@@ -5364,8 +5364,8 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 81435,
-    "rodata": 70435,
+    "linked": 81243,
+    "rodata": 70399,
     "sections": {
      "rodata": {
       ".rodata.cst16": 16,
@@ -5393,8 +5393,7 @@
       ".rodata.usf__sfdptree": 15691,
       ".rodata.usf__sizes": 88,
       ".rodata.usf__str": 19383,
-      ".rodata.usf__volts": 52,
-      ".rodata.usf_print_json": 36
+      ".rodata.usf__volts": 52
      },
      "text": {
       ".text": 0,
@@ -5429,7 +5428,7 @@
       ".text.usf_op_name": 14,
       ".text.usf_page_size": 60,
       ".text.usf_print": 2882,
-      ".text.usf_print_json": 3654,
+      ".text.usf_print_json": 3498,
       ".text.usf_probe": 522,
       ".text.usf_sector_size": 76,
       ".text.usf_sfdp_read": 664,
@@ -5594,7 +5593,7 @@
      "usf_op_name": 14,
      "usf_page_size": 60,
      "usf_print": 2882,
-     "usf_print_json": 3654,
+     "usf_print_json": 3498,
      "usf_probe": 522,
      "usf_sector_size": 76,
      "usf_sfdp_read": 664,
@@ -5603,15 +5602,15 @@
      "usf_type": 52,
      "usf_voltage": 82
     },
-    "text": 11498,
-    "total": 81933
+    "text": 11342,
+    "total": 81741
    },
    "full+sfdp_dumps:nor": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 75963,
-    "rodata": 65899,
+    "linked": 75771,
+    "rodata": 65863,
     "sections": {
      "rodata": {
       ".rodata.cst16": 16,
@@ -5638,8 +5637,7 @@
       ".rodata.usf__sfdptree": 15691,
       ".rodata.usf__sizes": 80,
       ".rodata.usf__str": 17732,
-      ".rodata.usf__volts": 52,
-      ".rodata.usf_print_json": 36
+      ".rodata.usf__volts": 52
      },
      "text": {
       ".text": 0,
@@ -5673,7 +5671,7 @@
       ".text.usf_op_name": 14,
       ".text.usf_page_size": 60,
       ".text.usf_print": 2882,
-      ".text.usf_print_json": 3654,
+      ".text.usf_print_json": 3498,
       ".text.usf_probe": 398,
       ".text.usf_sector_size": 76,
       ".text.usf_size": 76,
@@ -5833,7 +5831,7 @@
      "usf_op_name": 14,
      "usf_page_size": 60,
      "usf_print": 2882,
-     "usf_print_json": 3654,
+     "usf_print_json": 3498,
      "usf_probe": 398,
      "usf_sector_size": 76,
      "usf_size": 76,
@@ -5841,8 +5839,8 @@
      "usf_type": 52,
      "usf_voltage": 82
     },
-    "text": 10502,
-    "total": 76401
+    "text": 10346,
+    "total": 76209
    },
    "full-sfdp_summary:nor": {
     "bss": 0,
@@ -7141,7 +7139,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 44400,
+    "linked": 44411,
     "rodata": 40357,
     "sections": {
      "bss": {
@@ -7205,7 +7203,7 @@
       ".text.usf_op_name": 45,
       ".text.usf_page_size": 46,
       ".text.usf_print": 1215,
-      ".text.usf_probe": 520,
+      ".text.usf_probe": 531,
       ".text.usf_sector_size": 49,
       ".text.usf_size": 49,
       ".text.usf_type": 18,
@@ -7303,14 +7301,14 @@
      "usf_op_name": 45,
      "usf_page_size": 46,
      "usf_print": 1215,
-     "usf_probe": 520,
+     "usf_probe": 531,
      "usf_sector_size": 49,
      "usf_size": 49,
      "usf_type": 18,
      "usf_voltage": 68
     },
-    "text": 3807,
-    "total": 44164
+    "text": 3818,
+    "total": 44175
    },
    "describe:nor": {
     "bss": 0,
@@ -7491,7 +7489,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 58672,
+    "linked": 58683,
     "rodata": 51403,
     "sections": {
      "bss": {
@@ -7577,7 +7575,7 @@
       ".text.usf_page_size": 48,
       ".text.usf_print": 1679,
       ".text.usf_print_json": 1991,
-      ".text.usf_probe": 520,
+      ".text.usf_probe": 531,
       ".text.usf_sector_size": 56,
       ".text.usf_size": 56,
       ".text.usf_sources": 21,
@@ -7709,21 +7707,21 @@
      "usf_page_size": 48,
      "usf_print": 1679,
      "usf_print_json": 1991,
-     "usf_probe": 520,
+     "usf_probe": 531,
      "usf_sector_size": 56,
      "usf_size": 56,
      "usf_sources": 21,
      "usf_type": 18,
      "usf_voltage": 70
     },
-    "text": 7008,
-    "total": 58411
+    "text": 7019,
+    "total": 58422
    },
    "full+datasheet": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 106119,
+    "linked": 106130,
     "rodata": 98786,
     "sections": {
      "bss": {
@@ -7811,7 +7809,7 @@
       ".text.usf_page_size": 46,
       ".text.usf_print": 1764,
       ".text.usf_print_json": 1985,
-      ".text.usf_probe": 520,
+      ".text.usf_probe": 531,
       ".text.usf_sector_size": 54,
       ".text.usf_size": 54,
       ".text.usf_sources": 19,
@@ -7945,21 +7943,21 @@
      "usf_page_size": 46,
      "usf_print": 1764,
      "usf_print_json": 1985,
-     "usf_probe": 520,
+     "usf_probe": 531,
      "usf_sector_size": 54,
      "usf_size": 54,
      "usf_sources": 19,
      "usf_type": 18,
      "usf_voltage": 68
     },
-    "text": 7063,
-    "total": 105849
+    "text": 7074,
+    "total": 105860
    },
    "full+datasheets": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 174500,
+    "linked": 174511,
     "rodata": 166480,
     "sections": {
      "bss": {
@@ -8049,7 +8047,7 @@
       ".text.usf_page_size": 46,
       ".text.usf_print": 1715,
       ".text.usf_print_json": 2607,
-      ".text.usf_probe": 520,
+      ".text.usf_probe": 531,
       ".text.usf_sector_size": 54,
       ".text.usf_size": 54,
       ".text.usf_sources": 19,
@@ -8187,21 +8185,21 @@
      "usf_page_size": 46,
      "usf_print": 1715,
      "usf_print_json": 2607,
-     "usf_probe": 520,
+     "usf_probe": 531,
      "usf_sector_size": 54,
      "usf_size": 54,
      "usf_sources": 19,
      "usf_type": 18,
      "usf_voltage": 68
     },
-    "text": 7728,
-    "total": 174208
+    "text": 7739,
+    "total": 174219
    },
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 209882,
+    "linked": 209893,
     "rodata": 201975,
     "sections": {
      "bss": {
@@ -8291,7 +8289,7 @@
       ".text.usf_page_size": 46,
       ".text.usf_print": 1715,
       ".text.usf_print_json": 2413,
-      ".text.usf_probe": 520,
+      ".text.usf_probe": 531,
       ".text.usf_sector_size": 54,
       ".text.usf_size": 54,
       ".text.usf_sources": 19,
@@ -8429,22 +8427,22 @@
      "usf_page_size": 46,
      "usf_print": 1715,
      "usf_print_json": 2413,
-     "usf_probe": 520,
+     "usf_probe": 531,
      "usf_sector_size": 54,
      "usf_size": 54,
      "usf_sources": 19,
      "usf_type": 18,
      "usf_voltage": 68
     },
-    "text": 7590,
-    "total": 209565
+    "text": 7601,
+    "total": 209576
    },
    "full+sfdp+sfdp_dumps": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 79018,
-    "rodata": 70435,
+    "linked": 78955,
+    "rodata": 70399,
     "sections": {
      "bss": {
       ".bss": 0
@@ -8486,7 +8484,6 @@
       ".rodata.usf__typenames": 4,
       ".rodata.usf__volts": 52,
       ".rodata.usf_print.str1.1": 210,
-      ".rodata.usf_print_json": 36,
       ".rodata.usf_print_json.str1.1": 165
      },
      "text": {
@@ -8533,8 +8530,8 @@
       ".text.usf_op_name": 45,
       ".text.usf_page_size": 48,
       ".text.usf_print": 1694,
-      ".text.usf_print_json": 2480,
-      ".text.usf_probe": 520,
+      ".text.usf_print_json": 2438,
+      ".text.usf_probe": 531,
       ".text.usf_sector_size": 56,
       ".text.usf_sfdp_read": 656,
       ".text.usf_size": 56,
@@ -8673,8 +8670,8 @@
      "usf_op_name": 45,
      "usf_page_size": 48,
      "usf_print": 1694,
-     "usf_print_json": 2480,
-     "usf_probe": 520,
+     "usf_print_json": 2438,
+     "usf_probe": 531,
      "usf_sector_size": 56,
      "usf_sfdp_read": 656,
      "usf_size": 56,
@@ -8682,15 +8679,15 @@
      "usf_type": 18,
      "usf_voltage": 70
     },
-    "text": 8282,
-    "total": 78717
+    "text": 8251,
+    "total": 78650
    },
    "full+sfdp_dumps:nor": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 73558,
-    "rodata": 65899,
+    "linked": 73484,
+    "rodata": 65863,
     "sections": {
      "bss": {
       ".bss": 0
@@ -8731,7 +8728,6 @@
       ".rodata.usf__typenames": 4,
       ".rodata.usf__volts": 52,
       ".rodata.usf_print.str1.1": 210,
-      ".rodata.usf_print_json": 36,
       ".rodata.usf_print_json.str1.1": 165
      },
      "text": {
@@ -8777,7 +8773,7 @@
       ".text.usf_op_name": 45,
       ".text.usf_page_size": 48,
       ".text.usf_print": 1694,
-      ".text.usf_print_json": 2480,
+      ".text.usf_print_json": 2438,
       ".text.usf_probe": 439,
       ".text.usf_sector_size": 56,
       ".text.usf_size": 56,
@@ -8912,7 +8908,7 @@
      "usf_op_name": 45,
      "usf_page_size": 48,
      "usf_print": 1694,
-     "usf_print_json": 2480,
+     "usf_print_json": 2438,
      "usf_probe": 439,
      "usf_sector_size": 56,
      "usf_size": 56,
@@ -8920,8 +8916,8 @@
      "usf_type": 18,
      "usf_voltage": 70
     },
-    "text": 7366,
-    "total": 73265
+    "text": 7324,
+    "total": 73187
    },
    "full-sfdp_summary:nor": {
     "bss": 0,
@@ -9573,7 +9569,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 4862,
+    "linked": 4873,
     "rodata": 3888,
     "sections": {
      "bss": {
@@ -9595,7 +9591,7 @@
       ".text.usf_family": 15,
       ".text.usf_id": 38,
       ".text.usf_lookup": 195,
-      ".text.usf_probe": 520,
+      ".text.usf_probe": 531,
       ".text.usf_type": 18
      }
     },
@@ -9628,11 +9624,11 @@
      "usf_family": 15,
      "usf_id": 38,
      "usf_lookup": 195,
-     "usf_probe": 520,
+     "usf_probe": 531,
      "usf_type": 18
     },
-    "text": 969,
-    "total": 4857
+    "text": 980,
+    "total": 4868
    },
    "id+sfdp:nor": {
     "bss": 0,
@@ -9776,7 +9772,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 12757,
+    "linked": 12768,
     "rodata": 11237,
     "sections": {
      "bss": {
@@ -9807,7 +9803,7 @@
       ".text.usf_op_count": 30,
       ".text.usf_op_find": 34,
       ".text.usf_op_get": 123,
-      ".text.usf_probe": 520,
+      ".text.usf_probe": 531,
       ".text.usf_size": 49,
       ".text.usf_type": 18
      }
@@ -9855,12 +9851,12 @@
      "usf_op_count": 30,
      "usf_op_find": 34,
      "usf_op_get": 123,
-     "usf_probe": 520,
+     "usf_probe": 531,
      "usf_size": 49,
      "usf_type": 18
     },
-    "text": 1474,
-    "total": 12711
+    "text": 1485,
+    "total": 12722
    },
    "read+sfdp:nor": {
     "bss": 0,
@@ -10135,7 +10131,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 17918,
+    "linked": 17929,
     "rodata": 16294,
     "sections": {
      "bss": {
@@ -10169,7 +10165,7 @@
       ".text.usf_op_find": 34,
       ".text.usf_op_get": 123,
       ".text.usf_page_size": 46,
-      ".text.usf_probe": 520,
+      ".text.usf_probe": 531,
       ".text.usf_sector_size": 49,
       ".text.usf_size": 49,
       ".text.usf_type": 18
@@ -10223,13 +10219,13 @@
      "usf_op_find": 34,
      "usf_op_get": 123,
      "usf_page_size": 46,
-     "usf_probe": 520,
+     "usf_probe": 531,
      "usf_sector_size": 49,
      "usf_size": 49,
      "usf_type": 18
     },
-    "text": 1569,
-    "total": 17863
+    "text": 1580,
+    "total": 17874
    },
    "write:nor": {
     "bss": 0,

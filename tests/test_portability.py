@@ -52,3 +52,27 @@ def test_no_helper_is_needed(tmp_path: Path, cpu: str, name: str, config: Config
         measure.measure(config, target, tmp_path)
     except MeasureError as e:
         pytest.fail(str(e).splitlines()[0])
+
+
+#: GCC cross compilers and the CPUs they build for (Debian's names).
+GCC_CROSS = {
+    "cortex-m0": "arm-none-eabi-gcc",
+    "cortex-m3": "arm-none-eabi-gcc",
+    "cortex-a9": "arm-none-eabi-gcc",
+    "rv32i": "riscv64-unknown-elf-gcc",
+    "rv32ec": "riscv64-unknown-elf-gcc",
+}
+
+
+@pytest.mark.parametrize("cpu", sorted(GCC_CROSS))
+@pytest.mark.parametrize(("name", "config"), measure.CONFIGS, ids=[n for n, _ in measure.CONFIGS])
+def test_no_helper_with_gcc(tmp_path: Path, cpu: str, name: str, config: Config) -> None:
+    del name
+    cc = GCC_CROSS[cpu]
+    if measure.find_tool(cc) is None:
+        pytest.skip(f"{cc} not installed")
+    target = replace(measure.target(cpu, cc), link_flags=None)
+    try:
+        measure.measure(config, target, tmp_path)
+    except MeasureError as e:
+        pytest.fail(str(e).splitlines()[0])

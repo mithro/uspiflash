@@ -1259,42 +1259,28 @@ static void usf__jtree(usf__json *j, usf__p p)
     while ((t = *p++) != 0) {                 /* 0: the end */
         if (t & 0x80)                         /* an array element */
             usf__jitem(j);
-        switch (t & 0x7F) {
-        case 1:
+        /* Ranges, not a switch: GCC compiles a dense switch to a jump
+         * table, which on Thumb-1 calls libgcc's __gnu_thumb1_case_uqi. */
+        t &= 0x7F;
+        if (t >= 7) {                         /* 7 [, 8 {, 9 ], 10 } */
+            if (t < 9)
+                usf__jopen(j, t == 7 ? '[' : '{');
+            else
+                usf__jclose(j, t == 9 ? ']' : '}');
+        } else if (t == 1) {
             usf__jnull(j);
-            break;
-        case 2:
-            usf__lit("false", j->sink, j->ctx);
-            break;
-        case 3:
-            usf__lit("true", j->sink, j->ctx);
-            break;
-        case 4:
+        } else if (t < 4) {
+            usf__lit(t == 2 ? "false" : "true", j->sink, j->ctx);
+        } else if (t == 4) {
             usf__jint(j, usf__u32(p));
             p += 4;
-            break;
-        case 5:                               /* a string, stored escaped */
+        } else {                              /* 5 a string (stored escaped); */
+            if (t == 6)                       /* 6 a member's name, value next */
+                usf__jitem(j);
             usf__jpool(j, usf__off(p));
+            if (t == 6)
+                usf__lit(": ", j->sink, j->ctx);
             p += USF_OFF_BYTES;
-            break;
-        case 6:                               /* a member's name; its value follows */
-            usf__jitem(j);
-            usf__jpool(j, usf__off(p));
-            usf__lit(": ", j->sink, j->ctx);
-            p += USF_OFF_BYTES;
-            break;
-        case 7:
-            usf__jopen(j, '[');
-            break;
-        case 8:
-            usf__jopen(j, '{');
-            break;
-        case 9:
-            usf__jclose(j, ']');
-            break;
-        default:                              /* 10 */
-            usf__jclose(j, '}');
-            break;
         }
     }
 }
@@ -1591,7 +1577,10 @@ uint8_t usf_probe(usf_bus *bus, usf_probe_result *r)
      * NOR, that could name a chip that isn't there. Only NAND answers count
      * (a lookup gives NOR first, then NAND, at most one of each). */
     if (r->count && usf_type(&r->chip[r->count - 1]) == USF_TYPE_NAND) {
-        r->chip[0] = r->chip[r->count - 1];
+        /* Member by member: a struct assignment is a memcpy call for GCC
+         * on Thumb-1, where usf_chip is only 2-byte aligned. */
+        r->chip[0].entry = r->chip[r->count - 1].entry;
+        r->chip[0].base = r->chip[r->count - 1].base;
         r->count = 1;
     } else {
         r->count = 0;
