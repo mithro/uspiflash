@@ -1,0 +1,81 @@
+name: QEMU
+
+# uspiflash-linux on a real kernel: tests/test_qemu.py boots riscv64 Linux
+# under QEMU's sifive_u (in a docker image, tools/qemu/), binds its emulated
+# SPI flash to spidev, and checks the tool's output against spiflash's.
+# See tools/qemu/README.md.
+#
+# Its own workflow, not part of deb.yml: it is slow, it runs only when the
+# tool, the generator or the QEMU setup change (and on every push to main),
+# and it never holds up publishing (publish-pypi.yml follows deb.yml only).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "examples/**"
+      - "tools/qemu/**"
+      - "tests/linux/**"
+      - "tests/test_qemu.py"
+      - "tests/harness.py"
+      - "src/uspiflash/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/qemu.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qemu-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qemu:
+    runs-on: ubuntu-24.04  # has docker
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # hatch-vcs derives the version from the tags
+
+      - uses: astral-sh/setup-uv@v7
+
+      # The image (about 720 MB) is tagged with a hash of its inputs, and
+      # run.py uses an image of that tag as it is. The key names the same
+      # inputs: the Dockerfile, run.py (the pins) and ledger.py (IMAGE and
+      # SNAPSHOT).
+      - name: Restore the image
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: tmp/qemu-image.tar
+          key: qemu-image-${{ hashFiles('tools/qemu/Dockerfile', 'tools/qemu/run.py', 'src/uspiflash/ledger.py') }}
+
+      - name: Load the image
+        if: steps.cache.outputs.cache-hit == 'true'
+        run: docker load --input tmp/qemu-image.tar
+
+      # Only the QEMU test (test_qemu.py's unit tests run in deb.yml's
+      # suite), so the coverage gate is left out; the basetemp stays in tmp/,
+      # as the default addopts has it.
+      - name: uspiflash-linux under QEMU
+        env:
+          USPIFLASH_QEMU: "1"
+        run: >-
+          uv run pytest tests/test_qemu.py::test_tool_in_qemu_describes_the_emulated_flash -v -ra
+          -o addopts="--basetemp=tmp/pytest" --junitxml=tmp/qemu-junit.xml
+
+      # A skip (say, of the parity marker) must not pass for a result.
+      - name: The test ran
+        run: |
+          suite=$(grep -o '<testsuite [^>]*>' tmp/qemu-junit.xml)
+          echo "$suite"
+          case "$suite" in *' skipped="0"'*) ;; *) echo "::error::the QEMU test was skipped"; exit 1 ;; esac
+          case "$suite" in *' tests="1"'*) ;; *) echo "::error::expected one test"; exit 1 ;; esac
+
+      - name: Save the image for the cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: docker save --output tmp/qemu-image.tar $(docker images --format '{{.Repository}}:{{.Tag}}' uspiflash-qemu)

@@ -1,11 +1,13 @@
 name: Debian packages
 
-# Rolling release: every push to main tests, builds python3-uspiflash for each
-# suite, and republishes a signed flat apt repository per suite on GitHub
-# Pages (https://mith.ro/uspiflash/<suite>/) through mithro/apt-repo-action.
-# The package is Architecture: all (pure Python), so one build per suite
-# serves every architecture. A pull request runs the same tests and builds,
-# and publishes nothing.
+# Rolling release: every push to main tests, builds the packages for each
+# suite and architecture, and republishes a signed flat apt repository per
+# suite on GitHub Pages (https://mith.ro/uspiflash/<suite>/) through
+# mithro/apt-repo-action. uspiflash-linux (the spidev tool) is built for
+# amd64, i386, arm64, armhf and riscv64 (riscv64 from trixie on);
+# python3-uspiflash is Architecture: all (pure Python), built once per suite
+# by its amd64 job. A pull request runs the same tests and builds, and
+# publishes nothing.
 #
 # A green run of this workflow on main is also what publishes to PyPI:
 # publish-pypi.yml is triggered by it completing (workflow_run), so renaming
@@ -125,13 +127,19 @@ jobs:
   build-deb:
     name: build-deb (${{ matrix.suite }} ${{ matrix.arch }})
     needs: test
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # As apt-repo-action's reusable workflow (scripts/build-matrix.py) runs
+    # them: amd64 and i386 natively on x86, arm64 natively on GitHub's arm64
+    # runners, which also run armhf natively; riscv64 is emulated (QEMU), so
+    # it is slower and debian/rules skips its tests.
+    runs-on: ${{ (matrix.arch == 'arm64' || matrix.arch == 'armhf') && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: ${{ matrix.arch == 'riscv64' && 60 || 20 }}
     strategy:
       fail-fast: false
       matrix:
         suite: [bookworm, trixie, forky, sid]
-        arch: [all]
+        arch: [amd64, i386, arm64, armhf, riscv64]
+        exclude:
+          - {suite: bookworm, arch: riscv64}   # no official riscv64 in bookworm
     steps:
       - name: Check out
         uses: actions/checkout@v5
@@ -140,17 +148,24 @@ jobs:
 
       # The shared build: debian:<suite>, build deps from debian/control, and
       # the version from the shared deb-version.py (with ~deb<R>, and ~pr<P>
-      # on a pull request). Writes the .debs to built-debs/.
+      # on a pull request). Writes the .debs to built-debs/. Only the amd64
+      # job builds the Architecture: all python3-uspiflash too; the others
+      # build only uspiflash-linux (dpkg-buildpackage -B), so no two jobs
+      # make the same file.
       - name: Build
         id: build
         uses: mithro/apt-repo-action/build-deb@main
         with:
           suite: ${{ matrix.suite }}
           arch: ${{ matrix.arch }}
+          arch-all: ${{ matrix.arch == 'amd64' }}
 
       # Install what was just built into a clean container of the same suite,
-      # with its dependencies from the Debian archive, and run it.
+      # with its dependencies from the Debian archive, and run it. Once per
+      # suite, in the amd64 job: it alone has both packages, and runs its
+      # container natively.
       - name: Install test
+        if: matrix.arch == 'amd64'
         env:
           SUITE: ${{ matrix.suite }}
           APT_SOURCES: ${{ steps.build.outputs.apt-sources }}
@@ -188,8 +203,8 @@ jobs:
     uses: mithro/apt-repo-action/.github/workflows/publish-apt.yml@main
     with:
       suites: "bookworm trixie forky sid"
-      # Pure Python: one Architecture: all deb serves every architecture.
-      architectures: "all"
+      # No `architectures:` (deprecated): each suite's Release lists the
+      # architectures its packages have.
       description: "uspiflash: tiny C libraries that detect SPI flash chips"
     secrets:
       gpg-private-key: ${{ secrets.APT_GPG_PRIVATE_KEY }}

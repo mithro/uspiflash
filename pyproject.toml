@@ -74,12 +74,15 @@ target-version = "py311"
 src = ["src", "tests", "tools", "docs", "experiments"]
 line-length = 100
 extend-exclude = ["src/uspiflash/_version.py"]
-# Each experiment's directory is a script location, not a package (INP001):
-# it has no __init__.py and is never imported by name. Every later
-# experiment adds its directory here too (see experiments/README.md).
+# Each experiment's directory, and tools/qemu, is a script location, not a
+# package (INP001): it has no __init__.py and is never imported by name.
+# Every later experiment adds its directory here too (see
+# experiments/README.md).
 namespace-packages = [
+    "docs/_ext",
     "experiments/2026-09-28-database-statistics",
     "experiments/2026-09-29-sfdp-vs-database",
+    "tools/qemu",
 ]
 
 [tool.ruff.format]
@@ -96,7 +99,7 @@ select = [
 [tool.mypy]
 # Not experiments/: every experiment's script is run.py, and mypy refuses two
 # modules of one name in a run. tests/test_research.py checks each on its own.
-files = ["src/uspiflash", "tests", "docs/conf.py"]
+files = ["src/uspiflash", "tests", "docs/conf.py", "docs/_ext", "tools/qemu"]
 mypy_path = ["src"]
 strict = true
 

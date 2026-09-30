@@ -22,3 +22,52 @@ export PYBUILD_TEST_ARGS = cd {dir} && PYTHONPATH={build_dir} {interpreter} -m p
 
 %:
 	dh $@ --with python3 --buildsystem=pybuild
+
+# uspiflash-linux (examples/linux/), the spidev tool, is built here rather
+# than by its Makefile, which builds statically and runs the generator through
+# uv. The .deb's is dynamically linked (spec amendment 13): Debian policy asks
+# a static binary for Built-Using, and ${shlibs:Depends} then names the suite's
+# libc. The compiler and hardening flags are dpkg's.
+include /usr/share/dpkg/architecture.mk
+include /usr/share/dpkg/buildflags.mk
+include /usr/share/dpkg/buildtools.mk
+
+# The tool's header: every chip type and every extra that changes the output.
+USPIFLASH_LINUX_GENERATE = --level full --type nor --type nand --with sfdp \
+    --with sfdp_dumps --with datasheet --with datasheets --with records --with provenance
+
+# One shell: make expands a whole recipe before running its first line, so
+# a $(wildcard) of .pybuild would be empty on a clean build. The header comes
+# from the generator pybuild just built.
+override_dh_auto_build:
+	dh_auto_build
+	set -e; build=$$(ls -d .pybuild/cpython3_*/build | head -n 1); \
+	mkdir -p debian/tmp-linux; \
+	PYTHONPATH=$$build python3 -m uspiflash.cli generate \
+	    -o debian/tmp-linux/uspiflash.h $(USPIFLASH_LINUX_GENERATE); \
+	version=$$(PYTHONPATH=$$build python3 -m uspiflash.cli --version); \
+	$(CC) $(CPPFLAGS) $(CFLAGS) -std=c99 -Wall -Wextra -Wpedantic -Wundef -Wshadow \
+	    -Werror -D_DEFAULT_SOURCE "-DUSPIFLASH_LINUX_VERSION=\"$$version\"" \
+	    -Idebian/tmp-linux $(LDFLAGS) -o debian/tmp-linux/uspiflash-linux \
+	    examples/linux/uspiflash-linux.c
+
+# Two binary packages: the Python one is installed by pybuild, explicitly into
+# its own package's tree, and the tool by hand.
+override_dh_auto_install:
+	dh_auto_install --destdir=debian/python3-uspiflash
+	install -D -m0755 debian/tmp-linux/uspiflash-linux \
+	    debian/uspiflash-linux/usr/bin/uspiflash-linux
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf debian/tmp-linux
+
+# riscv64 is always built under QEMU user emulation, and the shared build-deb
+# action passes no DEB_BUILD_OPTIONS=nocheck, so the rules skip the tests
+# (apt-repo-action's docs/packaging.md, "Builds": nocheck is allowed for
+# emulated architectures). Every other architecture builds natively and runs
+# the whole suite.
+ifeq ($(DEB_HOST_ARCH),riscv64)
+override_dh_auto_test:
+	@echo "riscv64: tests skipped (emulated build)"
+endif

@@ -89,14 +89,19 @@ def impl_source(config: Config) -> str:
 
 
 def undefined_symbols(obj: Path) -> list[str]:
-    """The symbols ``obj`` needs from elsewhere (``nm -u``, names only)."""
+    """The symbols ``obj`` needs from elsewhere (``nm -u``, names only).
+
+    ``_GLOBAL_OFFSET_TABLE_`` is left out: the linker defines it, and i386's
+    position-independent code (Debian's gcc defaults to PIE) refers to it to
+    find its data, so an i386 object "needs" it without needing any library.
+    """
     res = subprocess.run(
         ["nm", "-u", "--format=just-symbols", str(obj)],
         capture_output=True,
         text=True,
         check=True,
     )
-    return res.stdout.split()
+    return [s for s in res.stdout.split() if s != "_GLOBAL_OFFSET_TABLE_"]
 
 
 def name(config: Config) -> str:

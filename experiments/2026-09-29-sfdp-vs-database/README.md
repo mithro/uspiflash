@@ -77,9 +77,9 @@ byte-identical results.
   decoder warning.
 
 **Two findings.** In two places the database claims an erase size the
-chip's own SFDP does not list. These are findings only: nothing has been
-reported upstream, and whether to report them is the maintainer's
-decision.
+chip's own SFDP does not list. These are findings only. With the
+maintainer's approval, both were filed upstream as
+[`mithro/spiflash#22`](https://github.com/mithro/spiflash/issues/22).
 
 - **`20ba19`, a 32 KiB erase.** QEMU's dump, for N25Q256A13 and N25Q256A,
   gives two erase types: 4 KiB (`0x20`) and 64 KiB (`0xd8`). The database

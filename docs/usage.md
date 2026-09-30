@@ -42,33 +42,32 @@ Options:
 ### Levels
 
 Each level is a fixed set of fields, from bus probing up to the full JSON
-printer:
+printer. This table (and the Extras one below) is generated straight from
+`uspiflash.levels` (the `{fields}` Sphinx directive, `docs/_ext/fields_table.py`),
+so it cannot drift from the code:
 
-| Level | Adds |
-|---|---|
-| `id` | probe the bus; which chip (ids, family, type, JEP106 bank) |
-| `read` | size, features, id/read/mode operations, extended-id narrowing |
-| `write` | page and sector size, every operation (program, erase, registers) |
-| `describe` | voltage, manufacturer and part names, operation names/descriptions, the text printer (`usf_print`) with its `sfdp:` lines |
-| `full` | which sources say what, where they disagree, the JSON printer |
+```{fields} levels
+```
 
-### Extras (`--with`)
+Without `--type`, `generate` keeps only SPI NOR chips (as if given
+`--type nor`); `--type nor --type nand` keeps every chip, NAND included
+(amendment 12). This holds at every level, from `id` up.
 
-| Extra | Adds |
-|---|---|
-| `records` | each upstream entry's source, raw name and extended id |
-| `provenance` | each entry's upstream file:line |
-| `datasheet` | the best datasheet's URL, the text output's `datasheet:` line |
-| `datasheets` | every datasheet, as the JSON lists them |
-| `jep106` | every JEP106 manufacturer name |
-| `sfdp` | read the chip's own SFDP tables over the bus and decode the Basic Flash Parameter Table (`usf_sfdp_read`); on `cortex-m0` at `-Os` this adds about 710 bytes to `id` or `read`, for SPI NOR |
-| `sfdp_summary` | the text output's `sfdp:` lines for the database's SFDP dumps, in `describe` and `full`; printed only by `usf_print` (see `uspiflash.layout.stores_sfdp_lines`) |
-| `sfdp_dumps` | the database's SFDP dumps, decoded, as the JSON's `"sfdp"` list; on `cortex-m0` at `-Os` this adds about 19.6 KB to `full`, for SPI NOR |
+### Extras
 
-Conflicts (`conflicts`) are only ever printed, so selecting it without a
-printer (`text` or `json`) adds nothing to the file. The exact costs of
-every configuration, on every measured target, are in
-[Sizes](sizes.md).
+Beyond a level, `--with FIELD` adds one of these:
+
+```{fields} extras
+```
+
+`conflicts` and `sfdp_summary` (in the Levels table above) are only ever
+printed, so selecting either without a printer (`text` or `json`) adds
+nothing to the file. Two extras cost the most: on `cortex-m0` at `-Os`
+(clang), `sfdp` adds about 710 bytes to `id` or `read`, and `sfdp_dumps`
+about 19.6 KB to `full`, for SPI NOR (from `sizes/README.md`: `id:nor`
+4,142 and `id+sfdp:nor` 4,852 bytes; `full:nor` 54,547 and
+`full+sfdp_dumps:nor` 74,125). The exact costs of every configuration,
+on every measured target, are in [Sizes](sizes.md).
 
 ### Chip filters and `--prefix`
 

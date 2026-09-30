@@ -1,6 +1,7 @@
 #!/bin/sh
 # Run by deb.yml's "Install test" in a clean debian:<suite> container after
-# installing the built python3-uspiflash (and python3-spiflash from its repo).
+# installing the built python3-uspiflash and uspiflash-linux (and python3-spiflash
+# from its repo). Only the amd64 job runs it: it alone has both packages.
 set -eu
 uspiflash --version
 uspiflash --version | grep -q '(spiflash '
@@ -15,3 +16,9 @@ for h in nor all; do
         gcc -std=c99 -Wall -Wextra -Wpedantic -Wundef -Werror "$opt" -c "$h.c"
     done
 done
+# uspiflash-linux: its version, and offline lookups (no spidev device needed):
+# a NOR chip with its commands, a NAND chip, and an unknown id (exit 1).
+uspiflash-linux --version | grep -q '^uspiflash-linux: uspiflash '
+uspiflash-linux id ef4018 --opcodes | grep -q '0x6b  READ_1_1_4'
+uspiflash-linux id c8b148 | grep -q '(nand)'
+if uspiflash-linux id ee7777; then exit 1; fi
