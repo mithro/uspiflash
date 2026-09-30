@@ -4,11 +4,14 @@ entry measured on every :data:`~uspiflash.measure.TARGETS` entry, and
 quotes two figures from it, between markers that ``--write`` rewrites.
 
 The ledger holds only what determines the numbers: the spiflash version,
-each configuration's selection, each compiler's version line and each
-target's flags. It has no timestamp, host name or uspiflash version, so measuring the
-same inputs with the same tools writes the same bytes, and
-``uspiflash measure --check`` can compare a fresh measurement with the
-committed one byte for byte.
+each configuration's selection, each compiler's and linker's version line,
+and each target's flags. It has no timestamp, host name or uspiflash
+version, so measuring the same inputs with the same tools writes the same
+bytes, and ``uspiflash measure --check`` can compare a fresh measurement
+with the committed one byte for byte.
+
+The linked figure also depends on the target's link flags, which the
+ledger does not yet record.
 
 Tool versions come first: the numbers are only reproducible with the tools
 that made them, so :func:`check` compares the installed tools' version lines
