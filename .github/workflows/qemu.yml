@@ -58,13 +58,14 @@ jobs:
         if: steps.cache.outputs.cache-hit == 'true'
         run: docker load --input tmp/qemu-image.tar
 
-      # Only this test, so the coverage gate is left out; the basetemp stays
-      # in tmp/, as the default addopts has it.
+      # Only the QEMU test (test_qemu.py's unit tests run in deb.yml's
+      # suite), so the coverage gate is left out; the basetemp stays in tmp/,
+      # as the default addopts has it.
       - name: uspiflash-linux under QEMU
         env:
           USPIFLASH_QEMU: "1"
         run: >-
-          uv run pytest tests/test_qemu.py -v -ra
+          uv run pytest tests/test_qemu.py::test_tool_in_qemu_describes_the_emulated_flash -v -ra
           -o addopts="--basetemp=tmp/pytest" --junitxml=tmp/qemu-junit.xml
 
       # A skip (say, of the parity marker) must not pass for a result.
