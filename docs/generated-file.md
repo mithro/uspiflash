@@ -20,7 +20,7 @@ without a field simply has no such declaration to warn about).
 | `usf_chip` | `id` | One answer: which entry (a chip id, or an extended-id variant of it) and the chip id it belongs to. Filled by `usf_lookup()` and `usf_probe()`; four bytes of RAM. |
 | `usf_putc_fn` | `id` | A character sink: every string the library writes leaves through one of these, one character at a time, so no buffer is ever needed. |
 | `usf_op` | `read` (`USF_HAVE_OPERATIONS`) | One operation the chip supports and the transaction it is on the bus: `id`, `opcode`, `kind`, `protocol`, `address_bytes`, `dummy_clocks`, `data`, `data_bytes`, `sources`. |
-| `usf_bus`, `usf_xfer_fn` | `id` (`USF_HAVE_PROBE`) | The default transport: a function pointer (`usf_xfer_fn`) and a context pointer. Only exist when you have not defined `USF_XFER` yourself (see [Macros](#macros)). |
+| `usf_bus`, `usf_xfer_fn` | `id` (`USF_HAVE_PROBE`) | The transport. By default `struct usf_bus` is a function pointer (`usf_xfer_fn`) and a context pointer; when you define `USF_XFER` yourself, neither that definition nor `usf_xfer_fn` exists, and `struct usf_bus` is yours to define (see [Macros](#macros)). The `usf_bus` typedef (of `struct usf_bus`) always exists. |
 | `usf_probe_result` | `id` (`USF_HAVE_PROBE`) | What `usf_probe()` found: which command answered (`family`), the raw bytes (`id[USF_RDID_LEN]`), and up to `USF_LOOKUP_MAX` looked-up `usf_chip` answers (`chip[]`, `count` of them). |
 | `usf_sfdp` | `sfdp` extra (`USF_HAVE_SFDP`) | The chip's own SFDP (JESD216) Basic Flash Parameter Table, decoded as `spiflash.sfdp` decodes it: size, page size, revision, erase types and opcodes, fast-read modes, 4-byte addressing entry/exit ways, and more. |
 
@@ -63,7 +63,8 @@ Whatever you define (`USF_XFER`, `USF_DELAY_US`, `USF_ROM`, `USF_NO_STDINT`)
 must be the same in every file that includes this one.
 
 Beyond these, the header's provenance comment (`@@CONFIG@@` in the
-template) generates one `USF_HAVE_<FIELD>` per {fields} entry above, the
+template) generates one `USF_HAVE_<FIELD>` per field in the
+[Levels](usage.md#levels) and [Extras](usage.md#extras) tables, the
 table sizes and row counts, and a name for every family, type, feature,
 source, operation kind, protocol and operation the selected chips use
 (`USF_FAMILY_*`, `USF_TYPE_*`, `USF_FEATURE_*`, `USF_SOURCE_*`,

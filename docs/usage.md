@@ -62,8 +62,12 @@ Beyond a level, `--with FIELD` adds one of these:
 
 `conflicts` and `sfdp_summary` (in the Levels table above) are only ever
 printed, so selecting either without a printer (`text` or `json`) adds
-nothing to the file. The exact costs of every configuration, on every
-measured target, are in [Sizes](sizes.md).
+nothing to the file. Two extras cost the most: on `cortex-m0` at `-Os`
+(clang), `sfdp` adds about 710 bytes to `id` or `read`, and `sfdp_dumps`
+about 19.6 KB to `full`, for SPI NOR (from `sizes/README.md`: `id:nor`
+4,142 and `id+sfdp:nor` 4,852 bytes; `full:nor` 54,547 and
+`full+sfdp_dumps:nor` 74,125). The exact costs of every configuration,
+on every measured target, are in [Sizes](sizes.md).
 
 ### Chip filters and `--prefix`
 
