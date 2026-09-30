@@ -33,7 +33,7 @@ extern "C" {
  * Where the tables live. Nothing by default; define as __code for SDCC on
  * the 8051 so they stay in program memory, and on AVR as a flash address
  * space (avr-gcc's __flash, in GNU C): there plain const data is copied to
- * RAM at startup. SDCC's 8051 port is measured with -DUSF_ROM=__code.
+ * RAM at startup. SDCC's 8051 port is measured with USF_ROM as __code.
  *
  * On 16-bit targets (AVR, msp430, the 8051) the levels id to full fit, as
  * long as the part has the flash (full is about 59 KB of code and tables);
