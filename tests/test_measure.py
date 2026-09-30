@@ -240,6 +240,19 @@ def test_the_ledger_is_deterministic(tmp_path: Path, small: list[Target]) -> Non
     assert data["configs"][0]["config"] == ID.to_json()
 
 
+def test_a_native_target_refuses_a_wrong_default_machine(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A target with no ``target_flags`` (a compiler's default CPU) must be
+    what its compiler actually builds for by default here, else ``build``
+    would silently measure host-CPU code under the wrong target name (as
+    happens for the ``x86_64`` target on an i386 or arm64 host)."""
+    target = Target("x86_64", "gcc", link_flags=("-no-pie",))
+    monkeypatch.setattr(measure, "default_machine", lambda _compiler: "i686")
+    with pytest.raises(MeasureError, match="gcc builds for i686 by default"):
+        ledger.build(tmp_path, configs=(("id", ID),), targets=(target,))
+
+
 def test_write_then_check_passes(
     tmp_path: Path, small: list[Target], capsys: pytest.CaptureFixture[str]
 ) -> None:

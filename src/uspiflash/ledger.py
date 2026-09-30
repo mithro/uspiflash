@@ -98,9 +98,20 @@ def build(
 ) -> dict[str, Any]:
     """Measure every configuration on every target (by default,
     :data:`~uspiflash.measure.CONFIGS` and :data:`~uspiflash.measure.TARGETS`),
-    with scratch files in ``workdir``."""
+    with scratch files in ``workdir``.
+
+    Refuses a native target (no ``target_flags``) whose compiler does not
+    default to building for the CPU it is named for: on an i386 or arm64
+    host, that would silently record host-CPU code under the wrong
+    target's name."""
     configs = measure.CONFIGS if configs is None else configs
     targets = measure.TARGETS if targets is None else targets
+    for t in targets:
+        if not t.target_flags:
+            machine = measure.default_machine(t.compiler)
+            if machine != t.name:
+                msg = f"{t.name}: {t.compiler} builds for {machine} by default"
+                raise measure.MeasureError(msg)
     versions = {name: measure.version(name) for name in tools(targets)}
     sizes = {
         t.name: {
