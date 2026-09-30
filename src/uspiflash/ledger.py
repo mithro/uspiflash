@@ -52,7 +52,7 @@ REGENERATE = "uv run python -m uspiflash.sandbox -- uv run uspiflash measure --w
 #: RELEASING.md says how to bump it.
 IMAGE = "debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674"
 #: The Debian packages the image needs for :data:`~uspiflash.measure.TARGETS`.
-PACKAGES = ("clang-19", "gcc", "libc6-dev")
+PACKAGES = ("clang-19", "lld-19", "gcc", "libc6-dev")
 #: The snapshot.debian.org timestamp the packages are installed from, so the
 #: tools are the same whatever the live trixie mirror holds today. It is the
 #: snapshot the image itself was built from, and its clang-19 and gcc are
@@ -78,8 +78,10 @@ def _options(config: Config) -> list[str]:
 
 
 def tools(targets: Sequence[Target]) -> list[str]:
-    """Every compiler measuring ``targets`` needs, sorted."""
-    return sorted({t.compiler for t in targets})
+    """Every compiler and linker measuring ``targets`` needs, sorted."""
+    names = {t.compiler for t in targets}
+    names |= {n for t in targets if (n := measure.linker(t)) is not None}
+    return sorted(names)
 
 
 def build(
@@ -122,12 +124,17 @@ def dumps(ledger: dict[str, Any]) -> str:
 
 
 def _table(ledger: dict[str, Any], target: str) -> list[str]:
-    rows = ["| Configuration | text | rodata | total | stack |", "|---|--:|--:|--:|--:|"]
+    rows = [
+        "| Configuration | text | rodata | total | linked | stack |",
+        "|---|--:|--:|--:|--:|--:|",
+    ]
     for c in ledger["configs"]:
         s = ledger["sizes"][target][c["name"]]
         stack = f"{s['stack']['peak']:,}" if s.get("stack") else "-"
+        linked = f"{s['linked']:,}" if s.get("linked") is not None else "-"
         rows.append(
-            f"| `{c['name']}` | {s['text']:,} | {s['rodata']:,} | **{s['total']:,}** | {stack} |"
+            f"| `{c['name']}` | {s['text']:,} | {s['rodata']:,} | **{s['total']:,}** "
+            f"| {linked} | {stack} |"
         )
     return rows
 
@@ -170,8 +177,10 @@ def readme(ledger: dict[str, Any]) -> str:
         "measurement refuses otherwise), so the library needs no RAM beyond its stack;",
         "and no object has an undefined symbol (the object's undefined symbols are",
         "none, or the measurement fails), so it calls no libc function and no compiler",
-        "helper. Linking can add alignment. `ledger.json` lists every allocated section",
-        "of every object.",
+        "helper. **linked** is the implementation linked on its own (every public",
+        "function kept, no C library): it adds alignment, pools and veneers, and",
+        "merges duplicate strings, so it can come out smaller. `ledger.json` lists",
+        "every allocated section of every object.",
         "",
         "**stack** is the deepest path through the library's call graph, in",
         "bytes: each function's frame as the compiler reports it",

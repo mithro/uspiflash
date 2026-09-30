@@ -234,7 +234,7 @@ release's clang or gcc). To move them:
      echo "Acquire::Check-Valid-Until \"false\";" > /etc/apt/apt.conf.d/99snapshot
      apt-get update -q
      apt-get install -y -q --no-install-recommends \
-       clang-19 gcc libc6-dev python3 ca-certificates git curl
+       clang-19 lld-19 gcc libc6-dev python3 ca-certificates git curl
      curl -LsSf https://astral.sh/uv/install.sh | sh
      git config --global --add safe.directory /w
      ~/.local/bin/uv run --locked uspiflash measure --write

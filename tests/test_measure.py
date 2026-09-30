@@ -19,14 +19,14 @@ ID = Config(Selection.make("id"))
 
 
 def available(target: Target) -> bool:
-    """Whether ``target``'s compiler is installed."""
-    return measure.find_tool(target.compiler) is not None
+    """Whether ``target`` can be measured here (:func:`uspiflash.measure.usable`)."""
+    return measure.usable(target)
 
 
 @pytest.mark.parametrize("target", TARGETS, ids=lambda t: t.name)
 def test_id_measures_code_and_tables_and_no_ram(tmp_path: Path, target: Target) -> None:
     if not available(target):
-        pytest.skip(f"{target.compiler} not installed")
+        pytest.skip(f"{target.name} cannot be measured here")
     sizes = measure.measure(ID, target, tmp_path)
     assert sizes.text > 0
     assert sizes.rodata > 0
@@ -82,7 +82,7 @@ def test_every_allocated_read_only_section_is_in_total(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: Target
 ) -> None:
     if not available(target):
-        pytest.skip(f"{target.compiler} not installed")
+        pytest.skip(f"{target.name} cannot be measured here")
     monkeypatch.setattr(emit, "render", lambda _c: FLASHY)
     sizes = measure.measure(ID, target, tmp_path)
     assert sizes.sections["rodata"][".flashy"] == 7
@@ -125,6 +125,10 @@ def test_version_is_the_line_naming_the_version(
     fake = {
         "llvm-readobj": "llvm-readobj-19\nDebian LLVM version 19.1.7\n  Optimized build.\n",
         "gcc": "gcc (Debian 14.2.0-19) 14.2.0\nCopyright (C) 2024\n",
+        "ld": (
+            "GNU ld (GNU Binutils for Debian) 2.44\nCopyright (C) 2025\n"
+            "the GNU General Public License version 3 or later.\n"
+        ),
     }
     for name, text in fake.items():
         exe = tmp_path / name
@@ -136,6 +140,7 @@ def test_version_is_the_line_naming_the_version(
     monkeypatch.setenv("PATH", str(tmp_path))
     assert measure.version("llvm-readobj") == "Debian LLVM version 19.1.7"
     assert measure.version("gcc") == "gcc (Debian 14.2.0-19) 14.2.0"
+    assert measure.version("ld") == "GNU ld (GNU Binutils for Debian) 2.44"
     with pytest.raises(MeasureError, match="clang --version failed:\nbroken"):
         measure.version("clang")
 
@@ -143,7 +148,7 @@ def test_version_is_the_line_naming_the_version(
 def _host() -> Target:
     target = next(t for t in TARGETS if t.name == "x86_64")
     if not available(target):
-        pytest.skip("gcc not installed")
+        pytest.skip("x86_64 cannot be measured here")
     return target
 
 
@@ -161,7 +166,7 @@ def test_an_undefined_symbol_is_refused(
     """Links nothing: a call out of the library fails measuring, on every
     target."""
     if not available(target):
-        pytest.skip(f"{target.compiler} not installed")
+        pytest.skip(f"{target.name} cannot be measured here")
     code = "int usf_ext(int x);\nint usf_f(int x);\nint usf_f(int x) { return usf_ext(x); }\n"
     monkeypatch.setattr(emit, "render", lambda _c: code)
     with pytest.raises(MeasureError, match=f"{target.name}: .* from elsewhere: usf_ext"):
@@ -171,7 +176,7 @@ def test_an_undefined_symbol_is_refused(
 def test_a_compiler_helper_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     target = next(t for t in TARGETS if t.name == "cortex-m0")
     if not available(target):
-        pytest.skip("clang not installed")
+        pytest.skip("cortex-m0 cannot be measured here")
     code = (
         "unsigned usf_div(unsigned a, unsigned b);\n"
         "unsigned usf_div(unsigned a, unsigned b) { return a / b; }\n"
@@ -216,7 +221,7 @@ def small(monkeypatch: pytest.MonkeyPatch) -> list[Target]:
     """Measure only ``id``, on the targets whose tools are installed."""
     targets = [t for t in TARGETS if available(t)]
     if not targets:
-        pytest.skip("no target's compiler installed")
+        pytest.skip("no target can be measured here")
     monkeypatch.setattr(measure, "CONFIGS", (("id", ID),))
     monkeypatch.setattr(measure, "TARGETS", tuple(targets))
     return targets
@@ -229,7 +234,7 @@ def test_the_ledger_is_deterministic(tmp_path: Path, small: list[Target]) -> Non
     assert first.endswith("}\n")
     data = json.loads(first)
     assert [t["name"] for t in data["targets"]] == [t.name for t in small]
-    assert set(data["tools"]) == {t.compiler for t in small}
+    assert set(data["tools"]) == set(ledger.tools(small))
     # Every type (the library's default) is spelt out: ``generate`` alone keeps SPI NOR.
     assert data["configs"][0]["options"] == ["--level", "id", "--type", "nor", "--type", "nand"]
     assert data["configs"][0]["config"] == ID.to_json()

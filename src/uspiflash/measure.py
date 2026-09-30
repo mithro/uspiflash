@@ -84,6 +84,10 @@ class Target:
     #: Whether the compiler takes ``-fstack-usage`` (clang 13 and later, every
     #: GCC in the inventory).
     stack: bool = True
+    #: The flags that link for this target: ``-fuse-ld=lld`` for clang,
+    #: ``-no-pie`` for a Linux host; ``None`` where no linker is packaged
+    #: with the compiler (msp430, AVR with clang, SDCC).
+    link_flags: tuple[str, ...] | None = ()
 
     @property
     def flags(self) -> tuple[str, ...]:
@@ -92,10 +96,22 @@ class Target:
 
 
 #: The measured targets.
+#: clang links with LLVM's linker; the x86_64 image is static and not
+#: position-independent (Debian's gcc defaults to PIE).
 TARGETS: tuple[Target, ...] = (
-    Target("cortex-m0", "clang", ("--target=thumbv6m-none-eabi", "-mcpu=cortex-m0", "-mthumb")),
-    Target("rv32imc", "clang", ("--target=riscv32-unknown-elf", "-march=rv32imc", "-mabi=ilp32")),
-    Target("x86_64", "gcc"),
+    Target(
+        "cortex-m0",
+        "clang",
+        ("--target=thumbv6m-none-eabi", "-mcpu=cortex-m0", "-mthumb"),
+        link_flags=("-fuse-ld=lld",),
+    ),
+    Target(
+        "rv32imc",
+        "clang",
+        ("--target=riscv32-unknown-elf", "-march=rv32imc", "-mabi=ilp32"),
+        link_flags=("-fuse-ld=lld",),
+    ),
+    Target("x86_64", "gcc", link_flags=("-no-pie",)),
 )
 
 
@@ -179,6 +195,8 @@ class Sizes:
     symbols: Mapping[str, int] = field(default_factory=dict)
     #: The stack, where the compiler reports frames (``Target.stack``).
     stack: Stack | None = None
+    #: The linked image's allocated bytes (:func:`linked`).
+    linked: int | None = None
 
     def _sum(self, k: str) -> int:
         return sum(self.sections.get(k, {}).values())
@@ -220,6 +238,7 @@ class Sizes:
             "sections": {k: dict(v) for k, v in self.sections.items() if v},
             "symbols": dict(sorted(self.symbols.items())),
             "stack": self.stack.to_json() if self.stack else None,
+            "linked": self.linked,
         }
 
 
@@ -253,15 +272,16 @@ def tool(name: str) -> str:
 
 def version(name: str) -> str:
     """The version line of tool ``name``'s ``--version``: the first line
-    containing ``version`` (clang's and LLVM's), else the first line
-    (gcc's). It names the build exactly, e.g. ``Debian clang version 19.1.7
-    (3+b1)``."""
+    holding a dotted version number, else the first line. It names the
+    build exactly: gcc's first line, clang's ``Debian clang version 19.1.7
+    (3+b1)``, GNU ld's ``GNU ld (GNU Binutils for Debian) 2.44``, lld's
+    ``Debian LLD 19.1.7 (compatible with GNU linkers)``."""
     res = subprocess.run([tool(name), "--version"], capture_output=True, text=True, check=False)
     lines = [line.strip() for line in res.stdout.splitlines() if line.strip()]
     if res.returncode != 0 or not lines:
         msg = f"{name} --version failed:\n{res.stderr}"
         raise MeasureError(msg)
-    return next((line for line in lines if re.search(r"\bversion\b", line)), lines[0])
+    return next((line for line in lines if re.search(r"\d+\.\d+", line)), lines[0])
 
 
 def _read(obj: Path) -> elf.Elf:
@@ -391,6 +411,106 @@ def stack_of(obj: elf.Elf, su: Path) -> Stack:
     return Stack(frames, peak, path)
 
 
+def default_machine(compiler: str) -> str:
+    """The CPU part of the triple ``compiler`` builds for by default
+    (``<compiler> -dumpmachine``: ``x86_64`` from ``x86_64-linux-gnu``,
+    ``i686`` from ``i686-linux-gnu``); ``""`` if it cannot say."""
+    res = subprocess.run(
+        [tool(compiler), "-dumpmachine"], capture_output=True, text=True, check=False
+    )
+    return res.stdout.strip().split("-", 1)[0] if res.returncode == 0 else ""
+
+
+def can_link(target: Target) -> bool:
+    """Whether :func:`linked` can link for ``target``: always without a
+    linker (``link_flags`` ``None``) or with the compiler's own (GCC's
+    binutils); with ``-fuse-ld=lld``, when the compiler finds an
+    ``ld.lld`` (``-print-prog-name`` prints a bare name when it finds
+    none)."""
+    if target.link_flags is None or "-fuse-ld=lld" not in target.link_flags:
+        return True
+    res = subprocess.run(
+        [tool(target.compiler), "-print-prog-name=ld.lld"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    path = Path(res.stdout.strip())
+    return res.returncode == 0 and path.is_absolute() and path.is_file()
+
+
+def usable(target: Target) -> bool:
+    """Whether ``target`` can be measured on this machine: its compiler is
+    installed, :func:`can_link` holds, and a target without target flags
+    (a compiler's default CPU: the ``x86_64`` reference target) is what
+    that compiler builds for by default. The machine's own CPU does not
+    decide it: Debian's i386 package build runs on an x86_64 kernel
+    (``platform.machine()`` says ``x86_64``) with a gcc that builds for
+    ``i686``."""
+    if find_tool(target.compiler) is None:
+        return False
+    if not target.target_flags and default_machine(target.compiler) != target.name:
+        return False
+    return can_link(target)
+
+
+def linker(target: Target) -> str | None:
+    """The linker :func:`linked` uses for ``target``: ``ld.lld`` with
+    ``-fuse-ld=lld``, else the compiler's own (``-print-prog-name=ld``:
+    ``ld`` for a native gcc, a full path for a cross one); ``None``
+    without one."""
+    if target.link_flags is None:
+        return None
+    if "-fuse-ld=lld" in target.link_flags:
+        return "ld.lld"
+    res = subprocess.run(
+        [tool(target.compiler), "-print-prog-name=ld"], capture_output=True, text=True, check=False
+    )
+    return res.stdout.strip() or "ld"
+
+
+def linked(target: Target, obj: Path) -> int | None:
+    """The linked-image cost (spec §7.1): ``obj`` linked on its own, every
+    public function kept, with no C library, no start files, unused
+    sections removed and no build id. It counts what an object's sections
+    miss: alignment between sections, and the literal pools and veneers
+    a linker adds. It also merges duplicate strings and unwind entries, so
+    it can be smaller than the object. ``None`` when ``target`` has no
+    linker (``link_flags`` is ``None``)."""
+    if target.link_flags is None:
+        return None
+    keep = sorted(
+        s.name
+        for s in _read(obj).symbols
+        if s.defined and s.type == elf.STT_FUNC and s.bind != elf.STB_LOCAL
+    )
+    exe = obj.with_suffix(".elf")
+    cmd = [
+        tool(target.compiler),
+        *target.target_flags,
+        *target.link_flags,
+        "-nostdlib",
+        "-nostartfiles",
+        "-static",
+        "-Wl,--gc-sections",
+        "-Wl,--build-id=none",
+        f"-Wl,-e,{keep[0]}",
+        *(f"-Wl,-u,{name}" for name in keep),
+        str(obj),
+        "-o",
+        str(exe),
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=obj.parent)
+    if res.returncode != 0:
+        msg = f"{' '.join(cmd)} failed:\n{res.stderr}"
+        raise MeasureError(msg)
+    sizes = section_sizes(exe)
+    if sizes.data or sizes.bss:
+        msg = f"{target.name}: the linked image has writable data ({sizes.data + sizes.bss} bytes)"
+        raise MeasureError(msg)
+    return sizes.total
+
+
 def compile_command(target: Target, source: Path, obj: Path) -> list[str]:
     """The command that compiles ``source`` to ``obj`` for ``target``."""
     return [tool(target.compiler), *target.flags, "-c", str(source), "-o", str(obj)]
@@ -425,4 +545,4 @@ def measure(config: Config, target: Target, workdir: Path) -> Sizes:
         msg = f"{target.name}: the library needs symbols from elsewhere: {', '.join(needed)}"
         raise MeasureError(msg)
     stack = stack_of(e, obj.with_suffix(".su")) if target.stack else None
-    return replace(sizes, symbols=e.defined_sizes(), stack=stack)
+    return replace(sizes, symbols=e.defined_sizes(), stack=stack, linked=linked(target, obj))

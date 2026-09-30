@@ -68,8 +68,8 @@ def test_a_function_without_a_frame_is_refused() -> None:
 
 @pytest.mark.parametrize("target", TARGETS, ids=lambda t: t.name)
 def test_measured_objects_have_a_stack_and_symbols(tmp_path: Path, target: Target) -> None:
-    if measure.find_tool(target.compiler) is None:
-        pytest.skip(f"{target.compiler} not installed")
+    if not measure.usable(target):
+        pytest.skip(f"{target.name} cannot be measured here")
     sizes = measure.measure(Config(Selection.make("id")), target, tmp_path)
     assert sizes.stack is not None
     assert sizes.stack.path[0] in {"usf_probe", "usf_lookup", "usf_id"}

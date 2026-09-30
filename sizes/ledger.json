@@ -950,6 +950,7 @@
   "image": "debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674",
   "packages": [
    "clang-19",
+   "lld-19",
    "gcc",
    "libc6-dev"
   ],
@@ -961,6 +962,7 @@
    "describe": {
     "bss": 0,
     "data": 0,
+    "linked": 44464,
     "rodata": 40565,
     "sections": {
      "rodata": {
@@ -1132,6 +1134,7 @@
    "describe:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 40124,
     "rodata": 36428,
     "sections": {
      "rodata": {
@@ -1303,6 +1306,7 @@
    "full": {
     "bss": 0,
     "data": 0,
+    "linked": 58992,
     "rodata": 51699,
     "sections": {
      "rodata": {
@@ -1526,6 +1530,7 @@
    "full+datasheet": {
     "bss": 0,
     "data": 0,
+    "linked": 106574,
     "rodata": 99082,
     "sections": {
      "rodata": {
@@ -1753,6 +1758,7 @@
    "full+datasheets": {
     "bss": 0,
     "data": 0,
+    "linked": 175140,
     "rodata": 166776,
     "sections": {
      "rodata": {
@@ -1980,6 +1986,7 @@
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
+    "linked": 210542,
     "rodata": 202279,
     "sections": {
      "rodata": {
@@ -2211,6 +2218,7 @@
    "full+sfdp+sfdp_dumps": {
     "bss": 0,
     "data": 0,
+    "linked": 79265,
     "rodata": 70711,
     "sections": {
      "rodata": {
@@ -2446,6 +2454,7 @@
    "full+sfdp_dumps:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 73853,
     "rodata": 66159,
     "sections": {
      "rodata": {
@@ -2671,6 +2680,7 @@
    "full-sfdp_summary:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 53388,
     "rodata": 46436,
     "sections": {
      "rodata": {
@@ -2890,6 +2900,7 @@
    "full:nand": {
     "bss": 0,
     "data": 0,
+    "linked": 9572,
     "rodata": 5543,
     "sections": {
      "rodata": {
@@ -3065,6 +3076,7 @@
    "full:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 54276,
     "rodata": 47181,
     "sections": {
      "rodata": {
@@ -3288,6 +3300,7 @@
    "id": {
     "bss": 0,
     "data": 0,
+    "linked": 4826,
     "rodata": 3944,
     "sections": {
      "rodata": {
@@ -3346,6 +3359,7 @@
    "id+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 4798,
     "rodata": 3422,
     "sections": {
      "rodata": {
@@ -3414,6 +3428,7 @@
    "id:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 4102,
     "rodata": 3388,
     "sections": {
      "rodata": {
@@ -3472,6 +3487,7 @@
    "read": {
     "bss": 0,
     "data": 0,
+    "linked": 12727,
     "rodata": 11333,
     "sections": {
      "rodata": {
@@ -3560,6 +3576,7 @@
    "read+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 11893,
     "rodata": 10037,
     "sections": {
      "rodata": {
@@ -3658,6 +3675,7 @@
    "read:nand": {
     "bss": 0,
     "data": 0,
+    "linked": 2085,
     "rodata": 1441,
     "sections": {
      "rodata": {
@@ -3740,6 +3758,7 @@
    "read:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 11197,
     "rodata": 10003,
     "sections": {
      "rodata": {
@@ -3828,6 +3847,7 @@
    "write": {
     "bss": 0,
     "data": 0,
+    "linked": 17892,
     "rodata": 16406,
     "sections": {
      "rodata": {
@@ -3928,6 +3948,7 @@
    "write:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 16106,
     "rodata": 14820,
     "sections": {
      "rodata": {
@@ -4030,6 +4051,7 @@
    "describe": {
     "bss": 0,
     "data": 0,
+    "linked": 45634,
     "rodata": 40357,
     "sections": {
      "rodata": {
@@ -4192,6 +4214,7 @@
    "describe:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 41258,
     "rodata": 36220,
     "sections": {
      "rodata": {
@@ -4354,6 +4377,7 @@
    "full": {
     "bss": 0,
     "data": 0,
+    "linked": 60910,
     "rodata": 51403,
     "sections": {
      "rodata": {
@@ -4584,6 +4608,7 @@
    "full+datasheet": {
     "bss": 0,
     "data": 0,
+    "linked": 108646,
     "rodata": 98786,
     "sections": {
      "rodata": {
@@ -4819,6 +4844,7 @@
    "full+datasheets": {
     "bss": 0,
     "data": 0,
+    "linked": 177338,
     "rodata": 166480,
     "sections": {
      "rodata": {
@@ -5065,6 +5091,7 @@
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
+    "linked": 212722,
     "rodata": 201975,
     "sections": {
      "rodata": {
@@ -5310,6 +5337,7 @@
    "full+sfdp+sfdp_dumps": {
     "bss": 0,
     "data": 0,
+    "linked": 81483,
     "rodata": 70435,
     "sections": {
      "rodata": {
@@ -5554,6 +5582,7 @@
    "full+sfdp_dumps:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 75963,
     "rodata": 65899,
     "sections": {
      "rodata": {
@@ -5790,6 +5819,7 @@
    "full-sfdp_summary:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 55218,
     "rodata": 46140,
     "sections": {
      "rodata": {
@@ -6015,6 +6045,7 @@
    "full:nand": {
     "bss": 0,
     "data": 0,
+    "linked": 10590,
     "rodata": 5303,
     "sections": {
      "rodata": {
@@ -6191,6 +6222,7 @@
    "full:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 56160,
     "rodata": 46885,
     "sections": {
      "rodata": {
@@ -6421,6 +6453,7 @@
    "id": {
     "bss": 0,
     "data": 0,
+    "linked": 4966,
     "rodata": 3888,
     "sections": {
      "rodata": {
@@ -6472,6 +6505,7 @@
    "id+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 4956,
     "rodata": 3350,
     "sections": {
      "rodata": {
@@ -6530,6 +6564,7 @@
    "id:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 4200,
     "rodata": 3332,
     "sections": {
      "rodata": {
@@ -6580,6 +6615,7 @@
    "read": {
     "bss": 0,
     "data": 0,
+    "linked": 13017,
     "rodata": 11237,
     "sections": {
      "rodata": {
@@ -6656,6 +6692,7 @@
    "read+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 12213,
     "rodata": 9925,
     "sections": {
      "rodata": {
@@ -6740,6 +6777,7 @@
    "read:nand": {
     "bss": 0,
     "data": 0,
+    "linked": 2241,
     "rodata": 1345,
     "sections": {
      "rodata": {
@@ -6809,6 +6847,7 @@
    "read:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 11457,
     "rodata": 9907,
     "sections": {
      "rodata": {
@@ -6885,6 +6924,7 @@
    "write": {
     "bss": 0,
     "data": 0,
+    "linked": 18220,
     "rodata": 16294,
     "sections": {
      "rodata": {
@@ -6971,6 +7011,7 @@
    "write:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 16404,
     "rodata": 14708,
     "sections": {
      "rodata": {
@@ -7059,6 +7100,7 @@
    "describe": {
     "bss": 0,
     "data": 0,
+    "linked": 44400,
     "rodata": 40357,
     "sections": {
      "bss": {
@@ -7232,6 +7274,7 @@
    "describe:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 40108,
     "rodata": 36220,
     "sections": {
      "bss": {
@@ -7405,6 +7448,7 @@
    "full": {
     "bss": 0,
     "data": 0,
+    "linked": 58672,
     "rodata": 51403,
     "sections": {
      "bss": {
@@ -7635,6 +7679,7 @@
    "full+datasheet": {
     "bss": 0,
     "data": 0,
+    "linked": 106119,
     "rodata": 98786,
     "sections": {
      "bss": {
@@ -7869,6 +7914,7 @@
    "full+datasheets": {
     "bss": 0,
     "data": 0,
+    "linked": 174509,
     "rodata": 166480,
     "sections": {
      "bss": {
@@ -8112,6 +8158,7 @@
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
+    "linked": 209882,
     "rodata": 201975,
     "sections": {
      "bss": {
@@ -8352,6 +8399,7 @@
    "full+sfdp+sfdp_dumps": {
     "bss": 0,
     "data": 0,
+    "linked": 79057,
     "rodata": 70435,
     "sections": {
      "bss": {
@@ -8596,6 +8644,7 @@
    "full+sfdp_dumps:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 73558,
     "rodata": 65899,
     "sections": {
      "bss": {
@@ -8832,6 +8881,7 @@
    "full-sfdp_summary:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 53140,
     "rodata": 46140,
     "sections": {
      "bss": {
@@ -9058,6 +9108,7 @@
    "full:nand": {
     "bss": 0,
     "data": 0,
+    "linked": 9223,
     "rodata": 5303,
     "sections": {
      "bss": {
@@ -9242,6 +9293,7 @@
    "full:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 54015,
     "rodata": 46885,
     "sections": {
      "bss": {
@@ -9472,6 +9524,7 @@
    "id": {
     "bss": 0,
     "data": 0,
+    "linked": 4862,
     "rodata": 3888,
     "sections": {
      "bss": {
@@ -9535,6 +9588,7 @@
    "id+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 5005,
     "rodata": 3350,
     "sections": {
      "bss": {
@@ -9606,6 +9660,7 @@
    "id:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 4195,
     "rodata": 3332,
     "sections": {
      "bss": {
@@ -9669,6 +9724,7 @@
    "read": {
     "bss": 0,
     "data": 0,
+    "linked": 12757,
     "rodata": 11237,
     "sections": {
      "bss": {
@@ -9757,6 +9813,7 @@
    "read+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 12085,
     "rodata": 9925,
     "sections": {
      "bss": {
@@ -9853,6 +9910,7 @@
    "read:nand": {
     "bss": 0,
     "data": 0,
+    "linked": 2070,
     "rodata": 1345,
     "sections": {
      "bss": {
@@ -9932,6 +9990,7 @@
    "read:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 11275,
     "rodata": 9907,
     "sections": {
      "bss": {
@@ -10020,6 +10079,7 @@
    "write": {
     "bss": 0,
     "data": 0,
+    "linked": 17918,
     "rodata": 16294,
     "sections": {
      "bss": {
@@ -10118,6 +10178,7 @@
    "write:nor": {
     "bss": 0,
     "data": 0,
+    "linked": 16182,
     "rodata": 14708,
     "sections": {
      "bss": {
@@ -10289,6 +10350,8 @@
  ],
  "tools": {
   "clang": "Debian clang version 19.1.7 (3+b1)",
-  "gcc": "gcc (Debian 14.2.0-19) 14.2.0"
+  "gcc": "gcc (Debian 14.2.0-19) 14.2.0",
+  "ld": "GNU ld (GNU Binutils for Debian) 2.44",
+  "ld.lld": "Debian LLD 19.1.7 (compatible with GNU linkers)"
  }
 }
