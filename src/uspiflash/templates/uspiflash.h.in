@@ -314,6 +314,21 @@ typedef const USF_ROM uint8_t *usf__p;
 #endif
 #endif
 
+/*
+ * USF_SOFT_SHIFT is 1 where a 32-bit shift by a variable count calls a
+ * helper (__mspabi_srll on msp430; SDCC's ports). There, usf__human
+ * divides by 1024 one step at a time, through a function the optimiser
+ * may not merge into one variable shift. Define it as 0 or 1 to
+ * override the guess.
+ */
+#ifndef USF_SOFT_SHIFT
+#if defined(__MSP430__) || defined(__SDCC)
+#define USF_SOFT_SHIFT 1
+#else
+#define USF_SOFT_SHIFT 0
+#endif
+#endif
+
 #if USF_SOFT_MUL
 static USF__NOINLINE uint16_t usf__mul(uint16_t a, uint8_t k)
 {
@@ -852,6 +867,31 @@ static void usf__srclist(uint8_t mask, const char *sep, usf_putc_fn sink, void *
 }
 #endif
 
+#if USF_SOFT_SHIFT
+/* n >> 10, as a function of its own: see USF__NOINLINE. */
+static USF__NOINLINE uint32_t usf__shr10(uint32_t n)
+{
+    return n >> 10;
+}
+
+static void usf__human(uint32_t n, usf_putc_fn sink, void *ctx)
+{
+    static const USF_ROM char units[] = "KMG";
+    uint8_t u = 0;
+    while (u < 3 && n && !(n & 0x3FFUL)) {
+        n = usf__shr10(n);
+        u++;
+    }
+    usf__dec(n, sink, ctx);
+    if (u) {
+        sink(ctx, ' ');
+        sink(ctx, units[u - 1]);
+        usf__lit("iB", sink, ctx);
+    } else {
+        usf__lit(" B", sink, ctx);
+    }
+}
+#else
 static void usf__human(uint32_t n, usf_putc_fn sink, void *ctx)
 {
     static const USF_ROM char units[] = "GMK";
@@ -869,6 +909,7 @@ static void usf__human(uint32_t n, usf_putc_fn sink, void *ctx)
     usf__dec(n, sink, ctx);
     usf__lit(" B", sink, ctx);
 }
+#endif
 
 /* Millivolts as Python's "%g" of volts: 2700 -> 2.7, 3000 -> 3. Digit by
  * digit from usf__p10 as usf__dec does: a subtraction loop by a constant
@@ -1185,13 +1226,11 @@ static void usf__jidhex(usf__json *j, const usf_chip *c, uint8_t bank)
 /* Two decimal digits (a month or a day), without division. */
 static void usf__dec2(uint8_t v, usf_putc_fn sink, void *ctx)
 {
-    char tens = '0';
-    while (v >= 10) {
-        v = (uint8_t)(v - 10);
-        tens++;
-    }
-    sink(ctx, tens);
-    sink(ctx, (char)('0' + v));
+    /* Two digits. Not a subtract-ten loop: compilers turn that into a
+     * division (__udivsi3 on rv32i). */
+    if (v < 10)
+        sink(ctx, '0');
+    usf__dec(v, sink, ctx);
 }
 #endif
 
@@ -1638,17 +1677,20 @@ static uint32_t usf__sfdp_dw(usf_bus *bus, uint32_t addr)
         | (uint32_t)rx[3] << 24;
 }
 
-/* Per fast-read mode (USF_SFDP_READ_* order): the BFPT dword holding its
- * 16-bit settings (opcode in the high byte, mode clocks in 7:5, wait states
- * in 4:0), that half's shift, and its support bit (in DW1; for 2-2-2 and
- * 4-4-4, in DW5). */
+/* Per fast-read mode (USF_SFDP_READ_* order): the byte offset in the BFPT
+ * of its 16-bit settings (opcode in the high byte, mode clocks in 7:5, wait
+ * states in 4:0), and the byte offset and mask of its support bit (in DW1;
+ * for 2-2-2 and 4-4-4, in DW5). Byte offsets rather than bit numbers: each
+ * is read from its own address, so no 32-bit value is shifted by a
+ * variable count (a helper call on msp430 and SDCC's ports). */
 static const USF_ROM uint8_t usf__sfdp_modes[6][3] = {
-    {4, 0, 16}, {4, 16, 20}, {3, 16, 22}, {3, 0, 21}, {6, 16, 0}, {7, 16, 4},
+    {12, 2, 0x01}, {14, 2, 0x10}, {10, 2, 0x40}, {8, 2, 0x20},
+    {22, 16, 0x01}, {26, 16, 0x10},
 };
 
 uint8_t usf_sfdp_read(usf_bus *bus, usf_sfdp *out)
 {
-    uint32_t d, d1, d5, ptr = 0;
+    uint32_t d, d1, ptr = 0;
     uint16_t i, count;
     uint8_t k, len = 0, rev = 0;
 
@@ -1685,20 +1727,20 @@ uint8_t usf_sfdp_read(usf_bus *bus, usf_sfdp *out)
         d = usf__sfdp_dw(bus, ptr + 4);
         if (d >> 31) {                                  /* 2^N bits */
             d &= 0x7FFFFFFFUL;
-            if (d >= 3 && d < 35)
-                out->size = (uint32_t)1 << (d - 3);
+            if (d >= 3 && d < 35)             /* 2^(d-3) bytes, doubling */
+                for (out->size = 1; d > 3; d--)
+                    out->size += out->size;
         } else {                                        /* N + 1 bits */
             out->size = (d + 1) >> 3;
         }
     }
-    d5 = len >= 7 ? usf__sfdp_dw(bus, ptr + 16) : 0;
     out->reads = 0;
     for (k = 0; k < 6; k++) {
         const USF_ROM uint8_t *m = usf__sfdp_modes[k];
         out->read_opcode[k] = 0;
         out->read_clocks[k] = 0;
-        if (len >= 7 && ((k < 4 ? d1 : d5) >> m[2] & 1)) {
-            d = usf__sfdp_dw(bus, ptr + 4 * (uint32_t)(m[0] - 1)) >> m[1];
+        if (len >= 7 && (usf__sfdp_dw(bus, ptr + m[1]) & m[2])) {
+            d = usf__sfdp_dw(bus, ptr + m[0]);
             out->reads = (uint8_t)(out->reads | 1u << k);
             out->read_opcode[k] = (uint8_t)(d >> 8);
             out->read_clocks[k] = (uint8_t)d;
@@ -1708,7 +1750,7 @@ uint8_t usf_sfdp_read(usf_bus *bus, usf_sfdp *out)
         out->erase_log2[k] = 0;
         out->erase_opcode[k] = 0;
         if (len >= 8 + (k >> 1)) {
-            d = usf__sfdp_dw(bus, ptr + 28 + 4 * (uint32_t)(k >> 1)) >> (k & 1 ? 16 : 0);
+            d = usf__sfdp_dw(bus, ptr + 28 + 2 * (uint32_t)k);
             out->erase_log2[k] = (uint8_t)d;
             out->erase_opcode[k] = (uint8_t)d ? (uint8_t)(d >> 8) : 0;
         }

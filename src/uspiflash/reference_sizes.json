@@ -3,9 +3,9 @@
   "05305d9391d69f6648a6a92644404bfe497c682052e7655f0d83d20dd868f475": {
    "name": "full+sfdp+sfdp_dumps",
    "total": {
-    "cortex-m0": 79553,
-    "rv32imc": 81981,
-    "x86_64": 78756
+    "cortex-m0": 79505,
+    "rv32imc": 81933,
+    "x86_64": 78717
    }
   },
   "1f16111c2bd439d8be7bdacd9041608a48ec7292603481e20cefa60a416a2ac9": {
@@ -35,17 +35,17 @@
   "31175e7c3bd76ef3d41ddb8d5b9b866cf6f2e432d0f98c0f5b0fd6bac59ac826": {
    "name": "id+sfdp:nor",
    "total": {
-    "cortex-m0": 4852,
-    "rv32imc": 5070,
-    "x86_64": 4973
+    "cortex-m0": 4804,
+    "rv32imc": 5022,
+    "x86_64": 4934
    }
   },
   "480dbe9115267b8220c6d81af8d878306a42f79de9f837838ec1b86e80502f87": {
    "name": "read+sfdp:nor",
    "total": {
-    "cortex-m0": 11985,
-    "rv32imc": 12333,
-    "x86_64": 12000
+    "cortex-m0": 11937,
+    "rv32imc": 12285,
+    "x86_64": 11961
    }
   },
   "4a871a4bc7c758d86b21682da61eea757ef2e95d215ac906fec755d7a1fc18ec": {
@@ -155,9 +155,9 @@
   "ecf6c96339ba3d56e9763f46a3689f4963dac8978366112a068c7c2a7512a459": {
    "name": "full+datasheets",
    "total": {
-    "cortex-m0": 175414,
-    "rv32imc": 177820,
-    "x86_64": 174217
+    "cortex-m0": 175366,
+    "rv32imc": 177796,
+    "x86_64": 174208
    }
   }
  },

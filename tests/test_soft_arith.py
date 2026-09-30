@@ -17,8 +17,8 @@ from uspiflash.provenance import Config
 if TYPE_CHECKING:
     from pathlib import Path
 
-#: Every switch forced on (Task 8 adds USF_SOFT_SHIFT).
-SOFT = ["-DUSF_SOFT_MUL=1"]
+#: Every switch forced on.
+SOFT = ["-DUSF_SOFT_MUL=1", "-DUSF_SOFT_SHIFT=1"]
 CONFIGS = [
     Config(Selection.make("full")),
     Config(Selection.make("full", with_=["datasheets"])),

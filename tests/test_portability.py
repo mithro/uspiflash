@@ -20,9 +20,11 @@ if TYPE_CHECKING:
 
 #: The CPUs, and the LLVM backend each needs.
 PORTABLE = {"rv32i": "riscv32", "rv32ec": "riscv32", "msp430": "msp430"}
-#: Task 7: the configurations without a printer or the SFDP reader (Task 8
-#: widens this to every configuration).
-CONFIGS = [(n, c) for n, c in measure.CONFIGS if n.split(":")[0] in {"id", "read", "write"}]
+#: clang (19 and 22, 2026-09-30) crashes compiling these for msp430
+#: (issue #7); they are past what a 16-bit pointer addresses anyway (the
+#: generated file's USF_ROM comment says so).
+TOO_BIG_FOR_16_BIT = {"full+datasheet", "full+datasheets", "full+records+provenance+jep106"}
+CONFIGS = list(measure.CONFIGS)
 
 
 def backends() -> set[str]:
@@ -39,9 +41,10 @@ BACKENDS = backends()
 @pytest.mark.parametrize("cpu", sorted(PORTABLE))
 @pytest.mark.parametrize(("name", "config"), CONFIGS, ids=[n for n, _ in CONFIGS])
 def test_no_helper_is_needed(tmp_path: Path, cpu: str, name: str, config: Config) -> None:
-    del name
     if PORTABLE[cpu] not in BACKENDS:
         pytest.skip(f"clang without the {PORTABLE[cpu]} backend")
+    if cpu == "msp430" and name in TOO_BIG_FOR_16_BIT:
+        pytest.skip("past a 16-bit address space; clang crashes (issue #7)")
     # Compiling and the undefined symbols are what matter; the linker may
     # be missing (lld), and msp430 has none.
     target = replace(measure.target(cpu, "clang"), link_flags=None)
