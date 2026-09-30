@@ -110,7 +110,10 @@ def test_find_tool_prefers_the_plain_name_then_the_newest(
     assert measure.find_tool("gcc") is None
 
 
-@pytest.mark.parametrize(("name", "package"), [("clang", "clang"), ("gcc", "gcc")])
+@pytest.mark.parametrize(
+    ("name", "package"),
+    [("clang", "clang"), ("gcc", "gcc"), ("ld.lld", "lld"), ("ld", "binutils")],
+)
 def test_a_missing_tool_names_its_package(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, package: str
 ) -> None:

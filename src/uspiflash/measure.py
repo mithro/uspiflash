@@ -62,8 +62,8 @@ FLAGS = (
     "-Werror",
 )
 
-#: Each compiler's Debian package.
-_PACKAGES = {"clang": "clang", "gcc": "gcc"}
+#: Each compiler's or linker's Debian package.
+_PACKAGES = {"clang": "clang", "gcc": "gcc", "ld.lld": "lld", "ld": "binutils"}
 KINDS = ("text", "rodata", "data", "bss")
 _SHF_WRITE, _SHF_ALLOC, _SHF_EXECINSTR = 0x1, 0x2, 0x4
 _SHT_NOBITS = 8
