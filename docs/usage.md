@@ -81,6 +81,19 @@ every chip, except that no `--type` means `--type nor`.
 and must not start with `_` (C reserves those). This is the only way to
 put more than one generated file's symbols in the same program.
 
+### Size lines
+
+The generated file's provenance comment also states its measured size for
+the reference targets, quoted from the committed size ledger, when the
+ledger measured this exact selection with the spiflash version installed
+now (for example `Size (full:nor in sizes/ledger.json, spiflash 1.2.3):
+cortex-m0 54,547, rv32imc ..., x86_64 ... bytes of flash for code and
+tables at -Os, and no static RAM.`). When the selection is not one the
+ledger measures, it says so instead of claiming a size (`uspiflash
+measure` only sizes the ledger's own selections, not arbitrary ones); when
+it is in the ledger but was measured with a different spiflash than the
+one installed now, it says that instead.
+
 ## `uspiflash check`
 
 Every generated file's provenance comment embeds the exact configuration
