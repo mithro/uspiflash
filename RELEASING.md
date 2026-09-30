@@ -64,6 +64,11 @@ One source package, two binary packages:
   `examples/linux/` still builds statically by default, for use outside
   Debian.
 
+PyPI publishing waits for the whole "Debian packages" workflow, so a red
+`build-deb` leg on any suite or architecture (armhf, riscv64, sid, …)
+blocks a PyPI release too. If that becomes a problem, key
+`publish-pypi.yml` to the amd64 legs alone.
+
 ## Tags
 
 Tags are the only human input to the version. `v0.0` sits on the root commit
@@ -191,10 +196,29 @@ release's clang or gcc). To move them:
    comment): use that timestamp.
 2. Put the digest and the timestamp in the places above. The QEMU test's
    image (`tools/qemu/`) is built from the same pins, and
-   `tools/qemu/run.py` names riscv64 kernel and busybox versions from that
-   snapshot: move `KERNEL`, `KERNEL_VERSION` and `BUSYBOX_VERSION` to the
-   new snapshot's (`tools/qemu/README.md` says how to list them) and run
-   `USPIFLASH_QEMU=1 uv run pytest tests/test_qemu.py`.
+   `tools/qemu/run.py` names riscv64 kernel and busybox packages from that
+   snapshot, with their .debs' sha256s (the Dockerfile checks them): move
+   `KERNEL`, `KERNEL_VERSION`, `KERNEL_SHA256`, `BUSYBOX_VERSION` and
+   `BUSYBOX_SHA256` to the new snapshot's, and update the Pins table in
+   `tools/qemu/README.md` (with the amd64 package versions it lists). To
+   list the versions and get the sha256s, in the new image, with the new
+   timestamp and the versions `apt-cache policy` shows:
+
+   ```sh
+   docker run --rm debian:trixie@sha256:<digest> bash -ec '
+     rm -f /etc/apt/sources.list.d/debian.sources
+     echo "deb http://snapshot.debian.org/archive/debian/<timestamp>/ trixie main" > /etc/apt/sources.list
+     echo "Acquire::Check-Valid-Until \"false\";" > /etc/apt/apt.conf.d/99snapshot
+     dpkg --add-architecture riscv64
+     apt-get update -q
+     apt-cache policy linux-image-riscv64:riscv64 busybox-static:riscv64
+     cd /root
+     apt-get download "linux-image-<KERNEL>:riscv64=<KERNEL_VERSION>" \
+       "busybox-static:riscv64=<BUSYBOX_VERSION>"
+     sha256sum ./*.deb'
+   ```
+
+   Then run `USPIFLASH_QEMU=1 uv run pytest tests/test_qemu.py`.
 3. Regenerate the ledger in that image, from the repository's root:
 
    ```sh
