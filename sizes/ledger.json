@@ -7141,7 +7141,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 44406,
+    "linked": 44400,
     "rodata": 40357,
     "sections": {
      "bss": {
@@ -7196,7 +7196,7 @@
       ".text.usf_id": 38,
       ".text.usf_lookup": 397,
       ".text.usf_manufacturer": 56,
-      ".text.usf_name": 71,
+      ".text.usf_name": 65,
       ".text.usf_name_count": 30,
       ".text.usf_op_count": 30,
       ".text.usf_op_description": 45,
@@ -7294,7 +7294,7 @@
      "usf_id": 38,
      "usf_lookup": 397,
      "usf_manufacturer": 56,
-     "usf_name": 71,
+     "usf_name": 65,
      "usf_name_count": 30,
      "usf_op_count": 30,
      "usf_op_description": 45,
@@ -7309,14 +7309,14 @@
      "usf_type": 18,
      "usf_voltage": 68
     },
-    "text": 3813,
-    "total": 44170
+    "text": 3807,
+    "total": 44164
    },
    "describe:nor": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 40114,
+    "linked": 40108,
     "rodata": 36220,
     "sections": {
      "bss": {
@@ -7371,7 +7371,7 @@
       ".text.usf_id": 38,
       ".text.usf_lookup": 301,
       ".text.usf_manufacturer": 56,
-      ".text.usf_name": 71,
+      ".text.usf_name": 65,
       ".text.usf_name_count": 30,
       ".text.usf_op_count": 30,
       ".text.usf_op_description": 45,
@@ -7469,7 +7469,7 @@
      "usf_id": 38,
      "usf_lookup": 301,
      "usf_manufacturer": 56,
-     "usf_name": 71,
+     "usf_name": 65,
      "usf_name_count": 30,
      "usf_op_count": 30,
      "usf_op_description": 45,
@@ -7484,14 +7484,14 @@
      "usf_type": 18,
      "usf_voltage": 68
     },
-    "text": 3636,
-    "total": 39856
+    "text": 3630,
+    "total": 39850
    },
    "full": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 58676,
+    "linked": 58672,
     "rodata": 51403,
     "sections": {
      "bss": {
@@ -7567,7 +7567,7 @@
       ".text.usf_id": 38,
       ".text.usf_lookup": 399,
       ".text.usf_manufacturer": 58,
-      ".text.usf_name": 71,
+      ".text.usf_name": 67,
       ".text.usf_name_count": 32,
       ".text.usf_op_count": 32,
       ".text.usf_op_description": 45,
@@ -7699,7 +7699,7 @@
      "usf_id": 38,
      "usf_lookup": 399,
      "usf_manufacturer": 58,
-     "usf_name": 71,
+     "usf_name": 67,
      "usf_name_count": 32,
      "usf_op_count": 32,
      "usf_op_description": 45,
@@ -7716,14 +7716,14 @@
      "usf_type": 18,
      "usf_voltage": 70
     },
-    "text": 7012,
-    "total": 58415
+    "text": 7008,
+    "total": 58411
    },
    "full+datasheet": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 106125,
+    "linked": 106119,
     "rodata": 98786,
     "sections": {
      "bss": {
@@ -7801,7 +7801,7 @@
       ".text.usf_id": 38,
       ".text.usf_lookup": 397,
       ".text.usf_manufacturer": 56,
-      ".text.usf_name": 71,
+      ".text.usf_name": 65,
       ".text.usf_name_count": 30,
       ".text.usf_op_count": 30,
       ".text.usf_op_description": 45,
@@ -7935,7 +7935,7 @@
      "usf_id": 38,
      "usf_lookup": 397,
      "usf_manufacturer": 56,
-     "usf_name": 71,
+     "usf_name": 65,
      "usf_name_count": 30,
      "usf_op_count": 30,
      "usf_op_description": 45,
@@ -7952,8 +7952,8 @@
      "usf_type": 18,
      "usf_voltage": 68
     },
-    "text": 7069,
-    "total": 105855
+    "text": 7063,
+    "total": 105849
    },
    "full+datasheets": {
     "bss": 0,
@@ -8446,7 +8446,7 @@
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 79061,
+    "linked": 79057,
     "rodata": 70435,
     "sections": {
      "bss": {
@@ -8527,7 +8527,7 @@
       ".text.usf_id": 38,
       ".text.usf_lookup": 399,
       ".text.usf_manufacturer": 58,
-      ".text.usf_name": 71,
+      ".text.usf_name": 67,
       ".text.usf_name_count": 32,
       ".text.usf_op_count": 32,
       ".text.usf_op_description": 45,
@@ -8667,7 +8667,7 @@
      "usf_id": 38,
      "usf_lookup": 399,
      "usf_manufacturer": 58,
-     "usf_name": 71,
+     "usf_name": 67,
      "usf_name_count": 32,
      "usf_op_count": 32,
      "usf_op_description": 45,
@@ -8685,14 +8685,14 @@
      "usf_type": 18,
      "usf_voltage": 70
     },
-    "text": 8325,
-    "total": 78760
+    "text": 8321,
+    "total": 78756
    },
    "full+sfdp_dumps:nor": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 73562,
+    "linked": 73558,
     "rodata": 65899,
     "sections": {
      "bss": {
@@ -8771,7 +8771,7 @@
       ".text.usf_id": 38,
       ".text.usf_lookup": 303,
       ".text.usf_manufacturer": 58,
-      ".text.usf_name": 71,
+      ".text.usf_name": 67,
       ".text.usf_name_count": 32,
       ".text.usf_op_count": 32,
       ".text.usf_op_description": 45,
@@ -8906,7 +8906,7 @@
      "usf_id": 38,
      "usf_lookup": 303,
      "usf_manufacturer": 58,
-     "usf_name": 71,
+     "usf_name": 67,
      "usf_name_count": 32,
      "usf_op_count": 32,
      "usf_op_description": 45,
@@ -8923,14 +8923,14 @@
      "usf_type": 18,
      "usf_voltage": 70
     },
-    "text": 7370,
-    "total": 73269
+    "text": 7366,
+    "total": 73265
    },
    "full-sfdp_summary:nor": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 53144,
+    "linked": 53140,
     "rodata": 46140,
     "sections": {
      "bss": {
@@ -9004,7 +9004,7 @@
       ".text.usf_id": 38,
       ".text.usf_lookup": 303,
       ".text.usf_manufacturer": 58,
-      ".text.usf_name": 71,
+      ".text.usf_name": 67,
       ".text.usf_name_count": 32,
       ".text.usf_op_count": 32,
       ".text.usf_op_description": 45,
@@ -9134,7 +9134,7 @@
      "usf_id": 38,
      "usf_lookup": 303,
      "usf_manufacturer": 58,
-     "usf_name": 71,
+     "usf_name": 67,
      "usf_name_count": 32,
      "usf_op_count": 32,
      "usf_op_description": 45,
@@ -9151,14 +9151,14 @@
      "usf_type": 18,
      "usf_voltage": 70
     },
-    "text": 6760,
-    "total": 52900
+    "text": 6756,
+    "total": 52896
    },
    "full:nand": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 9227,
+    "linked": 9223,
     "rodata": 5303,
     "sections": {
      "bss": {
@@ -9215,7 +9215,7 @@
       ".text.usf_id": 38,
       ".text.usf_lookup": 152,
       ".text.usf_manufacturer": 58,
-      ".text.usf_name": 71,
+      ".text.usf_name": 67,
       ".text.usf_name_count": 32,
       ".text.usf_op_count": 3,
       ".text.usf_op_description": 3,
@@ -9320,7 +9320,7 @@
      "usf_id": 38,
      "usf_lookup": 152,
      "usf_manufacturer": 58,
-     "usf_name": 71,
+     "usf_name": 67,
      "usf_name_count": 32,
      "usf_op_count": 3,
      "usf_op_description": 3,
@@ -9337,14 +9337,14 @@
      "usf_type": 18,
      "usf_voltage": 3
     },
-    "text": 3835,
-    "total": 9138
+    "text": 3831,
+    "total": 9134
    },
    "full:nor": {
     "bss": 0,
     "data": 0,
     "frames": 0,
-    "linked": 54019,
+    "linked": 54015,
     "rodata": 46885,
     "sections": {
      "bss": {
@@ -9420,7 +9420,7 @@
       ".text.usf_id": 38,
       ".text.usf_lookup": 303,
       ".text.usf_manufacturer": 58,
-      ".text.usf_name": 71,
+      ".text.usf_name": 67,
       ".text.usf_name_count": 32,
       ".text.usf_op_count": 32,
       ".text.usf_op_description": 45,
@@ -9552,7 +9552,7 @@
      "usf_id": 38,
      "usf_lookup": 303,
      "usf_manufacturer": 58,
-     "usf_name": 71,
+     "usf_name": 67,
      "usf_name_count": 32,
      "usf_op_count": 32,
      "usf_op_description": 45,
@@ -9569,8 +9569,8 @@
      "usf_type": 18,
      "usf_voltage": 70
     },
-    "text": 6835,
-    "total": 53720
+    "text": 6831,
+    "total": 53716
    },
    "id": {
     "bss": 0,

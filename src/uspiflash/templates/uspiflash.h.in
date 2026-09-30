@@ -331,7 +331,7 @@ static USF__NOINLINE uint16_t usf__mul(uint16_t a, uint8_t k)
 /* An index times USF_OFF_BYTES (2 or 3, chosen by the generator): a shift
  * when it is 2, so no CPU needs the multiply at all. */
 #if USF_OFF_BYTES == 2
-#define USF__OFFS(i) ((uint16_t)((uint16_t)(i) << 1))
+#define USF__OFFS(i) ((i) << 1)
 #else
 #define USF__OFFS(i) USF__MUL((i), 3)
 #endif
