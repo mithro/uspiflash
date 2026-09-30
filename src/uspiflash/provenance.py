@@ -90,14 +90,26 @@ def _reference() -> dict[str, Any]:
 def size_lines(config: Config) -> list[str]:
     """The header's size lines: the reference targets' totals for this
     selection from the size ledger, when the ledger measured it with the
-    installed spiflash; else a line saying it is not measured."""
+    installed spiflash; else a line saying why not (not a measured
+    selection, or measured with a different spiflash)."""
     ref = _reference()
     entry = ref["configs"].get(selection_key(config.selection))
-    if entry is None or ref["spiflash"] != spiflash.__version__:
-        return [
-            "Size: this selection is not in the size ledger; `uspiflash measure`",
-            "sizes the ones that are (sizes/README.md in the repository).",
-        ]
+    if entry is None:
+        return textwrap.wrap(
+            "Size: this selection is not one the size ledger measures "
+            "(sizes/README.md in the repository lists the ones that are).",
+            width=72,
+            break_on_hyphens=False,
+            break_long_words=False,
+        )
+    if ref["spiflash"] != spiflash.__version__:
+        return textwrap.wrap(
+            f"Size: measured with spiflash {ref['spiflash']}, not this header's "
+            f"spiflash {spiflash.__version__}; see sizes/README.md in the repository.",
+            width=72,
+            break_on_hyphens=False,
+            break_long_words=False,
+        )
     sizes = ", ".join(f"{t} {entry['total'][t]:,}" for t in ref["targets"])
     return textwrap.wrap(
         f"Size ({entry['name']} in sizes/ledger.json, spiflash {ref['spiflash']}): "

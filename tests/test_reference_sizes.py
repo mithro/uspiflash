@@ -46,12 +46,19 @@ def test_the_prefix_and_file_name_do_not_matter() -> None:
 
 def test_an_unmeasured_selection_says_so() -> None:
     lines = provenance.size_lines(Config(Selection.make("id", with_=["jep106"])))
-    assert "not in the size ledger" in " ".join(lines)
+    text = " ".join(lines)
+    assert "is not one the size ledger measures" in text
+    assert "measured with spiflash" not in text
 
 
 def test_another_spiflash_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    data = committed()
     monkeypatch.setattr(spiflash, "__version__", "0.0.0")
-    assert "not in the size ledger" in " ".join(provenance.size_lines(Config(FULL_NOR)))
+    text = " ".join(provenance.size_lines(Config(FULL_NOR)))
+    assert "measured with spiflash" in text
+    assert data["spiflash"]["version"] in text
+    assert "0.0.0" in text
+    assert "is not one the size ledger measures" not in text
 
 
 def test_the_header_has_the_lines() -> None:
