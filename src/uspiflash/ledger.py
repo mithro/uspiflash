@@ -122,10 +122,13 @@ def dumps(ledger: dict[str, Any]) -> str:
 
 
 def _table(ledger: dict[str, Any], target: str) -> list[str]:
-    rows = ["| Configuration | text | rodata | total |", "|---|--:|--:|--:|"]
+    rows = ["| Configuration | text | rodata | total | stack |", "|---|--:|--:|--:|--:|"]
     for c in ledger["configs"]:
         s = ledger["sizes"][target][c["name"]]
-        rows.append(f"| `{c['name']}` | {s['text']:,} | {s['rodata']:,} | **{s['total']:,}** |")
+        stack = f"{s['stack']['peak']:,}" if s.get("stack") else "-"
+        rows.append(
+            f"| `{c['name']}` | {s['text']:,} | {s['rodata']:,} | **{s['total']:,}** | {stack} |"
+        )
     return rows
 
 
@@ -169,6 +172,13 @@ def readme(ledger: dict[str, Any]) -> str:
         "none, or the measurement fails), so it calls no libc function and no compiler",
         "helper. Linking can add alignment. `ledger.json` lists every allocated section",
         "of every object.",
+        "",
+        "**stack** is the deepest path through the library's call graph, in",
+        "bytes: each function's frame as the compiler reports it",
+        "(`-fstack-usage`), added along the calls its relocations show,",
+        "from any public function. Your `putc` and `xfer` callbacks' own",
+        "frames come on top. `ledger.json` has every frame, the peak's path,",
+        "and every function's and table's size.",
         "",
         f"Measured against spiflash {sf['version']} (database format {sf['database_format']}).",
         "These are compiled objects; the",

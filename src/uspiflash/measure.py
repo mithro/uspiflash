@@ -31,7 +31,7 @@ import os
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -42,7 +42,7 @@ from .levels import ChipFilter, Selection
 from .provenance import Config
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Iterable, Mapping, Sequence
 
 #: Flags every target compiles with: the project's warnings, and what an
 #: embedded build that cares about size uses.
@@ -81,11 +81,14 @@ class Target:
     name: str
     compiler: str
     target_flags: tuple[str, ...] = ()
+    #: Whether the compiler takes ``-fstack-usage`` (clang 13 and later, every
+    #: GCC in the inventory).
+    stack: bool = True
 
     @property
     def flags(self) -> tuple[str, ...]:
         """Every flag after the compiler's name."""
-        return (*self.target_flags, *FLAGS)
+        return (*self.target_flags, *FLAGS, *(("-fstack-usage",) if self.stack else ()))
 
 
 #: The measured targets.
@@ -150,11 +153,32 @@ def kind(flags: int, sh_type: int) -> str | None:
 
 
 @dataclass(frozen=True)
+class Stack:
+    """The stack one library call can use (spec §7.1): each function's own
+    frame (``-fstack-usage``), and the deepest path through the object's
+    call graph from any public function. Callbacks (``putc``, ``xfer``)
+    are the caller's functions: their frames are not included."""
+
+    frames: Mapping[str, int]
+    peak: int
+    path: tuple[str, ...]
+
+    def to_json(self) -> dict[str, object]:
+        """The peak, its path, and every frame."""
+        frames = dict(sorted(self.frames.items()))
+        return {"peak": self.peak, "path": list(self.path), "frames": frames}
+
+
+@dataclass(frozen=True)
 class Sizes:
     """One object's allocated sections, by kind (one of :data:`KINDS`),
-    then name, in bytes."""
+    then name, in bytes; its symbols' sizes; and its stack."""
 
     sections: Mapping[str, Mapping[str, int]]
+    #: The size of every function and table, by symbol name.
+    symbols: Mapping[str, int] = field(default_factory=dict)
+    #: The stack, where the compiler reports frames (``Target.stack``).
+    stack: Stack | None = None
 
     def _sum(self, k: str) -> int:
         return sum(self.sections.get(k, {}).values())
@@ -194,6 +218,8 @@ class Sizes:
             "bss": self.bss,
             "total": self.total,
             "sections": {k: dict(v) for k, v in self.sections.items() if v},
+            "symbols": dict(sorted(self.symbols.items())),
+            "stack": self.stack.to_json() if self.stack else None,
         }
 
 
@@ -266,6 +292,105 @@ def undefined_symbols(obj: Path) -> list[str]:
     return _read(obj).undefined()
 
 
+def stack_frames(text: str) -> dict[str, int]:
+    """Each function's frame, in bytes, from a ``-fstack-usage`` file. GCC
+    writes ``file:line:column:name<TAB>bytes<TAB>static``, clang
+    ``file:line:name``. ``dynamic,bounded`` (GCC realigning the stack, as
+    on i386) gives an upper bound, which is what counts. A plain
+    ``dynamic`` frame (a VLA or ``alloca``) has no bound: it is refused."""
+    out: dict[str, int] = {}
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        where, size, qualifiers = line.split("\t")
+        name = where.rsplit(":", 1)[-1]
+        q = set(qualifiers.split(","))
+        if "dynamic" in q and "bounded" not in q:
+            msg = f"{name} has an unbounded stack frame ({qualifiers})"
+            raise MeasureError(msg)
+        out[name] = max(out.get(name, 0), int(size))
+    return out
+
+
+def frame(frames: Mapping[str, int], name: str) -> int:
+    """``name``'s frame. GCC lists a clone's symbol ``f.isra.0`` as
+    ``f.isra``; failing that, a clone is taken to use its function's
+    frame (``f.constprop.0`` as ``f``)."""
+    for key in (name, re.sub(r"\.\d+$", "", name), name.split(".", 1)[0]):
+        if key in frames:
+            return frames[key]
+    msg = f"no -fstack-usage entry for {name}"
+    raise MeasureError(msg)
+
+
+def call_graph(obj: elf.Elf) -> dict[str, set[str]]:
+    """Which functions each function's code refers to, from the
+    relocations of its section (every function has its own:
+    ``-ffunction-sections``). A reference is a function symbol, or a
+    section symbol standing for the function in that section."""
+    by_section = {
+        s.shndx: s.name for s in obj.symbols if s.type == elf.STT_FUNC and s.defined and s.name
+    }
+    graph: dict[str, set[str]] = {name: set() for name in by_section.values()}
+    for index, refs in obj.relocations.items():
+        caller = by_section.get(index)
+        if caller is None:
+            continue
+        for i in refs:
+            sym = obj.symbols[i]
+            if sym.type == elf.STT_FUNC and sym.defined:
+                callee: str | None = sym.name
+            elif sym.type == elf.STT_SECTION:
+                callee = by_section.get(sym.shndx)
+            else:
+                callee = None
+            if callee is not None and callee != caller:
+                graph[caller].add(callee)
+    return graph
+
+
+def stack_peak(
+    graph: Mapping[str, set[str]], frames: Mapping[str, int], roots: Sequence[str]
+) -> tuple[int, tuple[str, ...]]:
+    """The deepest path from any of ``roots``: its total frame bytes and
+    its functions, outermost first. Ties go to the first in sorted order,
+    so the answer is deterministic. The library has no recursion; a cycle
+    is refused."""
+    memo: dict[str, tuple[int, tuple[str, ...]]] = {}
+
+    def visit(fn: str, active: tuple[str, ...]) -> tuple[int, tuple[str, ...]]:
+        if fn in active:
+            msg = "recursion: " + " -> ".join((*active, fn))
+            raise MeasureError(msg)
+        if fn not in memo:
+            best: tuple[int, tuple[str, ...]] = (0, ())
+            for callee in sorted(graph.get(fn, ())):
+                got = visit(callee, (*active, fn))
+                if got[0] > best[0]:
+                    best = got
+            memo[fn] = (frame(frames, fn) + best[0], (fn, *best[1]))
+        return memo[fn]
+
+    best: tuple[int, tuple[str, ...]] = (0, ())
+    for root in sorted(roots):
+        got = visit(root, ())
+        if got[0] > best[0]:
+            best = got
+    return best
+
+
+def stack_of(obj: elf.Elf, su: Path) -> Stack:
+    """The object's :class:`Stack`, with the frames from ``su``."""
+    frames = stack_frames(su.read_text(encoding="utf-8"))
+    roots = [
+        s.name
+        for s in obj.symbols
+        if s.type == elf.STT_FUNC and s.defined and s.bind != elf.STB_LOCAL
+    ]
+    peak, path = stack_peak(call_graph(obj), frames, roots)
+    return Stack(frames, peak, path)
+
+
 def compile_command(target: Target, source: Path, obj: Path) -> list[str]:
     """The command that compiles ``source`` to ``obj`` for ``target``."""
     return [tool(target.compiler), *target.flags, "-c", str(source), "-o", str(obj)]
@@ -288,14 +413,16 @@ def measure(config: Config, target: Target, workdir: Path) -> Sizes:
     if res.returncode != 0 or res.stderr:
         msg = f"{' '.join(cmd)} failed:\n{res.stderr}"
         raise MeasureError(msg)
-    sizes = section_sizes(obj)
+    e = _read(obj)
+    sizes = sizes_of(e)
     if sizes.data or sizes.bss:
         msg = (
             f"{target.name}: the library has writable static data "
             f"(data {sizes.data}, bss {sizes.bss} bytes)"
         )
         raise MeasureError(msg)
-    if needed := undefined_symbols(obj):
+    if needed := e.undefined():
         msg = f"{target.name}: the library needs symbols from elsewhere: {', '.join(needed)}"
         raise MeasureError(msg)
-    return sizes
+    stack = stack_of(e, obj.with_suffix(".su")) if target.stack else None
+    return replace(sizes, symbols=e.defined_sizes(), stack=stack)
