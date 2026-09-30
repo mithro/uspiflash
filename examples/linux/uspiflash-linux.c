@@ -4,7 +4,7 @@
  *
  *   uspiflash-linux [-D /dev/spidevB.C] [-s HZ] [--json | --sfdp] [--opcodes]
  *   uspiflash-linux id HEX [--method jedec|rems|res1|res2|at25f|st95] [--json] [--opcodes]
- *   uspiflash-linux --version
+ *   uspiflash-linux --version | -h | --help
  *
  * Built against a header made by `uspiflash generate --level full --type nor
  * --type nand` with every extra that changes the output (see the Makefile):
@@ -13,6 +13,7 @@
  * bytes, then the answer, chip select held.
  */
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -157,16 +158,38 @@ static void print_sfdp(const usf_sfdp *f)
     putchar('\n');
 }
 
-static int usage(void)
+/* The usage: asked for (-h, --help), on stdout and exit 0; otherwise a
+ * usage error, on stderr and exit 2. */
+static int usage(int asked)
 {
     fputs("usage: uspiflash-linux [-D DEVICE] [-s HZ] [--json | --sfdp] [--opcodes]\n"
           "       uspiflash-linux id HEX [--method FAMILY] [--json] [--opcodes]\n"
-          "       uspiflash-linux --version\n",
-          stderr);
-    return 2;
+          "       uspiflash-linux --version | -h | --help\n",
+          asked ? stdout : stderr);
+    return asked ? 0 : 2;
 }
 
-int main(int argc, char **argv)
+/* -s HZ: decimal digits, then optionally k (x1000) or M (x1000000); 1 to
+ * UINT32_MAX. Into *hz; 0 if `s` is not such a clock. */
+static int parse_hz(const char *s, uint32_t *hz)
+{
+    unsigned long long v, mult = 1;
+    char *end;
+    if (!isdigit((unsigned char)*s))      /* strtoull would take " 1", "-1" */
+        return 0;
+    errno = 0;
+    v = strtoull(s, &end, 10);
+    if (errno)
+        return 0;
+    if (*end == 'k' || *end == 'M')
+        mult = *end++ == 'k' ? 1000 : 1000000;
+    if (*end || v == 0 || v > UINT32_MAX / mult)
+        return 0;
+    *hz = (uint32_t)(v * mult);
+    return 1;
+}
+
+static int run(int argc, char **argv)
 {
     const char *device = "/dev/spidev0.0", *method = "jedec", *idhex = NULL;
     int json = 0, opcodes = 0, want_sfdp = 0, i;
@@ -175,8 +198,14 @@ int main(int argc, char **argv)
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-D") && i + 1 < argc)
             device = argv[++i];
-        else if (!strcmp(argv[i], "-s") && i + 1 < argc)
-            hz = (uint32_t)strtoul(argv[++i], NULL, 0);
+        else if (!strcmp(argv[i], "-s") && i + 1 < argc) {
+            if (!parse_hz(argv[++i], &hz)) {
+                fprintf(stderr, "uspiflash-linux: -s: not a clock in Hz (1 to %lu, "
+                        "optionally with k or M): %s\n", (unsigned long)UINT32_MAX, argv[i]);
+                return usage(0);
+            }
+        } else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
+            return usage(1);
         else if (!strcmp(argv[i], "--method") && i + 1 < argc)
             method = argv[++i];
         else if (!strcmp(argv[i], "--json"))
@@ -191,10 +220,10 @@ int main(int argc, char **argv)
         } else if (!strcmp(argv[i], "id") && i + 1 < argc)
             idhex = argv[++i];
         else
-            return usage();
+            return usage(0);
     }
     if (json && want_sfdp)                /* the SFDP lines are text, not JSON */
-        return usage();
+        return usage(0);
 
     if (idhex) {                         /* offline, like `spiflash id` */
         uint8_t data[255];             /* usf_lookup takes up to 255 bytes */
@@ -202,7 +231,7 @@ int main(int argc, char **argv)
         uint8_t found;
         int fam = family_code(method), n = parse_hex(idhex, data, sizeof data);
         if (fam < 0 || n < 0)
-            return usage();
+            return usage(0);
         found = usf_lookup((uint8_t)fam, data, (uint8_t)n, chips);
         if (json)
             usf_print_json(chips, found, put, NULL);
@@ -252,4 +281,16 @@ int main(int argc, char **argv)
         close(d.fd);
         return r.count ? 0 : r.len ? 1 : 2;
     }
+}
+
+int main(int argc, char **argv)
+{
+    int code = run(argc, argv);
+    /* A full disk or a closed stdout: the output did not all arrive. */
+    if (fflush(stdout) != 0 || ferror(stdout)) {
+        fprintf(stderr, "uspiflash-linux: writing the output: %s\n",
+                errno ? strerror(errno) : "failed");
+        return 2;
+    }
+    return code;
 }

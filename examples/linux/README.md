@@ -40,12 +40,14 @@ for a later milestone: `musl-gcc` has no `linux/spi/spidev.h`.
 ```text
 uspiflash-linux [-D DEVICE] [-s HZ] [--json | --sfdp] [--opcodes]
 uspiflash-linux id HEX [--method FAMILY] [--json] [--opcodes]
-uspiflash-linux --version
+uspiflash-linux --version | -h | --help
 ```
 
 - `-D DEVICE`: the spidev device, default `/dev/spidev0.0`.
-- `-s HZ`: the clock, default 1000000 (1 MHz). Probing is a few bytes, so
-  a slow clock costs nothing and survives long wires.
+- `-s HZ`: the clock, default 1000000 (1 MHz): decimal, optionally with
+  `k` (x1000) or `M` (x1000000), so `-s 400k` or `-s 1M`; 1 Hz to
+  4294967295 Hz. Probing is a few bytes, so a slow clock costs nothing and
+  survives long wires.
 - `--json`: `spiflash id --json`'s output.
 - `--opcodes`: the operation list, as `spiflash id --opcodes`.
 - `--sfdp`: after the description, the chip's own SFDP basic parameter
@@ -54,6 +56,7 @@ uspiflash-linux --version
 - `id HEX`: no device; `HEX` is read as `spiflash id` reads it (`ef4018`,
   `0xEF4018`, `ef 40 18`, `ef:40:18`). `--method` is one of `jedec`,
   `rems`, `res1`, `res2`, `at25f`, `st95` (default `jedec`).
+- `-h`, `--help`: the usage, on standard output.
 
 Each transaction is one `SPI_IOC_MESSAGE(2)` with chip select held: the
 command bytes, then the answer. The probe sends RES (`ab`, which also wakes
@@ -66,6 +69,9 @@ Exit codes:
 | 0    | a chip was found and described                     | found               |
 | 1    | a chip answered but is not in the database; its id family and the bytes read are printed | not found (an empty line, as spiflash) |
 | 2    | nothing answered (the bus reads all `00` or all `ff`), the device could not be opened or configured, or a usage error | a usage error (e.g. not a hex id) |
+
+A usage error also prints the usage on standard error. Output that cannot
+be written (a full disk, a closed standard output) is exit 2 too.
 
 ## Binding spidev to a flash chip
 

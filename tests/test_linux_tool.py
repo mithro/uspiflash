@@ -146,6 +146,84 @@ def test_json_with_sfdp_is_a_usage_error(built: dict[str, Path]) -> None:
     assert res.stderr.startswith("usage: ")
 
 
+#: Clocks ``-s`` takes (``k`` is x1000, ``M`` x1000000), and what it refuses:
+#: empty, not decimal, trailing junk, 0, and past UINT32_MAX.
+GOOD_HZ = ("1", "1000000", "400k", "1M", "50M", "4294967295", "4294967k", "4294M")
+BAD_HZ = (
+    "",
+    " 1",
+    "-1",
+    "+1",
+    "0x10",
+    "1MHz",
+    "1m",
+    "1K",
+    "1 ",
+    "M",
+    "0",
+    "0k",
+    "4294967296",
+    "4294968k",
+    "4295M",
+    "99999999999999999999999",
+)
+
+
+def test_clock_is_validated(built: dict[str, Path]) -> None:
+    for hz in GOOD_HZ:
+        args = ("-D", "/dev/spidev-fake", "-s", hz)
+        res = run(built["tool"], *args, spec="9f/1=ef4018 fill=ff", shim=built["shim"])
+        assert res.returncode == 0, (hz, res.stderr)
+        assert res.stdout.startswith("ef4018  Winbond"), hz
+    for hz in BAD_HZ:
+        res = run(built["tool"], "-D", "/dev/spidev-fake", "-s", hz)
+        assert res.returncode == 2, hz
+        assert res.stdout == "", hz
+        assert res.stderr.startswith("uspiflash-linux: -s: not a clock in Hz"), hz
+        assert "\nusage: " in res.stderr, hz
+
+
+def test_help_is_on_stdout(built: dict[str, Path]) -> None:
+    """Asked for, the usage is output (exit 0); a usage error stays an error."""
+    for flag in ("-h", "--help"):
+        res = run(built["tool"], flag)
+        assert res.returncode == 0, flag
+        assert res.stdout.startswith("usage: uspiflash-linux ")
+        assert res.stderr == ""
+    res = run(built["tool"], "--no-such-flag")
+    assert res.returncode == 2
+    assert res.stdout == ""
+    assert res.stderr.startswith("usage: uspiflash-linux ")
+
+
+@pytest.mark.skipif(not Path("/dev/full").exists(), reason="needs /dev/full")
+def test_output_write_error_exits_2(built: dict[str, Path]) -> None:
+    """Output that cannot be written (a full disk, here /dev/full) is an error,
+    not a silent success."""
+    with Path("/dev/full").open("w") as full:
+        res = subprocess.run(
+            [str(built["tool"]), "id", "ef4018"],
+            stdout=full,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+    assert res.returncode == 2
+    assert res.stderr.startswith("uspiflash-linux: writing the output: ")
+
+
+def test_closed_stdout_exits_2(built: dict[str, Path]) -> None:
+    """With stdout closed, the same."""
+    res = subprocess.run(
+        ["sh", "-c", 'exec "$0" id ef4018 >&-', str(built["tool"])],
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    assert res.returncode == 2
+    assert res.stderr.startswith("uspiflash-linux: writing the output: ")
+
+
 def test_missing_device_exits_2(built: dict[str, Path], tmp_path: Path) -> None:
     res = run(built["tool"], "-D", str(tmp_path / "spidev9.9"))
     assert res.returncode == 2
