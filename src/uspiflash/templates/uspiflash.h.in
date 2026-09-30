@@ -33,7 +33,7 @@ extern "C" {
  * Where the tables live. Nothing by default; define as __code for SDCC on
  * the 8051 so they stay in program memory, and on AVR as a flash address
  * space (avr-gcc's __flash, in GNU C): there plain const data is copied to
- * RAM at startup.
+ * RAM at startup. SDCC's 8051 port is measured with -DUSF_ROM=__code.
  *
  * On 16-bit targets (AVR, msp430, the 8051) the levels id to full fit, as
  * long as the part has the flash (full is about 59 KB of code and tables);
@@ -44,12 +44,30 @@ extern "C" {
 #define USF_ROM
 #endif
 
+/*
+ * SDCC's non-reentrant ports (the 8051, the 68HC08/S08, the 6502, the
+ * Padauk) call through a pointer only a function declared __reentrant
+ * when it takes more than a few bytes of arguments. The callbacks below
+ * are declared so there, and yours must be too: define them with
+ * USF_REENTRANT after the parameter list. Elsewhere it is empty (SDCC's
+ * other ports are reentrant already, and reject the keyword).
+ */
+#ifndef USF_REENTRANT
+#if defined(__SDCC_mcs51) || defined(__SDCC_ds390) || defined(__SDCC_hc08) \
+    || defined(__SDCC_s08) || defined(__SDCC_mos6502) || defined(__SDCC_mos65c02) \
+    || defined(__SDCC_pdk13) || defined(__SDCC_pdk14) || defined(__SDCC_pdk15)
+#define USF_REENTRANT __reentrant
+#else
+#define USF_REENTRANT
+#endif
+#endif
+
 /* The longest id usf_id() writes (after 0x7f continuation codes). */
 #define USF_ID_MAX 7
 
 /* A character sink: every string leaves the library through one of these,
  * one character at a time, so no buffer is ever needed. */
-typedef void (*usf_putc_fn)(void *ctx, char ch);
+typedef void (*usf_putc_fn)(void *ctx, char ch) USF_REENTRANT;
 
 /* One answer: which entry (a chip id, or a variant of it narrowed by its
  * extended id) and the chip id it belongs to. Filled by usf_lookup() and
@@ -176,8 +194,9 @@ void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ct
  * driver; otherwise a struct usf_bus holding a function pointer is used.
  * With your own USF_XFER, struct usf_bus is yours: define it as you like,
  * or leave it incomplete (the library only passes a pointer to it along).
- * Whatever you define (USF_XFER, USF_DELAY_US, USF_ROM, USF_NO_STDINT) must
- * be the same in every file that includes this one.
+ * Whatever you define (USF_XFER, USF_DELAY_US, USF_ROM, USF_NO_STDINT,
+ * USF_REENTRANT, USF_SOFT_MUL, USF_SOFT_SHIFT) must be the same in every
+ * file that includes this one.
  *
  * The first transaction is RES (0xAB), which wakes a chip from deep
  * power-down; the chip then ignores commands for tRES1 (3-30 us). The probe
@@ -189,7 +208,8 @@ void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ct
 #define USF_DELAY_US(us) ((void)0)
 #endif
 #ifndef USF_XFER
-typedef void (*usf_xfer_fn)(void *ctx, const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen);
+typedef void (*usf_xfer_fn)(void *ctx, const uint8_t *tx, uint8_t txlen, uint8_t *rx,
+                            uint8_t rxlen) USF_REENTRANT;
 struct usf_bus { usf_xfer_fn xfer; void *ctx; };
 #define USF_XFER(bus, tx, txlen, rx, rxlen) ((bus)->xfer((bus)->ctx, (tx), (txlen), (rx), (rxlen)))
 #endif
