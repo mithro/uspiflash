@@ -3,7 +3,7 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 Read [the M2 index](2026-09-30-m2-measurement.md) (Global Constraints,
-decisions 14–22) and the spec's §7 first.
+decisions 14–24) and the spec's §7 first.
 
 Branch and worktree: `m2a` in `.worktrees/m2a`, from `origin/main`:
 
@@ -28,7 +28,7 @@ uv run python -m uspiflash.sandbox -- uv run pytest -n {jobs}
 
 ---
 
-### Task 1: Catch up with the newest spiflash; record amendments 14–22
+### Task 1: Catch up with the newest spiflash; record amendments 14–24
 
 **Files:**
 - Modify: `uv.lock`, `src/uspiflash/__init__.py` (`VERIFIED_SPIFLASH`),
@@ -129,18 +129,16 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01TYQmVKazwZhRmGrFbrL7TE"
 ```
 
-- [ ] **Step 7: Record amendments 14–22 in the spec**
+- [ ] **Step 7: Record amendments 14–24 in the spec**
 
 Append to `docs/superpowers/specs/2026-09-28-uspiflash-design.md` a new
 section:
 - the heading is `## 14. Amendments (M2 plan, 2026-09-30)`;
 - under it go the M2 index's "Decisions this plan adds to the spec" items
-  14–22, copied verbatim, keeping their numbers (14–22).
+  14–24, copied verbatim, keeping their numbers (14–24).
 
-Change decision 17's "(needs the maintainer's ruling; see Open questions)"
-to the ruling, once the controller has it. Also, in §9 (Python tool),
-change the `uspiflash[measure]: pyelftools` bullet to "(no extra:
-amendment 14)".
+Also, in §9 (Python tool), change the `uspiflash[measure]: pyelftools`
+bullet to "(no extra: amendment 14)".
 
 Run: `uv run pytest tests/test_docs.py -q`
 Expected: PASS (the spec is not in the Sphinx toctree, but the docs build
@@ -150,11 +148,12 @@ must stay clean).
 
 ```bash
 git add docs/superpowers/specs/2026-09-28-uspiflash-design.md
-git commit -m "spec: M2 amendments 14-22
+git commit -m "spec: M2 amendments 14-24
 
 The ELF reader, git-held ledger history, the toolchain inventory, runtime
-symbols per CPU, helper-free arithmetic, SDCC callbacks, AVR on xmega3, the
-libc matrix's scope, and stack measurement.
+symbols per CPU, helper-free arithmetic, SDCC, AVR, the libc matrix's
+scope, stack and linked-image measurement, LiteX's hard CPUs, and what M2
+defers.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01TYQmVKazwZhRmGrFbrL7TE"
@@ -273,9 +272,11 @@ def build_elf(bits: int, order: str) -> bytes:
     )
     ident = b"\x7fELF" + bytes([2 if is64 else 1, 1 if order == "little" else 2, 1, 0]) + bytes(8)
     if is64:
-        header = struct.pack(e + "HHIQQQIHHHHHH", 1, 0, 1, 0, 0, pos, 0, 64, 0, 0, 64, len(heads), 6)
+        fields = (1, 0, 1, 0, 0, pos, 0, 64, 0, 0, 64, len(heads), 6)
+        header = struct.pack(e + "HHIQQQIHHHHHH", *fields)
     else:
-        header = struct.pack(e + "HHIIIIIHHHHHH", 1, 0, 1, 0, 0, pos, 0, 52, 0, 0, 40, len(heads), 6)
+        fields = (1, 0, 1, 0, 0, pos, 0, 52, 0, 0, 40, len(heads), 6)
+        header = struct.pack(e + "HHIIIIIHHHHHH", *fields)
     return ident + header + b"".join(contents) + shdrs
 
 
@@ -343,12 +344,13 @@ def test_agrees_with_llvm_readobj_and_nm(tmp_path: Path, target: measure.Target)
     src = tmp_path / "t.c"
     src.write_text(
         "extern int ext(int);\n"
-        "static const char table[5] = \"abcd\";\n"
+        'static const char table[5] = "abcd";\n'
         "int f(int i);\n"
         "int f(int i) { return ext(table[i]); }\n"
     )
     obj = tmp_path / "t.o"
-    cmd = [measure.tool(target.compiler), *target.target_flags, "-Os", "-c", str(src), "-o", str(obj)]
+    cc = measure.tool(target.compiler)
+    cmd = [cc, *target.target_flags, "-Os", "-c", str(src), "-o", str(obj)]
     subprocess.run(cmd, check=True)
     assert measure.section_sizes(obj).sections == _readobj_sections(readobj, obj)
     res = subprocess.run(
@@ -514,7 +516,8 @@ def _symbols(
             name, info, _other, shndx, value, sym_size = struct.unpack_from(e + "IBBHQQ", data, at)
         else:
             name, value, sym_size, info, _other, shndx = struct.unpack_from(e + "IIIBBH", data, at)
-        out.append(Symbol(_cstr(data, strings + name), value, sym_size, info & 0xF, info >> 4, shndx))
+        sym_name = _cstr(data, strings + name)
+        out.append(Symbol(sym_name, value, sym_size, info & 0xF, info >> 4, shndx))
     return tuple(out)
 
 
@@ -711,9 +714,20 @@ def test_frames_from_gcc_and_clang() -> None:
     assert measure.stack_frames(CLANG_SU) == {"usf_lookup": 44, "usf_id": 16}
 
 
-def test_a_dynamic_frame_is_refused() -> None:
-    with pytest.raises(MeasureError, match="usf_f has a dynamic stack frame"):
-        measure.stack_frames("x.h:1:2:usf_f\t16\tdynamic,bounded\n")
+#: gcc 14 for i386 (Debian's i386 package build runs these tests): stack
+#: realignment makes a frame "dynamic,bounded", the size an upper bound.
+I386_SU = (
+    "uspiflash.h:812:9:usf_lookup\t44\tdynamic,bounded\nuspiflash.h:860:9:usf_id\t20\tstatic\n"
+)
+
+
+def test_a_bounded_dynamic_frame_counts_its_bound() -> None:
+    assert measure.stack_frames(I386_SU) == {"usf_lookup": 44, "usf_id": 20}
+
+
+def test_an_unbounded_frame_is_refused() -> None:
+    with pytest.raises(MeasureError, match="usf_f has an unbounded stack frame"):
+        measure.stack_frames("x.h:1:2:usf_f\t16\tdynamic\n")
 
 
 def test_peak_is_the_deepest_path() -> None:
@@ -727,7 +741,8 @@ def test_a_clone_takes_its_functions_frame() -> None:
     assert measure.stack_peak(graph, {"a": 8, "b": 16}, ["a"]) == (24, ("a", "b.constprop.0"))
     # GCC's .su file names the clone b.isra for the symbol b.isra.0 (gcc 14).
     graph = {"a": {"b.isra.0"}, "b.isra.0": set()}
-    assert measure.stack_peak(graph, {"a": 8, "b.isra": 12, "b": 99}, ["a"]) == (20, ("a", "b.isra.0"))
+    frames = {"a": 8, "b.isra": 12, "b": 99}
+    assert measure.stack_peak(graph, frames, ["a"]) == (20, ("a", "b.isra.0"))
 
 
 def test_recursion_is_refused() -> None:
@@ -748,9 +763,7 @@ def test_measured_objects_have_a_stack_and_symbols(tmp_path: Path, target: Targe
     sizes = measure.measure(Config(Selection.make("id")), target, tmp_path)
     assert sizes.stack is not None
     assert sizes.stack.path[0] in {"usf_probe", "usf_lookup", "usf_id"}
-    assert sizes.stack.peak == sum(
-        measure.frame(sizes.stack.frames, f) for f in sizes.stack.path
-    )
+    assert sizes.stack.peak == sum(measure.frame(sizes.stack.frames, f) for f in sizes.stack.path)
     assert sizes.symbols["usf_probe"] > 0
     assert "usf__ids" in sizes.symbols
     assert sizes.to_json()["stack"] == sizes.stack.to_json()
@@ -783,22 +796,25 @@ class Stack:
 
     def to_json(self) -> dict[str, object]:
         """The peak, its path, and every frame."""
-        return {"peak": self.peak, "path": list(self.path), "frames": dict(sorted(self.frames.items()))}
+        frames = dict(sorted(self.frames.items()))
+        return {"peak": self.peak, "path": list(self.path), "frames": frames}
 
 
 def stack_frames(text: str) -> dict[str, int]:
     """Each function's frame, in bytes, from a ``-fstack-usage`` file. GCC
     writes ``file:line:column:name<TAB>bytes<TAB>static``, clang
-    ``file:line:name``. A ``dynamic`` frame (a VLA or ``alloca``) has no
-    static bound: it is refused."""
+    ``file:line:name``. ``dynamic,bounded`` (GCC realigning the stack, as
+    on i386) gives an upper bound, which is what counts. A plain
+    ``dynamic`` frame (a VLA or ``alloca``) has no bound: it is refused."""
     out: dict[str, int] = {}
     for line in text.splitlines():
         if not line.strip():
             continue
         where, size, qualifiers = line.split("\t")
         name = where.rsplit(":", 1)[-1]
-        if "dynamic" in qualifiers.split(","):
-            msg = f"{name} has a dynamic stack frame ({qualifiers})"
+        q = set(qualifiers.split(","))
+        if "dynamic" in q and "bounded" not in q:
+            msg = f"{name} has an unbounded stack frame ({qualifiers})"
             raise MeasureError(msg)
         out[name] = max(out.get(name, 0), int(size))
     return out
@@ -875,7 +891,9 @@ def stack_of(obj: elf.Elf, su: Path) -> Stack:
     """The object's :class:`Stack`, with the frames from ``su``."""
     frames = stack_frames(su.read_text(encoding="utf-8"))
     roots = [
-        s.name for s in obj.symbols if s.type == elf.STT_FUNC and s.defined and s.bind != elf.STB_LOCAL
+        s.name
+        for s in obj.symbols
+        if s.type == elf.STT_FUNC and s.defined and s.bind != elf.STB_LOCAL
     ]
     peak, path = stack_peak(call_graph(obj), frames, roots)
     return Stack(frames, peak, path)
@@ -932,7 +950,7 @@ def _table(ledger: dict[str, Any], target: str) -> list[str]:
     rows = ["| Configuration | text | rodata | total | stack |", "|---|--:|--:|--:|--:|"]
     for c in ledger["configs"]:
         s = ledger["sizes"][target][c["name"]]
-        stack = f"{s['stack']['peak']:,}" if s.get("stack") else "–"
+        stack = f"{s['stack']['peak']:,}" if s.get("stack") else "-"
         rows.append(
             f"| `{c['name']}` | {s['text']:,} | {s['rodata']:,} | **{s['total']:,}** | {stack} |"
         )
@@ -1000,7 +1018,11 @@ Claude-Session: https://claude.ai/code/session_01TYQmVKazwZhRmGrFbrL7TE"
   - `Target.link_flags: tuple[str, ...] | None = ()`, where `None` means
     no linker is packaged for the target;
   - `linked(target: Target, obj: Path) -> int | None`;
-  - `can_link(target: Target) -> bool` and `usable(target: Target) -> bool`;
+  - `can_link(target: Target) -> bool`, `default_machine(compiler: str) -> str`
+    and `usable(target: Target) -> bool`;
+  - `linker(target: Target) -> str | None`: the linker's name (`ld.lld`, or
+    what `<compiler> -print-prog-name=ld` prints);
+  - `ledger.tools()` lists the linkers with the compilers.
   - `Sizes.linked: int | None` (`"linked"` in `to_json()`).
 
 - [ ] **Step 1: Write the failing tests**
@@ -1161,22 +1183,43 @@ At the end of `measure()`:
 And the one test every measuring test asks first:
 
 ```python
+def default_machine(compiler: str) -> str:
+    """The CPU part of the triple ``compiler`` builds for by default
+    (``<compiler> -dumpmachine``: ``x86_64`` from ``x86_64-linux-gnu``,
+    ``i686`` from ``i686-linux-gnu``); ``""`` if it cannot say."""
+    res = subprocess.run(
+        [tool(compiler), "-dumpmachine"], capture_output=True, text=True, check=False
+    )
+    return res.stdout.strip().split("-", 1)[0] if res.returncode == 0 else ""
+
+
 def usable(target: Target) -> bool:
     """Whether ``target`` can be measured on this machine: its compiler is
-    installed, :func:`can_link` holds, and a target that relies on a
-    native compiler's default CPU (a plain ``gcc``/``clang``, no target
-    flags: the ``x86_64`` reference target) runs on a machine of that CPU.
-    The Debian package builds run the tests on arm64, armhf, i386 and
-    riscv64 too, where a native ``gcc`` does not build for x86_64."""
+    installed, :func:`can_link` holds, and a target without target flags
+    (a compiler's default CPU: the ``x86_64`` reference target) is what
+    that compiler builds for by default. The machine's own CPU does not
+    decide it: Debian's i386 package build runs on an x86_64 kernel
+    (``platform.machine()`` says ``x86_64``) with a gcc that builds for
+    ``i686``."""
     if find_tool(target.compiler) is None:
         return False
-    native = re.fullmatch(r"(gcc|clang)(-[\d.]+)?", Path(target.compiler).name)
-    if native and not target.target_flags and platform.machine() != target.name:
+    if not target.target_flags and default_machine(target.compiler) != target.name:
         return False
     return can_link(target)
 ```
 
-(`import platform` in `measure.py`.) This matters now: before Task 2 the
+A test, in `tests/test_linked.py`:
+
+```python
+def test_a_default_cpu_target_needs_that_default(tmp_path: Path) -> None:
+    fake = tmp_path / "gcc"
+    fake.write_text("#!/bin/sh\necho i686-linux-gnu\n")  # Debian's i386 gcc
+    fake.chmod(0o755)
+    assert not measure.usable(Target("x86_64", str(fake), link_flags=("-no-pie",)))
+    assert measure.default_machine(str(fake)) == "i686"
+```
+
+This matters now: before Task 2 the
 measuring tests needed `llvm-readobj`, which the Debian builds do not
 install, so they always skipped there. From Task 2 on they run in every
 Debian build.
@@ -1226,7 +1269,72 @@ with ld.lld-19, `full:nor`):
 - Cortex-M0 linked 54,276, against 54,547 (merged strings and unwind
   entries).
 
-- [ ] **Step 4: The ledger needs lld; a linked column**
+- [ ] **Step 4: The ledger needs lld and records the linkers; a linked column**
+
+The numbers depend on the linkers too, so their version lines go in the
+ledger beside the compilers', and `measure --check` compares them. In
+`measure.py`:
+
+```python
+def linker(target: Target) -> str | None:
+    """The linker :func:`linked` uses for ``target``: ``ld.lld`` with
+    ``-fuse-ld=lld``, else the compiler's own (``-print-prog-name=ld``:
+    ``ld`` for a native gcc, a full path for a cross one); ``None``
+    without one."""
+    if target.link_flags is None:
+        return None
+    if "-fuse-ld=lld" in target.link_flags:
+        return "ld.lld"
+    res = subprocess.run(
+        [tool(target.compiler), "-print-prog-name=ld"], capture_output=True, text=True, check=False
+    )
+    return res.stdout.strip() or "ld"
+```
+
+`version()` must read linkers right. GNU ld's `--version` says "version"
+only in its licence line ("the GNU General Public License version 3"), so
+the rule becomes "the first line holding a dotted version number":
+
+```python
+    return next((line for line in lines if re.search(r"\d+\.\d+", line)), lines[0])
+```
+
+with the docstring's example list extended: "gcc's first line, clang's
+`Debian clang version 19.1.7 (3+b1)`, GNU ld's `GNU ld (GNU Binutils for
+Debian) 2.44`, lld's `Debian LLD 19.1.7 (compatible with GNU linkers)`".
+In `tests/test_measure.py`'s `test_version_is_the_line_naming_the_version`,
+add to `fake`:
+
+```python
+        "ld": (
+            "GNU ld (GNU Binutils for Debian) 2.44\nCopyright (C) 2025\n"
+            "the GNU General Public License version 3 or later.\n"
+        ),
+```
+
+and `assert measure.version("ld") == "GNU ld (GNU Binutils for Debian) 2.44"`.
+The existing `llvm-readobj` case still passes: its first line
+(`llvm-readobj-19`) has no dotted number.
+
+`ledger.tools()` becomes:
+
+```python
+def tools(targets: Sequence[Target]) -> list[str]:
+    """Every compiler and linker measuring ``targets`` needs, sorted."""
+    names = {t.compiler for t in targets}
+    names |= {n for t in targets if (n := measure.linker(t)) is not None}
+    return sorted(names)
+```
+
+(The reference ledger's `tools` then holds `clang`, `gcc`, `ld` and
+`ld.lld`.) In `test_the_ledger_is_deterministic`, the tools assertion
+becomes `assert set(data["tools"]) == set(ledger.tools(small))`.
+
+What "linked" measures differs from spec §7.1's wording ("a minimal
+program that calls the API, linked with and without the library"): this
+is the implementation linked alone, every public function kept as an
+entry. It needs no per-target start-up code or `main` and counts exactly
+the library's bytes after linking. Amendment 22 records this.
 
 - `ledger.PACKAGES = ("clang-19", "lld-19", "gcc", "libc6-dev")`.
 - `deb.yml`'s `sizes` job adds `lld-19` to its `apt-get install`
@@ -1236,7 +1344,8 @@ with ld.lld-19, `full:nor`):
 - `_table()` gains a `linked` column before `stack`. The header becomes
   `| Configuration | text | rodata | total | linked | stack |` and the
   alignment row `|---|--:|--:|--:|--:|--:|`. The cell is
-  `f"{s['linked']:,}" if s.get("linked") is not None else "–"`.
+  `f"{s['linked']:,}" if s.get("linked") is not None else "-"` (an ASCII
+  hyphen: ruff's RUF001 rejects an en dash in a string).
 - In `readme()`, extend the sentence "Linking can add alignment." to:
   "**linked** is the implementation linked on its own (every public
   function kept, no C library): it adds alignment, pools and veneers, and
@@ -1435,6 +1544,8 @@ def size_lines(config: Config) -> list[str]:
         f"Size ({entry['name']} in sizes/ledger.json, spiflash {ref['spiflash']}): "
         f"{sizes} bytes of flash for code and tables at -Os, and no static RAM.",
         width=72,
+        break_on_hyphens=False,
+        break_long_words=False,
     )
 ```
 
