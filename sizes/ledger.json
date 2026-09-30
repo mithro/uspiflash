@@ -962,6 +962,7 @@
    "describe": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 44464,
     "rodata": 40565,
     "sections": {
@@ -1134,6 +1135,7 @@
    "describe:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 40124,
     "rodata": 36428,
     "sections": {
@@ -1306,6 +1308,7 @@
    "full": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 58992,
     "rodata": 51699,
     "sections": {
@@ -1530,6 +1533,7 @@
    "full+datasheet": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 106574,
     "rodata": 99082,
     "sections": {
@@ -1758,6 +1762,7 @@
    "full+datasheets": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 175140,
     "rodata": 166776,
     "sections": {
@@ -1986,6 +1991,7 @@
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 210542,
     "rodata": 202279,
     "sections": {
@@ -2218,6 +2224,7 @@
    "full+sfdp+sfdp_dumps": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 79265,
     "rodata": 70711,
     "sections": {
@@ -2454,6 +2461,7 @@
    "full+sfdp_dumps:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 73853,
     "rodata": 66159,
     "sections": {
@@ -2680,6 +2688,7 @@
    "full-sfdp_summary:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 53388,
     "rodata": 46436,
     "sections": {
@@ -2900,6 +2909,7 @@
    "full:nand": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 9572,
     "rodata": 5543,
     "sections": {
@@ -3076,6 +3086,7 @@
    "full:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 54276,
     "rodata": 47181,
     "sections": {
@@ -3300,6 +3311,7 @@
    "id": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 4826,
     "rodata": 3944,
     "sections": {
@@ -3359,6 +3371,7 @@
    "id+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 4798,
     "rodata": 3422,
     "sections": {
@@ -3428,6 +3441,7 @@
    "id:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 4102,
     "rodata": 3388,
     "sections": {
@@ -3487,6 +3501,7 @@
    "read": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 12727,
     "rodata": 11333,
     "sections": {
@@ -3576,6 +3591,7 @@
    "read+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 11893,
     "rodata": 10037,
     "sections": {
@@ -3675,6 +3691,7 @@
    "read:nand": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 2085,
     "rodata": 1441,
     "sections": {
@@ -3758,6 +3775,7 @@
    "read:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 11197,
     "rodata": 10003,
     "sections": {
@@ -3847,6 +3865,7 @@
    "write": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 17892,
     "rodata": 16406,
     "sections": {
@@ -3948,6 +3967,7 @@
    "write:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 16106,
     "rodata": 14820,
     "sections": {
@@ -4051,6 +4071,7 @@
    "describe": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 45634,
     "rodata": 40357,
     "sections": {
@@ -4214,6 +4235,7 @@
    "describe:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 41258,
     "rodata": 36220,
     "sections": {
@@ -4377,6 +4399,7 @@
    "full": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 60910,
     "rodata": 51403,
     "sections": {
@@ -4608,6 +4631,7 @@
    "full+datasheet": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 108646,
     "rodata": 98786,
     "sections": {
@@ -4844,6 +4868,7 @@
    "full+datasheets": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 177338,
     "rodata": 166480,
     "sections": {
@@ -5091,6 +5116,7 @@
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 212722,
     "rodata": 201975,
     "sections": {
@@ -5337,6 +5363,7 @@
    "full+sfdp+sfdp_dumps": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 81483,
     "rodata": 70435,
     "sections": {
@@ -5582,6 +5609,7 @@
    "full+sfdp_dumps:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 75963,
     "rodata": 65899,
     "sections": {
@@ -5819,6 +5847,7 @@
    "full-sfdp_summary:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 55218,
     "rodata": 46140,
     "sections": {
@@ -6045,6 +6074,7 @@
    "full:nand": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 10590,
     "rodata": 5303,
     "sections": {
@@ -6222,6 +6252,7 @@
    "full:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 56160,
     "rodata": 46885,
     "sections": {
@@ -6453,6 +6484,7 @@
    "id": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 4966,
     "rodata": 3888,
     "sections": {
@@ -6505,6 +6537,7 @@
    "id+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 4956,
     "rodata": 3350,
     "sections": {
@@ -6564,6 +6597,7 @@
    "id:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 4200,
     "rodata": 3332,
     "sections": {
@@ -6615,6 +6649,7 @@
    "read": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 13017,
     "rodata": 11237,
     "sections": {
@@ -6692,6 +6727,7 @@
    "read+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 12213,
     "rodata": 9925,
     "sections": {
@@ -6777,6 +6813,7 @@
    "read:nand": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 2241,
     "rodata": 1345,
     "sections": {
@@ -6847,6 +6884,7 @@
    "read:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 11457,
     "rodata": 9907,
     "sections": {
@@ -6924,6 +6962,7 @@
    "write": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 18220,
     "rodata": 16294,
     "sections": {
@@ -7011,6 +7050,7 @@
    "write:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 16404,
     "rodata": 14708,
     "sections": {
@@ -7100,6 +7140,7 @@
    "describe": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 44400,
     "rodata": 40357,
     "sections": {
@@ -7274,6 +7315,7 @@
    "describe:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 40108,
     "rodata": 36220,
     "sections": {
@@ -7448,6 +7490,7 @@
    "full": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 58672,
     "rodata": 51403,
     "sections": {
@@ -7679,6 +7722,7 @@
    "full+datasheet": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 106119,
     "rodata": 98786,
     "sections": {
@@ -7914,6 +7958,7 @@
    "full+datasheets": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 174509,
     "rodata": 166480,
     "sections": {
@@ -8158,6 +8203,7 @@
    "full+records+provenance+jep106": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 209882,
     "rodata": 201975,
     "sections": {
@@ -8399,6 +8445,7 @@
    "full+sfdp+sfdp_dumps": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 79057,
     "rodata": 70435,
     "sections": {
@@ -8644,6 +8691,7 @@
    "full+sfdp_dumps:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 73558,
     "rodata": 65899,
     "sections": {
@@ -8881,6 +8929,7 @@
    "full-sfdp_summary:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 53140,
     "rodata": 46140,
     "sections": {
@@ -9108,6 +9157,7 @@
    "full:nand": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 9223,
     "rodata": 5303,
     "sections": {
@@ -9293,6 +9343,7 @@
    "full:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 54015,
     "rodata": 46885,
     "sections": {
@@ -9524,6 +9575,7 @@
    "id": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 4862,
     "rodata": 3888,
     "sections": {
@@ -9588,6 +9640,7 @@
    "id+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 5005,
     "rodata": 3350,
     "sections": {
@@ -9660,6 +9713,7 @@
    "id:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 4195,
     "rodata": 3332,
     "sections": {
@@ -9724,6 +9778,7 @@
    "read": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 12757,
     "rodata": 11237,
     "sections": {
@@ -9813,6 +9868,7 @@
    "read+sfdp:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 12085,
     "rodata": 9925,
     "sections": {
@@ -9910,6 +9966,7 @@
    "read:nand": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 2070,
     "rodata": 1345,
     "sections": {
@@ -9990,6 +10047,7 @@
    "read:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 11275,
     "rodata": 9907,
     "sections": {
@@ -10079,6 +10137,7 @@
    "write": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 17918,
     "rodata": 16294,
     "sections": {
@@ -10178,6 +10237,7 @@
    "write:nor": {
     "bss": 0,
     "data": 0,
+    "frames": 0,
     "linked": 16182,
     "rodata": 14708,
     "sections": {

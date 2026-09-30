@@ -20,8 +20,15 @@ section. Sections that are not allocated (symbols, relocations, notes,
 attributes) occupy no target memory and are not recorded. The library has
 no writable static data, so :func:`measure` refuses an object with a
 non-empty ``data`` or ``bss``; and it links nothing (no libc, no compiler
-helper), so :func:`measure` also refuses an object with an undefined symbol
-(its undefined symbols), for every measured target.
+helper), so :func:`measure` also refuses an object with an undefined symbol,
+for every measured target, but a port's listed calling-convention runtime
+(:attr:`Cpu.runtime`).
+
+Each CPU (:data:`CPUS`) says how clang, GCC and SDCC select it;
+:func:`target` makes a :class:`Target` of one. SDCC writes no ELF: its
+``.rel`` object's areas (:func:`rel_contents`) are code, tables and
+writable memory, which counts as ``frames`` (static locals and
+parameters) once a ``--stack-auto`` compile shows it is not static data.
 
 The committed record of these numbers is :mod:`uspiflash.ledger`'s."""
 
@@ -62,9 +69,187 @@ FLAGS = (
     "-Werror",
 )
 
+#: SDCC's flags: C99, size first, every warning an error. Warning 110
+#: ("conditional flow changed by optimizer") reports the optimiser deleting
+#: a branch a one-type header makes constant (USF_LOOKUP_MAX 1); it is not
+#: about the source (spec amendment 19).
+SDCC_FLAGS = ("--std-c99", "--opt-code-size", "--Werror", "--disable-warning", "110")
+#: The second SDCC compile, which proves the library has no static data:
+#: with --stack-auto every local and parameter goes on the stack, so any
+#: writable area left (but the calling convention's own, _SDCC_IGNORED)
+#: is static data. Checked 2026-10-01 on SDCC 4.5.0: mcs51, hc08, s08 and
+#: mos6502 lose every writable area with it; stm8 and z80 have none either
+#: way.
+SDCC_CHECK_FLAGS = ("--stack-auto",)
+_LITEX = "a LiteX hard CPU (litex/soc/cores/cpu at 8c01073): size tracking only"
+
+_GPTR = "generic-pointer access: part of SDCC's mcs51 calling convention, not code"
+_HC08_RET = "the return-value registers of SDCC's hc08 calling convention"
+_Z80_CALL = "the frame and indirect-call entry of SDCC's z80 calling convention"
+_M6502 = "the pseudo-registers and indirect call of SDCC's 6502 calling convention"
+_RV = "--target=riscv32-unknown-elf"
+
+
+@dataclass(frozen=True)
+class Cpu:
+    """A CPU the library is measured on: how each compiler family selects
+    it, and what its port may need from elsewhere."""
+
+    name: str
+    #: clang's flags for it; ``None`` when clang cannot build for it.
+    clang: tuple[str, ...] | None = None
+    #: The flags a GCC built for its triple takes; ``None``: no GCC.
+    gcc: tuple[str, ...] | None = None
+    #: SDCC's flags (the port); ``None``: not an SDCC port.
+    sdcc: tuple[str, ...] | None = None
+    #: The runtime symbols the port's calling convention needs, each with
+    #: the reason (spec amendment 17). Nothing else may be undefined, and an
+    #: arithmetic helper never is.
+    runtime: tuple[tuple[str, str], ...] = ()
+    #: A Linux host CPU: the linked image is static and not
+    #: position-independent.
+    host: bool = False
+    #: Whether its GCC, and clang's lld, can link for it.
+    link: bool = True
+    #: 16-bit addresses: measured at SMALL_CONFIGS (Task 9) only, since the
+    #: extras' tables pass 64 KiB.
+    small: bool = False
+    #: Why it is measured, when that is not obvious (a LiteX hard CPU).
+    note: str = ""
+
+
+CPUS: dict[str, Cpu] = {
+    c.name: c
+    for c in (
+        Cpu("x86_64", clang=(), gcc=(), host=True),
+        Cpu("aarch64", clang=("--target=aarch64-linux-gnu",), gcc=(), host=True),
+        Cpu(
+            "ppc64le",
+            clang=("--target=powerpc64le-linux-gnu",),
+            gcc=(),
+            host=True,
+            runtime=((".TOC.", "the ELFv2 ABI's table-of-contents base; the linker defines it"),),
+        ),
+        Cpu(
+            "cortex-m0",
+            clang=("--target=thumbv6m-none-eabi", "-mcpu=cortex-m0", "-mthumb"),
+            gcc=("-mcpu=cortex-m0", "-mthumb"),
+        ),
+        # LiteX's gowin_emcu: its gcc_flags are -march=armv7-m -mthumb.
+        Cpu(
+            "cortex-m3",
+            clang=("--target=thumbv7m-none-eabi", "-mcpu=cortex-m3", "-mthumb"),
+            gcc=("-march=armv7-m", "-mthumb"),
+            note=_LITEX,
+        ),
+        # And a common MCU; LiteX's eos_s3 is a Cortex-M4F.
+        Cpu(
+            "cortex-m4",
+            clang=("--target=thumbv7em-none-eabi", "-mcpu=cortex-m4", "-mthumb"),
+            gcc=("-mcpu=cortex-m4", "-mthumb"),
+            note=_LITEX,
+        ),
+        # zynq7000 and cyclonev_hps: LiteX's own gcc_flags.
+        Cpu(
+            "cortex-a9",
+            clang=(
+                "--target=armv7a-none-eabihf",
+                "-mcpu=cortex-a9",
+                "-mfpu=vfpv3",
+                "-mfloat-abi=hard",
+            ),
+            gcc=("-mcpu=cortex-a9", "-mfpu=vfpv3", "-mfloat-abi=hard"),
+            note=_LITEX,
+        ),
+        # zynqmp and agilex_hps (aarch64-none-elf; Debian's GCC for it is
+        # aarch64-linux-gnu's). Unlinked: its measure is the object.
+        Cpu(
+            "cortex-a53",
+            clang=("--target=aarch64-none-elf", "-mcpu=cortex-a53"),
+            gcc=("-mcpu=cortex-a53",),
+            link=False,
+            note=_LITEX,
+        ),
+        Cpu(
+            "rv32i",
+            clang=(_RV, "-march=rv32i", "-mabi=ilp32"),
+            gcc=("-march=rv32i", "-mabi=ilp32"),
+        ),
+        Cpu(
+            "rv32imc",
+            clang=(_RV, "-march=rv32imc", "-mabi=ilp32"),
+            gcc=("-march=rv32imc", "-mabi=ilp32"),
+        ),
+        Cpu(
+            "rv32ec",
+            clang=(_RV, "-march=rv32ec", "-mabi=ilp32e"),
+            gcc=("-march=rv32ec", "-mabi=ilp32e"),
+        ),
+        # gowin_ae350: LiteX's gcc_flags -march=rv32imafdc -mabi=ilp32.
+        Cpu(
+            "rv32imafdc",
+            clang=(_RV, "-march=rv32imafdc", "-mabi=ilp32"),
+            gcc=("-march=rv32imafdc", "-mabi=ilp32"),
+            note=_LITEX,
+        ),
+        Cpu("msp430", clang=("--target=msp430",), link=False, small=True),
+        # avr-gcc only: clang 19's AVR backend still references
+        # __do_copy_data for ATmega4809 (2026-09-30), copying tables to RAM.
+        Cpu("avr", gcc=("-mmcu=atmega4809",), link=False, small=True),
+        Cpu("or1k", gcc=()),
+        Cpu(
+            "mcs51",
+            sdcc=("-mmcs51", "-DUSF_ROM=__code"),
+            runtime=(("__gptrget", _GPTR), ("__gptrput", _GPTR)),
+            link=False,
+            small=True,
+        ),
+        Cpu(
+            "hc08",
+            sdcc=("-mhc08",),
+            runtime=(("___SDCC_hc08_ret2", _HC08_RET), ("___SDCC_hc08_ret3", _HC08_RET)),
+            link=False,
+            small=True,
+        ),
+        Cpu("stm8", sdcc=("-mstm8",), link=False, small=True),
+        Cpu(
+            "z80",
+            sdcc=("-mz80",),
+            runtime=(("___sdcc_call_iy", _Z80_CALL), ("___sdcc_enter_ix", _Z80_CALL)),
+            link=False,
+            small=True,
+        ),
+        Cpu(
+            "mos6502",
+            sdcc=("-mmos6502",),
+            runtime=tuple(
+                (s, _M6502)
+                for s in (
+                    "DPTR",
+                    "REGTEMP",
+                    "__sdcc_indirect_jsr",
+                    "___SDCC_m6502_ret2",
+                    "___SDCC_m6502_ret3",
+                )
+            ),
+            link=False,
+            small=True,
+        ),
+    )
+}
+
+
+def family_of(compiler: str) -> str:
+    """``"sdcc"``, ``"clang"`` or ``"gcc"``, from the compiler's file name."""
+    base = Path(compiler).name
+    if base.startswith("sdcc"):
+        return "sdcc"
+    return "clang" if "clang" in base else "gcc"
+
+
 #: Each compiler's or linker's Debian package.
 _PACKAGES = {"clang": "clang", "gcc": "gcc", "ld.lld": "lld", "ld": "binutils"}
-KINDS = ("text", "rodata", "data", "bss")
+KINDS = ("text", "rodata", "data", "bss", "frames")
 _SHF_WRITE, _SHF_ALLOC, _SHF_EXECINSTR = 0x1, 0x2, 0x4
 _SHT_NOBITS = 8
 
@@ -88,30 +273,53 @@ class Target:
     #: ``-no-pie`` for a Linux host; ``None`` where no linker is packaged
     #: with the compiler (msp430, AVR with clang, SDCC).
     link_flags: tuple[str, ...] | None = ()
+    #: Undefined symbols allowed: the port's calling-convention runtime
+    #: (:attr:`Cpu.runtime`).
+    runtime: frozenset[str] = frozenset()
+
+    @property
+    def family(self) -> str:
+        """The compiler's family (:func:`family_of`)."""
+        return family_of(self.compiler)
 
     @property
     def flags(self) -> tuple[str, ...]:
         """Every flag after the compiler's name."""
+        if self.family == "sdcc":
+            return (*self.target_flags, *SDCC_FLAGS)
         return (*self.target_flags, *FLAGS, *(("-fstack-usage",) if self.stack else ()))
 
 
-#: The measured targets.
-#: clang links with LLVM's linker; the x86_64 image is static and not
-#: position-independent (Debian's gcc defaults to PIE).
+def target(cpu: str, compiler: str, *, name: str | None = None, stack: bool = True) -> Target:
+    """``compiler`` building for ``cpu`` (a :data:`CPUS` name). clang links
+    with LLVM's linker; a Linux host's image is static and not
+    position-independent (Debian's gcc defaults to PIE); SDCC and a CPU
+    without a packaged linker are not linked."""
+    c = CPUS[cpu]
+    family = family_of(compiler)
+    flags = {"clang": c.clang, "gcc": c.gcc, "sdcc": c.sdcc}[family]
+    if flags is None:
+        msg = f"{family} cannot build for {cpu}"
+        raise ValueError(msg)
+    link: tuple[str, ...] | None = None
+    if family != "sdcc" and c.link:
+        lld = ("-fuse-ld=lld",) if family == "clang" else ()
+        link = (*lld, *(("-no-pie",) if c.host else ()))
+    return Target(
+        name or cpu,
+        compiler,
+        flags,
+        runtime=frozenset(s for s, _ in c.runtime),
+        link_flags=link,
+        stack=stack and family != "sdcc",
+    )
+
+
+#: The reference targets: the size ledger and the README's headline.
 TARGETS: tuple[Target, ...] = (
-    Target(
-        "cortex-m0",
-        "clang",
-        ("--target=thumbv6m-none-eabi", "-mcpu=cortex-m0", "-mthumb"),
-        link_flags=("-fuse-ld=lld",),
-    ),
-    Target(
-        "rv32imc",
-        "clang",
-        ("--target=riscv32-unknown-elf", "-march=rv32imc", "-mabi=ilp32"),
-        link_flags=("-fuse-ld=lld",),
-    ),
-    Target("x86_64", "gcc", link_flags=("-no-pie",)),
+    target("cortex-m0", "clang"),
+    target("rv32imc", "clang"),
+    target("x86_64", "gcc"),
 )
 
 
@@ -222,6 +430,12 @@ class Sizes:
         return self._sum("bss")
 
     @property
+    def frames(self) -> int:
+        """SRAM an SDCC port gives the library's locals and parameters in
+        place of a stack (0 for GCC and clang, which use the stack)."""
+        return self._sum("frames")
+
+    @property
     def total(self) -> int:
         """What the object puts in flash: every allocated, non-writable
         section (``text + rodata``; ``data`` is 0, as :func:`measure` checks)."""
@@ -234,12 +448,55 @@ class Sizes:
             "rodata": self.rodata,
             "data": self.data,
             "bss": self.bss,
+            "frames": self.frames,
             "total": self.total,
             "sections": {k: dict(v) for k, v in self.sections.items() if v},
             "symbols": dict(sorted(self.symbols.items())),
             "stack": self.stack.to_json() if self.stack else None,
             "linked": self.linked,
         }
+
+
+#: SDCC's areas (read without a leading "_": z80 writes "_CODE"), by what
+#: they hold: code, constant tables, or writable memory. Writable areas
+#: count as bss; measure() calls them frames only once the --stack-auto
+#: compile shows they hold locals and parameters, not static data. On z80
+#: the tables are in CODE with the code (rodata is 0 there).
+_SDCC_AREAS = {
+    "text": frozenset({"CSEG", "CODE", "HOME", "GSINIT", "GSFINAL"}),
+    "rodata": frozenset({"CONST", "RODATA", "INITIALIZER"}),
+    "bss": frozenset(
+        {"DSEG", "OSEG", "ISEG", "XSEG", "PSEG", "BSEG", "ZP", "BSS", "DATA", "INITIALIZED"}
+    ),
+}
+#: Areas of the calling convention or the program, not the library's: the
+#: 8051's register bank 0 and its bit registers under --stack-auto, the
+#: stack segment (emitted with main), and absolute areas.
+_SDCC_IGNORED = frozenset({"REG_BANK_0", "BIT_BANK", "SSEG", "DABS", "CABS"})
+
+
+def rel_contents(text: str) -> tuple[Sizes, list[str]]:
+    """An SDCC object's (``.rel``) areas, by kind, and the symbols it
+    refers to without defining. The first line's letter gives the numbers'
+    radix: ``X`` hex, ``D`` decimal, ``Q`` octal."""
+    radix = {"X": 16, "D": 10, "Q": 8}.get(text[:1], 16)
+    out: dict[str, dict[str, int]] = {k: {} for k in KINDS}
+    refs: set[str] = set()
+    defs: set[str] = set()
+    for line in text.splitlines():
+        f = line.split()
+        if len(f) >= 4 and f[0] == "A" and f[2] == "size":
+            area, size = f[1].removeprefix("_"), int(f[3], radix)
+            if size == 0 or area in _SDCC_IGNORED:
+                continue
+            k = next((k for k, names in _SDCC_AREAS.items() if area in names), None)
+            if k is None:
+                msg = f"unknown SDCC area {area} ({size} bytes)"
+                raise MeasureError(msg)
+            out[k][area] = out[k].get(area, 0) + size
+        elif len(f) >= 3 and f[0] == "S" and not f[1].startswith("."):
+            (refs if f[2].startswith("Ref") else defs).add(f[1])
+    return Sizes(out), sorted(refs - defs)
 
 
 def find_tool(name: str) -> str | None:
@@ -516,6 +773,24 @@ def compile_command(target: Target, source: Path, obj: Path) -> list[str]:
     return [tool(target.compiler), *target.flags, "-c", str(source), "-o", str(obj)]
 
 
+def _sdcc_frames(target: Target, source: Path, workdir: Path, sizes: Sizes) -> Sizes:
+    """``sizes`` with its writable areas moved to ``frames`` once a second
+    compile with ``--stack-auto`` shows the library has no static data:
+    with every local on the stack, a writable area left is static data,
+    and ``bss`` keeps it, so the caller refuses it."""
+    obj = workdir / f"check-{target.name}.rel"
+    flags = (*target.flags, *SDCC_CHECK_FLAGS)
+    cmd = [tool(target.compiler), *flags, "-c", str(source), "-o", str(obj)]
+    res = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=workdir)
+    if res.returncode != 0:
+        msg = f"{' '.join(cmd)} failed:\n{res.stderr}{res.stdout}"
+        raise MeasureError(msg)
+    check, _ = rel_contents(obj.read_text(encoding="ascii"))
+    if check.bss:
+        return Sizes({**sizes.sections, "bss": dict(check.sections["bss"])})
+    return Sizes({**sizes.sections, "bss": {}, "frames": dict(sizes.sections["bss"])})
+
+
 def measure(config: Config, target: Target, workdir: Path) -> Sizes:
     """Generate ``config``'s file in ``workdir``, compile its implementation
     for ``target`` and size the object."""
@@ -527,22 +802,32 @@ def measure(config: Config, target: Target, workdir: Path) -> Sizes:
         f'#define {config.prefix.upper()}_IMPLEMENTATION\n#include "{config.filename}"\n',
         encoding="ascii",
     )
-    obj = workdir / f"impl-{target.name}.o"
+    suffix = "rel" if target.family == "sdcc" else "o"
+    obj = workdir / f"impl-{target.name}.{suffix}"
     cmd = compile_command(target, source, obj)
     res = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=workdir)
     if res.returncode != 0 or res.stderr:
-        msg = f"{' '.join(cmd)} failed:\n{res.stderr}"
+        # SDCC reports its errors on stdout as well as stderr.
+        msg = f"{' '.join(cmd)} failed:\n{res.stderr}{res.stdout}"
         raise MeasureError(msg)
-    e = _read(obj)
-    sizes = sizes_of(e)
+    e: elf.Elf | None = None
+    if target.family == "sdcc":
+        sizes, undefined = rel_contents(obj.read_text(encoding="ascii"))
+        sizes = _sdcc_frames(target, source, workdir, sizes)
+    else:
+        e = _read(obj)
+        sizes, undefined = sizes_of(e), e.undefined()
     if sizes.data or sizes.bss:
         msg = (
             f"{target.name}: the library has writable static data "
             f"(data {sizes.data}, bss {sizes.bss} bytes)"
         )
         raise MeasureError(msg)
-    if needed := e.undefined():
+    if needed := [s for s in undefined if s not in target.runtime]:
         msg = f"{target.name}: the library needs symbols from elsewhere: {', '.join(needed)}"
         raise MeasureError(msg)
+    if e is None:
+        # SDCC reports no stack use and is not linked (Target.stack, link_flags).
+        return sizes
     stack = stack_of(e, obj.with_suffix(".su")) if target.stack else None
     return replace(sizes, symbols=e.defined_sizes(), stack=stack, linked=linked(target, obj))
