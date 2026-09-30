@@ -282,6 +282,60 @@ extern "C" {
 
 typedef const USF_ROM uint8_t *usf__p;
 
+/*
+ * Arithmetic that calls no compiler helper, on any CPU.
+ *
+ * USF_SOFT_MUL is 1 where the CPU has no multiply instruction: rv32i and
+ * rv32e without M or Zmmul, msp430 (whose multiplier is an optional
+ * peripheral), the 8051, the 68HC08/S08, the 6502 and the Padauk. A
+ * multiply by a table's row size (12, 5, 3, ...) calls __mulsi3,
+ * __mspabi_mpyi or _mulint there, so USF__MUL shifts and adds instead.
+ * Define USF_SOFT_MUL as 0 or 1 to override the guess.
+ *
+ * USF__NOINLINE keeps GCC and clang from inlining such a helper into a
+ * caller with a constant argument: they would fold the loop back into the
+ * multiply the helper is there to avoid.
+ */
+#if defined(__GNUC__)
+#define USF__NOINLINE __attribute__((noinline))
+#else
+#define USF__NOINLINE
+#endif
+
+#ifndef USF_SOFT_MUL
+#if (defined(__riscv) && !defined(__riscv_mul) && !defined(__riscv_zmmul)) \
+    || defined(__MSP430__) || defined(__SDCC_mcs51) || defined(__SDCC_ds390) \
+    || defined(__SDCC_hc08) || defined(__SDCC_s08) || defined(__SDCC_mos6502) \
+    || defined(__SDCC_mos65c02) || defined(__SDCC_pdk13) || defined(__SDCC_pdk14) \
+    || defined(__SDCC_pdk15)
+#define USF_SOFT_MUL 1
+#else
+#define USF_SOFT_MUL 0
+#endif
+#endif
+
+#if USF_SOFT_MUL
+static USF__NOINLINE uint16_t usf__mul(uint16_t a, uint8_t k)
+{
+    uint16_t r = 0;
+    for (; k; k >>= 1, a = (uint16_t)(a << 1))
+        if (k & 1)
+            r = (uint16_t)(r + a);
+    return r;
+}
+#define USF__MUL(a, k) usf__mul((uint16_t)(a), (uint8_t)(k))
+#else
+#define USF__MUL(a, k) ((uint16_t)((uint16_t)(a) * (uint16_t)(k)))
+#endif
+
+/* An index times USF_OFF_BYTES (2 or 3, chosen by the generator): a shift
+ * when it is 2, so no CPU needs the multiply at all. */
+#if USF_OFF_BYTES == 2
+#define USF__OFFS(i) ((uint16_t)((uint16_t)(i) << 1))
+#else
+#define USF__OFFS(i) USF__MUL((i), 3)
+#endif
+
 #if USF_OFF_BYTES == 2
 typedef uint16_t usf__off_t;
 #else
@@ -341,7 +395,7 @@ static void usf__puts(usf__off_t off, usf_putc_fn sink, void *ctx)
 
 static usf__p usf__row(const usf_chip *c)
 {
-    return usf__entries + (uint16_t)(c->entry * (uint16_t)USF_ENTRY_SIZE);
+    return usf__entries + USF__MUL(c->entry, USF_ENTRY_SIZE);
 }
 
 /* The ids-table record (header byte, then id bytes) of chip id `base`. */
@@ -513,7 +567,7 @@ uint8_t usf_has_feature(const usf_chip *c, uint8_t feature)
     usf__p s;
     if (feature >= USF_FEATURE_COUNT) /* past the chip's 3-byte set */
         return 0;
-    s = usf__featsets + 3 * usf__row(c)[USF_E_FEAT];
+    s = usf__featsets + USF__MUL(usf__row(c)[USF_E_FEAT], 3);
     return (uint8_t)((s[feature >> 3] >> (feature & 7)) & 1);
 }
 #endif
@@ -540,7 +594,7 @@ static usf__p usf__opitem(const usf_chip *c, uint8_t i)
 /* The ops-table row an item points at. */
 static usf__p usf__oprow(usf__p item)
 {
-    return usf__ops + (uint16_t)(USF_OP_SIZE * item[0]);
+    return usf__ops + USF__MUL(item[0], USF_OP_SIZE);
 }
 
 uint8_t usf_op_count(const usf_chip *c) { return *usf__opset(c); }
@@ -632,7 +686,7 @@ uint8_t usf_manufacturer(const usf_chip *c, usf_putc_fn sink, void *ctx)
     uint8_t i = usf__row(c)[USF_E_MFR];
     if (i == 0xFF)
         return 0;
-    usf__puts(usf__off(usf__mfrs + USF_OFF_BYTES * i), sink, ctx);
+    usf__puts(usf__off(usf__mfrs + USF__OFFS(i)), sink, ctx);
     return 1;
 #else
     (void)c;
@@ -656,7 +710,7 @@ uint8_t usf_name(const usf_chip *c, uint8_t i, usf_putc_fn sink, void *ctx)
     usf__p p = usf__names(c);
     if (i >= *p)
         return 0;
-    usf__puts(usf__off(p + 1 + USF_OFF_BYTES * i), sink, ctx);
+    usf__puts(usf__off(p + 1 + USF__OFFS(i)), sink, ctx);
     return 1;
 }
 #endif
@@ -758,7 +812,7 @@ static usf__p usf__dslist(const usf_chip *c)
 /* The dsrows row a list item points at. */
 static usf__p usf__dsrow(usf__p item)
 {
-    return usf__dsrows + (uint16_t)(USF_DS_ROW * usf__u16(item));
+    return usf__dsrows + USF__MUL(usf__u16(item), USF_DS_ROW);
 }
 #endif
 
@@ -781,7 +835,7 @@ static usf__p usf__sfdprow(const usf_chip *c)
 /* Writes the i-th pool string of a fixed OFF array (featnames, ...). */
 static void usf__name(usf__p names, uint8_t i, usf_putc_fn sink, void *ctx)
 {
-    usf__puts(usf__off(names + USF_OFF_BYTES * i), sink, ctx);
+    usf__puts(usf__off(names + USF__OFFS(i)), sink, ctx);
 }
 
 #if USF_HAVE_SOURCES
@@ -1083,7 +1137,7 @@ static void usf__jpool(usf__json *j, usf__off_t off)   /* "pool string" */
 
 static void usf__jname(usf__json *j, usf__p names, uint8_t i)   /* "names[i]" */
 {
-    usf__jpool(j, usf__off(names + USF_OFF_BYTES * i));
+    usf__jpool(j, usf__off(names + USF__OFFS(i)));
 }
 
 static void usf__jint(usf__json *j, uint32_t v) { usf__dec(v, j->sink, j->ctx); }
@@ -1242,7 +1296,7 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
     usf__jopen(j, '[');
     for (i = 0, n = *p; i < n; i++) {
         usf__jitem(j);
-        usf__jpool(j, usf__off(p + 1 + USF_OFF_BYTES * i));
+        usf__jpool(j, usf__off(p + 1 + USF__OFFS(i)));
     }
     usf__jclose(j, ']');
 

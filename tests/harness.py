@@ -174,14 +174,21 @@ class Harness:
     binary: Path
 
     @classmethod
-    def build(cls, tmp: Path, config: Config, cc: str) -> Harness:
+    def build(cls, tmp: Path, config: Config, cc: str, defines: Sequence[str] = ()) -> Harness:
         """Generate ``config``'s header in ``tmp`` and compile the harness
-        against it with ``cc``, under ASan and UBSan."""
+        against it with ``cc``, under ASan and UBSan, with ``defines``
+        (``-D`` flags) added."""
         tmp.mkdir(parents=True, exist_ok=True)
         generate(tmp, config)
         (tmp / "harness_names.h").write_text(_names_header(), encoding="ascii")
         binary = tmp / "harness"
-        extra = [*SANITIZE, f"-I{tmp}", f"-I{HERE / 'c'}", f'-DUSF_HEADER="{config.filename}"']
+        extra = [
+            *SANITIZE,
+            *defines,
+            f"-I{tmp}",
+            f"-I{HERE / 'c'}",
+            f'-DUSF_HEADER="{config.filename}"',
+        ]
         compile_c(cc, [HERE / "c" / "harness.c"], binary, extra)
         return cls(binary)
 
@@ -208,13 +215,14 @@ def check(
     compilers: Sequence[str],
     config: Config,
     oracles: Mapping[str, Callable[[int, bytes], str]],
+    defines: Sequence[str] = (),
 ) -> None:
     """For each compiler, build the harness for ``config``; run each harness
     command in ``oracles`` on every query of its snapshot; and compare each
     output with the oracle's ``(family, data)`` answer."""
     qs = queries(snapshot(config))
     for cc in compilers:
-        h = Harness.build(tmp / cc, config, cc)
+        h = Harness.build(tmp / cc, config, cc, defines)
         for cmd, oracle in oracles.items():
             got = h.run([f"{cmd} {fam} {data.hex()}" for fam, data in qs])
             for (fam, data), out in zip(qs, got, strict=True):
