@@ -66,7 +66,7 @@ file was generated without: the `from:` line and per-opcode sources without
 `datasheet`, the JSON `datasheets`, `records` and records' `at` without
 `datasheets`, `records` and `provenance`, the `sfdp:` lines without
 `sfdp_summary`, and the JSON `sfdp` without `sfdp_dumps`. The tests check
-this against spiflash 0.0.post92 (`uspiflash.VERIFIED_SPIFLASH`).
+this against spiflash 0.0.post108 (`uspiflash.VERIFIED_SPIFLASH`).
 `--with sfdp` adds `usf_sfdp_read()`, which reads and decodes the chip's own
 SFDP tables (JESD216).
 

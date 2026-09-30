@@ -18,7 +18,7 @@ the measurement fails), so it calls no libc function and no compiler
 helper. Linking can add alignment. `ledger.json` lists every allocated
 section of every object.
 
-Measured against spiflash 0.0.post92 (database format 3).
+Measured against spiflash 0.0.post108 (database format 3).
 These are compiled objects; the
 [database-statistics experiment](https://github.com/mithro/uspiflash/blob/main/experiments/2026-09-28-database-statistics/README.md)
 counts the raw table bytes before compiling.
