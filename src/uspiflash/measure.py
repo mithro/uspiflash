@@ -116,6 +116,9 @@ class Cpu:
     small: bool = False
     #: Why it is measured, when that is not obvious (a LiteX hard CPU).
     note: str = ""
+    #: What ``-dumpmachine`` calls it, where that is not its name (GCC's
+    #: ``powerpc64le``): a native target's compiler is checked against it.
+    machine: str = ""
 
 
 CPUS: dict[str, Cpu] = {
@@ -129,6 +132,7 @@ CPUS: dict[str, Cpu] = {
             gcc=(),
             host=True,
             runtime=((".TOC.", "the ELFv2 ABI's table-of-contents base; the linker defines it"),),
+            machine="powerpc64le",
         ),
         Cpu(
             "cortex-m0",
@@ -245,6 +249,13 @@ def family_of(compiler: str) -> str:
     if base.startswith("sdcc"):
         return "sdcc"
     return "clang" if "clang" in base else "gcc"
+
+
+def machine_of(name: str) -> str:
+    """What ``-dumpmachine`` calls the CPU a native target named ``name``
+    builds for: :attr:`Cpu.machine`, else the name itself."""
+    cpu = CPUS.get(name)
+    return (cpu.machine if cpu else "") or name
 
 
 #: Each compiler's or linker's Debian package.
@@ -706,7 +717,7 @@ def usable(target: Target) -> bool:
     ``i686``."""
     if find_tool(target.compiler) is None:
         return False
-    if not target.target_flags and default_machine(target.compiler) != target.name:
+    if not target.target_flags and default_machine(target.compiler) != machine_of(target.name):
         return False
     return can_link(target)
 

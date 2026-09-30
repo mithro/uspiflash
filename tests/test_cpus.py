@@ -167,6 +167,21 @@ def test_sdcc_measures_stm8(tmp_path: Path) -> None:
     assert sizes.linked is None
 
 
+def test_a_native_cpu_is_checked_against_its_machine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GCC's -dumpmachine calls ppc64le powerpc64le: a native ppc64le GCC
+    is usable, and one that builds for anything else is not."""
+    assert measure.machine_of("ppc64le") == "powerpc64le"
+    assert measure.machine_of("x86_64") == "x86_64"
+    assert measure.machine_of("not-a-cpu") == "not-a-cpu"
+    t = measure.target("ppc64le", "powerpc64le-linux-gnu-gcc")
+    monkeypatch.setattr(measure, "find_tool", lambda name: name)
+    monkeypatch.setattr(measure, "can_link", lambda _t: True)
+    monkeypatch.setattr(measure, "default_machine", lambda _c: "powerpc64le")
+    assert measure.usable(t)
+    monkeypatch.setattr(measure, "default_machine", lambda _c: "x86_64")
+    assert not measure.usable(t)
+
+
 def _fake_sdcc(tmp_path: Path, plain: str, stack_auto: str) -> str:
     """An ``sdcc`` that writes ``plain`` as its object, or ``stack_auto``
     under ``--stack-auto``: the SDCC path, without SDCC."""

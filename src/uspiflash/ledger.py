@@ -109,7 +109,7 @@ def build(
     for t in targets:
         if not t.target_flags:
             machine = measure.default_machine(t.compiler)
-            if machine != t.name:
+            if machine != measure.machine_of(t.name):
                 msg = f"{t.name}: {t.compiler} builds for {machine} by default"
                 raise measure.MeasureError(msg)
     versions = {name: measure.version(name) for name in tools(targets)}
