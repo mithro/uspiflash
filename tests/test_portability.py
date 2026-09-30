@@ -1,6 +1,9 @@
 """The generated library calls no compiler helper on CPUs without a
 multiplier or a barrel shifter (spec amendment 18): clang for rv32i,
-rv32ec and msp430, which every clang can build for without a C library."""
+rv32ec and msp430, which every clang can build for without a C library.
+Also covers the GCC cross compilers for cortex-m0, cortex-m3, cortex-a9,
+rv32i and rv32ec (issue #7): GCC on Thumb-1 can need libgcc helpers that
+clang does not."""
 
 from __future__ import annotations
 

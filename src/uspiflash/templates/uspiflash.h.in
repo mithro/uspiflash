@@ -53,7 +53,9 @@ typedef void (*usf_putc_fn)(void *ctx, char ch);
 
 /* One answer: which entry (a chip id, or a variant of it narrowed by its
  * extended id) and the chip id it belongs to. Filled by usf_lookup() and
- * usf_probe(); four bytes of RAM. */
+ * usf_probe(); four bytes of RAM. usf_probe's NAND branch copies this
+ * member by member (through locals), not by struct assignment, to avoid a
+ * memcpy call on Thumb-1: a new field here needs the same treatment there. */
 typedef struct usf_chip {
     uint16_t entry;
     uint16_t base;
@@ -1577,10 +1579,12 @@ uint8_t usf_probe(usf_bus *bus, usf_probe_result *r)
      * NOR, that could name a chip that isn't there. Only NAND answers count
      * (a lookup gives NOR first, then NAND, at most one of each). */
     if (r->count && usf_type(&r->chip[r->count - 1]) == USF_TYPE_NAND) {
-        /* Member by member: a struct assignment is a memcpy call for GCC
-         * on Thumb-1, where usf_chip is only 2-byte aligned. */
-        r->chip[0].entry = r->chip[r->count - 1].entry;
-        r->chip[0].base = r->chip[r->count - 1].base;
+        /* Through locals: a struct assignment is a memcpy call for GCC on
+         * Thumb-1 (usf_chip is only 2-byte aligned); member stores straight
+         * from r->chip[...] cost x86_64 gcc 11 bytes. */
+        uint16_t e = r->chip[r->count - 1].entry, b = r->chip[r->count - 1].base;
+        r->chip[0].entry = e;
+        r->chip[0].base = b;
         r->count = 1;
     } else {
         r->count = 0;
