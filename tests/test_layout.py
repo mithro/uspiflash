@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 import random
-from dataclasses import replace
+from dataclasses import fields, replace
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -498,6 +498,19 @@ def _chip_records() -> list[Record]:
     return list(f.records)
 
 
+def _with(r: Record, change: dict[str, Any]) -> Record:
+    """``r`` with ``change`` applied. A field spiflash works out itself
+    (``init=False``: ``sector_size`` from 0.0.post199, derived from the
+    erasers) can't go through :func:`dataclasses.replace`, so it is set on
+    the copy directly, as the record's own ``__post_init__`` does."""
+    init = {f.name for f in fields(r) if f.init}
+    r = replace(r, **{k: v for k, v in change.items() if k in init})
+    for k, v in change.items():
+        if k not in init:
+            object.__setattr__(r, k, v)
+    return r
+
+
 def _build(records: list[Record], level: str) -> layout.Layout:
     db = database()
     small = Database(records, db.manufacturers, db.sources, db.datasheets)
@@ -514,7 +527,7 @@ def _build(records: list[Record], level: str) -> layout.Layout:
     ],
 )
 def test_a_value_too_wide_for_its_table_is_refused(change: dict[str, Any], message: str) -> None:
-    records = [replace(r, **change) for r in _chip_records()]
+    records = [_with(r, change) for r in _chip_records()]
     with pytest.raises(ValueError, match=message):
         _build(records, "describe")
 
