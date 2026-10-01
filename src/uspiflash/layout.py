@@ -13,10 +13,10 @@ Conventions
 - ``OFF`` is an offset into ``str``, ``OFF_BYTES`` (2, or 3 once the pool
   reaches 0xFFFF bytes) wide.
 - A **source mask** has bit *i* set for ``SOURCES[i]`` (:data:`SOURCES`:
-  flashrom, flashprog, linux, u-boot, dediprog, rockchip, openocd,
-  openfpgaloader, imsprog, qemu, zephyr, spiflash's priority order). How a
-  selection stores masks is chosen per selection (:class:`SourceMasks`),
-  the smallest of:
+  flashrom, flashprog, linux, u-boot, dediprog, rockchip, mediatek,
+  openocd, openfpgaloader, imsprog, qemu, zephyr, spiflash's priority
+  order). How a selection stores masks is chosen per selection
+  (:class:`SourceMasks`), the smallest of:
 
   - one byte each (``SRC_BYTES`` 1), while every mask fits eight bits;
   - otherwise two bytes (``SRC_BYTES`` 2), with ``E_SRCS`` a one-byte index
@@ -135,7 +135,7 @@ Tables
     order: ``u16`` entry index; with ``sfdplines``, at ``SFDP_LINES``, a
     ``u16`` offset into ``sfdplines``; with SFDP_DUMPS, at ``SFDP_TREE``, a
     ``u16`` offset into ``sfdptree``. ``SFDP_COUNT`` rows (13 at spiflash
-    0.0.post173: 11 chip ids and 2 extended-id variants). An entry without a
+    0.0.post182: 11 chip ids and 2 extended-id variants). An entry without a
     row has no dump; the C finds a row by scanning (no ``E_*`` field: two
     bytes per entry would cost more than the rows).
 ``sfdplines`` (SFDP_SUMMARY with TEXT: :func:`stores_sfdp_lines`)

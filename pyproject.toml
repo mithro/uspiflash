@@ -26,7 +26,7 @@ classifiers = [
 # 0.0.post173 is the minimum: it added inferred manufacturers, SPI NAND
 # chips' shorter ids, Database.narrow and the "parts differ" lines, which
 # the generator reads. The generated C's output is verified byte-identical
-# to 0.0.post173, the newest release as of the last catch-up
+# to 0.0.post182, the newest release as of the last catch-up
 # (uspiflash.VERIFIED_SPIFLASH).
 dependencies = ["spiflash>=0.0.post173"]
 

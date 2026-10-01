@@ -537,7 +537,7 @@ def test_more_than_254_distinct_values_is_refused() -> None:
 
 
 def test_the_source_mask_holds_every_source() -> None:
-    """spiflash 0.0.post173 has eleven sources, which a two-byte mask holds;
+    """spiflash 0.0.post182 has twelve sources, which a two-byte mask holds;
     a 17th must fail loudly, not wrap or overflow."""
     layout.check_sources()
     assert len(layout.SOURCES) <= 16
