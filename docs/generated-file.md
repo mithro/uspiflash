@@ -19,6 +19,7 @@ without a field simply has no such declaration to warn about).
 |---|---|---|
 | `usf_chip` | `id` | One answer: which entry (a chip id, or an extended-id variant of it) and the chip id it belongs to. Filled by `usf_lookup()` and `usf_probe()`; four bytes of RAM. |
 | `usf_putc_fn` | `id` | A character sink: every string the library writes leaves through one of these, one character at a time, so no buffer is ever needed. |
+| `usf_srcmask` | `id` | A source mask: bit `USF_SOURCE_*` set for each upstream that vouches (`usf_sources()`, `usf_op.sources`). `uint8_t` when the file has no `sources` field (below `full`) or every source its chips cite is among the first eight, else `uint16_t` (`USF_SRC_BYTES`). |
 | `usf_op` | `read` (`USF_HAVE_OPERATIONS`) | One operation the chip supports and the transaction it is on the bus: `id`, `opcode`, `kind`, `protocol`, `address_bytes`, `dummy_clocks`, `data`, `data_bytes`, `sources`. |
 | `usf_bus`, `usf_xfer_fn` | `id` (`USF_HAVE_PROBE`) | The transport. By default `struct usf_bus` is a function pointer (`usf_xfer_fn`) and a context pointer; when you define `USF_XFER` yourself, neither that definition nor `usf_xfer_fn` exists, and `struct usf_bus` is yours to define (see [Macros](#macros)). The `usf_bus` typedef (of `struct usf_bus`) always exists. |
 | `usf_probe_result` | `id` (`USF_HAVE_PROBE`) | What `usf_probe()` found: which command answered (`family`), the raw bytes (`id[USF_RDID_LEN]`), and up to `USF_LOOKUP_MAX` looked-up `usf_chip` answers (`chip[]`, `count` of them). |
@@ -38,9 +39,9 @@ without a field simply has no such declaration to warn about).
 | `usf_has_feature` | `read` | Whether any source claims `feature` (`USF_FEATURE_*`) for the chip; 0 for a number past the last feature. |
 | `usf_op_count`, `usf_op_get`, `usf_op_find` | `read` (`operations`) | How many operations the chip has (spiflash's order: id, read, program, erase, register, mode); the i-th one; the operation with a given `USF_OP_*` id. Each returns 0 when there is no such operation. |
 | `usf_op_name`, `usf_op_description` | `describe` (`descriptions`) | Write the name (e.g. `"READ_1_1_4"`) or the description of operation `op_id` (`USF_OP_*`); return 0 (writing nothing) if no chip in this file has it. |
-| `usf_manufacturer` | `describe` | Writes the manufacturer's name; returns 0 (writing nothing) if unknown. |
+| `usf_manufacturer` | `describe` | Writes the manufacturer's name; returns 0 (writing nothing) if unknown, 1 if a source names it, 2 if no source does and spiflash infers it from other chips with the same manufacturer byte and part names (the text output's `(inferred)`). |
 | `usf_name_count`, `usf_name` | `describe` | How many part names the chip id has, most-cited first; and the i-th (returns 0 when out of range). |
-| `usf_sources` | `full` | Bit `USF_SOURCE_*` set for each upstream describing the chip. |
+| `usf_sources` | `full` | A `usf_srcmask`: bit `USF_SOURCE_*` set for each upstream describing the chip. |
 | `usf_jep106` | `jep106` extra | Writes the JEP106 name of manufacturer byte `id` in `bank`; 0 if none. |
 | `usf_print` | `describe` (`text`) | Prints what `spiflash id` (with `USF_PRINT_OPCODES`, `spiflash id --opcodes`) prints for `n` answers, byte for byte, less what this file was generated without: the `from:` line and each opcode's `[sources]` without `sources`, the `sources disagree` lines without `conflicts`, the `datasheet:` line without `datasheet`, and the `sfdp:` lines without `sfdp_summary`. |
 | `usf_print_json` | `full` (`json`) | Prints what `spiflash id --json` prints, byte for byte, less what this file was generated without: `"datasheets"` without `datasheets`, `"records"` without `records`, each record's `"at"` without `provenance`, and `"sfdp"` without `sfdp_dumps`. |
@@ -70,7 +71,11 @@ source, operation kind, protocol and operation the selected chips use
 (`USF_FAMILY_*`, `USF_TYPE_*`, `USF_FEATURE_*`, `USF_SOURCE_*`,
 `USF_KIND_*`, `USF_PROTO_*`, `USF_OP_*`). Which of these exist, and how
 many, depends on the selection (`--level`, `--with`/`--without`, the chip
-filters): they are not fixed macros to enumerate here.
+filters): they are not fixed macros to enumerate here. Their values can
+change between spiflash versions (a new source or operation renumbers the
+ones after it: spiflash 0.0.post173 moved `USF_SOURCE_OPENOCD` from 4 to
+6, 0.0.post182 to 7), so use the names, and regenerate every file a
+program includes together.
 
 ## Example: probing with a function-pointer bus
 
@@ -154,3 +159,45 @@ void print_chips(const usf_chip *chips, uint8_t n)
 #endif
 }
 ```
+
+## SDCC and CPUs without a multiplier
+
+The generated file builds with SDCC (`--std-c99 --Werror`) on the 8051,
+68HC08/S08, STM8, Z80 and 6502 ports, and with GCC and clang on CPUs that
+have no multiply instruction or barrel shifter. On every CPU and compiler
+in the size matrix it calls no arithmetic helper and no C library
+function: no multiply, divide or shift routine, no `memcpy`, no
+jump-table dispatcher. The matrix checks this, and
+[its README](https://github.com/mithro/uspiflash/blob/main/sizes/matrix/README.md)
+lists the only symbols a port may still need: its calling-convention
+runtime.
+
+- **Callbacks on SDCC's non-reentrant ports** (8051, 68HC08/S08, 6502,
+  Padauk) must be declared reentrant. Write `USF_REENTRANT` after the
+  parameter list:
+
+  ```c
+  static void my_putc(void *ctx, char ch) USF_REENTRANT { /* ... */ }
+  ```
+
+  It is `__reentrant` there and empty everywhere else.
+- **Tables in program memory on the 8051:** define `USF_ROM` as `__code`.
+- **Memory model on the 8051:** the default (small) model keeps each
+  function's locals in the 128 bytes of internal RAM. A whole program with
+  the text printer does not fit there, so use `--model-large`.
+- **`USF_SOFT_MUL` and `USF_SOFT_SHIFT`** are set automatically:
+  - where a multiply by a table's row size would call a helper, table row
+    offsets are computed by shift and add: on rv32i/rv32e without M,
+    msp430, and SDCC's 8051, 68HC08/S08, 6502, Padauk, STM8 and f8 ports.
+    The STM8 and the f8 have a multiplier, but SDCC calls its `_mulint`
+    helper for some row sizes there. SDCC's Z80-family ports multiply
+    inline, and shift and add would be larger;
+  - on msp430 and SDCC, sizes are printed without a shift by a variable
+    count: msp430 calls a helper for one, and SDCC's inline shift loop is
+    larger.
+
+  Define either as 0 or 1 to override. The generated file behaves
+  identically either way (the tests run both).
+- **What an SDCC port still links:** its own calling-convention runtime,
+  such as the 8051's generic-pointer routines (`__gptrget`). The size
+  matrix lists them per port (`sizes/matrix/README.md`).

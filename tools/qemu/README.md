@@ -129,7 +129,7 @@ spiflash's QEMU dumps come from) and in this image.
    [    2.487503] init: spi1.0 /sys/firmware/devicetree/base/soc/spi@10050000/mmc@0 driver=
    [    2.489520] init: flash node /dev/spidev0.0
    === uspiflash-linux ===
-   9d7019  ISSI  IS25WP256, IS25WP256D  (nor)
+   9d7019  ISSI  IS25WP256, IS25WP256D, IS25DWP512M, IS25WE256E, IS25WP256E  (nor)
        size 32 MiB, page 256 B, sector 64 KiB, 1.65-1.95 V
    ...
    sfdp=1.6 dwords=16 addr=0 erase4k=0x20 dtr=1 size=33554432 page=256 qe=2 en4b=0x29 ex4b=0xe8
@@ -141,7 +141,7 @@ spiflash's QEMU dumps come from) and in this image.
    ```
 
    The tool's first 39 lines are byte for byte `spiflash id 9d7019
-   --opcodes` (spiflash 0.0.post108); the last three are Debian's QEMU
+   --opcodes` (spiflash 0.0.post182); the last three are Debian's QEMU
    10.0.13's SFDP table, equal to spiflash's copy of it from `81ce3a87`.
    The guest takes under 3 s from power-on; the whole run, with the
    image cached, about 15 s.

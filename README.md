@@ -51,7 +51,7 @@ apt repository below.
 <!-- sizes: generated from sizes/ledger.json by `uspiflash measure --write` -->
 For SPI NOR flash (`--type nor`, the default), compiled for `cortex-m0` with
 Debian clang version 19.1.7 (3+b1) at `-Os`, the `read` level costs
-**11,275 bytes** of flash and `full` **54,547 bytes**, code and tables
+**15,877 bytes** of flash and `full` **84,855 bytes**, code and tables
 together, with no static RAM. Every configuration (all chip types, and
 NAND), every target, and how they are measured:
 [`sizes/README.md`](https://github.com/mithro/uspiflash/blob/main/sizes/README.md).
@@ -66,7 +66,7 @@ file was generated without: the `from:` line and per-opcode sources without
 `datasheet`, the JSON `datasheets`, `records` and records' `at` without
 `datasheets`, `records` and `provenance`, the `sfdp:` lines without
 `sfdp_summary`, and the JSON `sfdp` without `sfdp_dumps`. The tests check
-this against spiflash 0.0.post108 (`uspiflash.VERIFIED_SPIFLASH`).
+this against spiflash 0.0.post182 (`uspiflash.VERIFIED_SPIFLASH`).
 `--with sfdp` adds `usf_sfdp_read()`, which reads and decodes the chip's own
 SFDP tables (JESD216).
 
@@ -74,10 +74,12 @@ SPI NOR is the primary target: `uspiflash generate` keeps only SPI NOR chips
 unless told otherwise (`--type nor --type nand` keeps every chip, NAND
 included; `--type nand` only NAND).
 
-On 16-bit targets (AVR, msp430, the 8051) the levels `id` to `full` fit, if
-the part has the flash (`full` is about 59 KB of code and tables); the
-`datasheet`, `datasheets`, `records`, `provenance` and `jep106` extras do
-not, as their tables pass the 64 KiB a 16-bit pointer can address. On AVR,
+On 16-bit targets (AVR, msp430, the 8051) a 16-bit pointer addresses
+64 KiB: `write` is the largest level that fits (on `cortex-m0`, 21,993
+bytes of code and tables for SPI NOR, 25,968 for every chip type).
+`describe` is at that limit (65,165 bytes for SPI NOR), and `full` and the
+`datasheet`, `datasheets`, `records`, `provenance` and `jep106` extras
+pass it. On AVR,
 define `USF_ROM` as a flash address space (avr-gcc's `__flash`) to keep the
 tables in flash rather than copied to RAM.
 

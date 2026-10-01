@@ -113,6 +113,24 @@ def test_filter_by_id_keeps_those_chips_and_their_variants() -> None:
     assert snap.n_base == 2
 
 
+def test_a_kept_chip_is_the_whole_databases() -> None:
+    """spiflash infers a manufacturer from other chips, and folds a SPI NAND
+    id into a longer one: a kept chip is answered and narrowed as the whole
+    database answers it, not as its records alone would be."""
+    db = database()
+    inferred = next(f for f in db.flashes if f.manufacturer_inferred)
+    (alone,) = ChipFilter(ids=(inferred.id,), types=(inferred.type,)).apply(db).flashes
+    assert alone.manufacturer_inferred
+    assert alone.manufacturer == inferred.manufacturer
+    # c841, narrowed by 7f, is the F50L2G41KA: ESMT's, inferred from ESMT's
+    # other chips, which a database of c841 alone could not do.
+    base = next(f for f in db.flashes if f.key == "c841")
+    kept = ChipFilter(ids=(base.id,), types=(base.type,)).apply(db)
+    (one,) = kept.flashes
+    assert kept.narrow(one, b"\x7f").manufacturer == db.narrow(base, b"\x7f").manufacturer
+    assert db.narrow(base, b"\x7f").manufacturer_inferred
+
+
 def test_filtered_lookup_matches_a_filtered_spiflash() -> None:
     # A subset changes answers (dropping c22018 makes Linux's generic c2 match).
     kept = ChipFilter(families=(IdFamily.JEDEC,), ids=(bytes.fromhex("c2"),)).apply(database())

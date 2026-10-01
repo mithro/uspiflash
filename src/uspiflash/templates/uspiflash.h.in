@@ -33,15 +33,34 @@ extern "C" {
  * Where the tables live. Nothing by default; define as __code for SDCC on
  * the 8051 so they stay in program memory, and on AVR as a flash address
  * space (avr-gcc's __flash, in GNU C): there plain const data is copied to
- * RAM at startup.
+ * RAM at startup. SDCC's 8051 port is measured with USF_ROM as __code.
  *
- * On 16-bit targets (AVR, msp430, the 8051) the levels id to full fit, as
- * long as the part has the flash (full is about 59 KB of code and tables);
- * the datasheet, datasheets, records, provenance and jep106 extras do not,
- * as their tables pass the 64 KiB a 16-bit pointer can address.
+ * On 16-bit targets (AVR, msp430, the 8051) a 16-bit pointer addresses
+ * 64 KiB: write is the largest level that fits (on Cortex-M0, 21,993 bytes
+ * of code and tables for SPI NOR, 25,968 for every type). describe is at
+ * that limit (65,165 for SPI NOR), and full and the datasheet, datasheets,
+ * records, provenance and jep106 extras pass it.
  */
 #ifndef USF_ROM
 #define USF_ROM
+#endif
+
+/*
+ * SDCC's non-reentrant ports (the 8051, the 68HC08/S08, the 6502, the
+ * Padauk) call through a pointer only a function declared __reentrant
+ * when it takes more than a few bytes of arguments. The callbacks below
+ * are declared so there, and yours must be too: define them with
+ * USF_REENTRANT after the parameter list. Elsewhere it is empty (SDCC's
+ * other ports are reentrant already, and reject the keyword).
+ */
+#ifndef USF_REENTRANT
+#if defined(__SDCC_mcs51) || defined(__SDCC_ds390) || defined(__SDCC_hc08) \
+    || defined(__SDCC_s08) || defined(__SDCC_mos6502) || defined(__SDCC_mos65c02) \
+    || defined(__SDCC_pdk13) || defined(__SDCC_pdk14) || defined(__SDCC_pdk15)
+#define USF_REENTRANT __reentrant
+#else
+#define USF_REENTRANT
+#endif
 #endif
 
 /* The longest id usf_id() writes (after 0x7f continuation codes). */
@@ -49,11 +68,13 @@ extern "C" {
 
 /* A character sink: every string leaves the library through one of these,
  * one character at a time, so no buffer is ever needed. */
-typedef void (*usf_putc_fn)(void *ctx, char ch);
+typedef void (*usf_putc_fn)(void *ctx, char ch) USF_REENTRANT;
 
 /* One answer: which entry (a chip id, or a variant of it narrowed by its
  * extended id) and the chip id it belongs to. Filled by usf_lookup() and
- * usf_probe(); four bytes of RAM. */
+ * usf_probe(); four bytes of RAM. usf_probe's NAND branch copies this
+ * member by member (through locals), not by struct assignment, to avoid a
+ * memcpy call on Thumb-1: a new field here needs the same treatment there. */
 typedef struct usf_chip {
     uint16_t entry;
     uint16_t base;
@@ -100,6 +121,15 @@ uint8_t usf_voltage(const usf_chip *c, uint16_t *min_mv, uint16_t *max_mv);
  * a number past the last feature (USF_FEATURE_COUNT or more). */
 uint8_t usf_has_feature(const usf_chip *c, uint8_t feature);
 #endif
+/* A source mask: bit USF_SOURCE_* set for each upstream that vouches. One
+ * byte while every source this file cites is among the first eight, else
+ * two (USF_SRC_BYTES). */
+#if USF_SRC_BYTES == 1
+typedef uint8_t usf_srcmask;
+#else
+typedef uint16_t usf_srcmask;
+#endif
+
 #if USF_HAVE_OPERATIONS
 /* One operation the chip supports, and the transaction it is on the bus. */
 typedef struct usf_op {
@@ -111,7 +141,7 @@ typedef struct usf_op {
     uint8_t dummy_clocks;  /* 0xFF: set in the part's registers or its SFDP */
     uint8_t data;          /* 0: none, 1: read, 2: write */
     uint8_t data_bytes;    /* 0: as many as the host clocks, or up to a page */
-    uint8_t sources;       /* bit USF_SOURCE_*: who vouches (0 without sources) */
+    usf_srcmask sources;   /* bit USF_SOURCE_*: who vouches (0 without sources) */
 } usf_op;
 /* How many operations the chip has (in spiflash's order: id, read,
  * program, erase, register, mode); 0 when none is known. */
@@ -128,7 +158,9 @@ uint8_t usf_op_description(uint8_t op_id, usf_putc_fn sink, void *ctx);
 #endif
 #endif
 #if USF_HAVE_MANUFACTURER
-/* Writes the manufacturer's name; returns 0 (writing nothing) if unknown. */
+/* Writes the manufacturer's name; returns 0 (writing nothing) if unknown, 1
+ * if a source names it, or 2 if no source does and spiflash infers it from
+ * other chips with the same manufacturer byte and part names. */
 uint8_t usf_manufacturer(const usf_chip *c, usf_putc_fn sink, void *ctx);
 #endif
 #if USF_HAVE_NAMES
@@ -139,7 +171,7 @@ uint8_t usf_name(const usf_chip *c, uint8_t i, usf_putc_fn sink, void *ctx);
 #endif
 #if USF_HAVE_SOURCES
 /* Bit USF_SOURCE_* set for each upstream describing the chip. */
-uint8_t usf_sources(const usf_chip *c);
+usf_srcmask usf_sources(const usf_chip *c);
 #endif
 #if USF_HAVE_JEP106
 /* Writes the JEP106 name of manufacturer byte `id` in `bank`; 0 if none. */
@@ -174,8 +206,9 @@ void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ct
  * driver; otherwise a struct usf_bus holding a function pointer is used.
  * With your own USF_XFER, struct usf_bus is yours: define it as you like,
  * or leave it incomplete (the library only passes a pointer to it along).
- * Whatever you define (USF_XFER, USF_DELAY_US, USF_ROM, USF_NO_STDINT) must
- * be the same in every file that includes this one.
+ * Whatever you define (USF_XFER, USF_DELAY_US, USF_ROM, USF_NO_STDINT,
+ * USF_REENTRANT, USF_SOFT_MUL, USF_SOFT_SHIFT) must be the same in every
+ * file that includes this one.
  *
  * The first transaction is RES (0xAB), which wakes a chip from deep
  * power-down; the chip then ignores commands for tRES1 (3-30 us). The probe
@@ -187,7 +220,8 @@ void usf_print_json(const usf_chip *chips, uint8_t n, usf_putc_fn sink, void *ct
 #define USF_DELAY_US(us) ((void)0)
 #endif
 #ifndef USF_XFER
-typedef void (*usf_xfer_fn)(void *ctx, const uint8_t *tx, uint8_t txlen, uint8_t *rx, uint8_t rxlen);
+typedef void (*usf_xfer_fn)(void *ctx, const uint8_t *tx, uint8_t txlen, uint8_t *rx,
+                            uint8_t rxlen) USF_REENTRANT;
 struct usf_bus { usf_xfer_fn xfer; void *ctx; };
 #define USF_XFER(bus, tx, txlen, rx, rxlen) ((bus)->xfer((bus)->ctx, (tx), (txlen), (rx), (rxlen)))
 #endif
@@ -282,6 +316,98 @@ extern "C" {
 
 typedef const USF_ROM uint8_t *usf__p;
 
+/*
+ * Arithmetic that calls no compiler helper, on any CPU.
+ *
+ * USF_SOFT_MUL is 1 where a multiply by a table's row size (12, 5, 3, ...)
+ * calls a helper (__mulsi3, __mspabi_mpyi or _mulint), so USF__MUL shifts
+ * and adds instead: rv32i and rv32e without M or Zmmul, msp430 (whose
+ * multiplier is an optional peripheral), and SDCC's 8051, 68HC08/S08, 6502,
+ * Padauk, STM8 and f8 ports. The STM8 and the f8 have a multiplier, but
+ * SDCC 4.5.0 calls _mulint for some row sizes there (13 on the STM8). Its
+ * Z80-family ports multiply inline, where shift-and-add is larger.
+ * Define USF_SOFT_MUL as 0 or 1 to override the guess.
+ *
+ * USF__NOINLINE keeps GCC and clang from inlining such a helper into a
+ * caller with a constant argument: they would fold the loop back into the
+ * multiply the helper is there to avoid.
+ */
+#if defined(__GNUC__)
+#define USF__NOINLINE __attribute__((noinline))
+#else
+#define USF__NOINLINE
+#endif
+
+#ifndef USF_SOFT_MUL
+#if (defined(__riscv) && !defined(__riscv_mul) && !defined(__riscv_zmmul)) \
+    || defined(__MSP430__) || defined(__SDCC_mcs51) || defined(__SDCC_ds390) \
+    || defined(__SDCC_hc08) || defined(__SDCC_s08) || defined(__SDCC_mos6502) \
+    || defined(__SDCC_mos65c02) || defined(__SDCC_pdk13) || defined(__SDCC_pdk14) \
+    || defined(__SDCC_pdk15) || defined(__SDCC_stm8) || defined(__SDCC_f8)
+#define USF_SOFT_MUL 1
+#else
+#define USF_SOFT_MUL 0
+#endif
+#endif
+
+/*
+ * USF_SOFT_SHIFT is 1 where a 32-bit shift by a variable count calls a
+ * helper (__mspabi_srll on msp430) or is larger than the alternative (on
+ * SDCC's ports, which inline a shift loop). There, usf__human divides by
+ * 1024 one step at a time, through a function the optimiser may not merge
+ * into one variable shift. Define it as 0 or 1 to override the guess.
+ */
+#ifndef USF_SOFT_SHIFT
+#if defined(__MSP430__) || defined(__SDCC)
+#define USF_SOFT_SHIFT 1
+#else
+#define USF_SOFT_SHIFT 0
+#endif
+#endif
+
+#if USF_SOFT_MUL
+/* k is a uint8_t: a row size of 256 or more would wrap rather than fail to
+ * compile. Guard every generated row-size macro USF__MUL is called with
+ * (USF_ENTRY_SIZE, USF_OP_SIZE, USF_DS_ROW); USF_E_FEAT's featset row and
+ * USF__OFFS's offset row both multiply by the literal 3, not a macro, so
+ * they are not (and cannot be) checked here. #ifdef first: USF_OP_SIZE and
+ * USF_DS_ROW are only defined where their table is (-Wundef, -Werror). */
+#ifdef USF_ENTRY_SIZE
+#if USF_ENTRY_SIZE > 255
+#error "USF_ENTRY_SIZE no longer fits usf__mul's uint8_t k"
+#endif
+#endif
+#ifdef USF_OP_SIZE
+#if USF_OP_SIZE > 255
+#error "USF_OP_SIZE no longer fits usf__mul's uint8_t k"
+#endif
+#endif
+#ifdef USF_DS_ROW
+#if USF_DS_ROW > 255
+#error "USF_DS_ROW no longer fits usf__mul's uint8_t k"
+#endif
+#endif
+static USF__NOINLINE uint16_t usf__mul(uint16_t a, uint8_t k)
+{
+    uint16_t r = 0;
+    for (; k; k >>= 1, a = (uint16_t)(a << 1))
+        if (k & 1)
+            r = (uint16_t)(r + a);
+    return r;
+}
+#define USF__MUL(a, k) usf__mul((uint16_t)(a), (uint8_t)(k))
+#else
+#define USF__MUL(a, k) ((uint16_t)((uint16_t)(a) * (uint16_t)(k)))
+#endif
+
+/* An index times USF_OFF_BYTES (2 or 3, chosen by the generator): a shift
+ * when it is 2, so no CPU needs the multiply at all. */
+#if USF_OFF_BYTES == 2
+#define USF__OFFS(i) ((i) << 1)
+#else
+#define USF__OFFS(i) USF__MUL((i), 3)
+#endif
+
 #if USF_OFF_BYTES == 2
 typedef uint16_t usf__off_t;
 #else
@@ -301,7 +427,7 @@ typedef uint32_t usf__off_t;
     || (USF_HAVE_SFDP_DUMPS && USF_SFDP_COUNT))
 #define USF__NEED_U16 (USF__NEED_U32 || USF__NEED_OFF || USF_PAGE_COUNT || USF_VOLT_COUNT \
     || USF_EXT_COUNT || USF_OP_COUNT || USF_CONF_COUNT || USF_HAVE_RECORDS || USF_DS_COUNT \
-    || USF_SFDP_COUNT)
+    || USF_SFDP_COUNT || USF_DIFF_COUNT || (USF_HAVE_SOURCES && USF_SRC_BYTES == 2))
 
 #if USF__NEED_U16
 /* Every byte is widened to an unsigned type before it is shifted: a byte
@@ -341,15 +467,22 @@ static void usf__puts(usf__off_t off, usf_putc_fn sink, void *ctx)
 
 static usf__p usf__row(const usf_chip *c)
 {
-    return usf__entries + (uint16_t)(c->entry * (uint16_t)USF_ENTRY_SIZE);
+    return usf__entries + USF__MUL(c->entry, USF_ENTRY_SIZE);
 }
 
-/* The ids-table record (header byte, then id bytes) of chip id `base`. */
+/* The ids-table record (header byte, then id bytes) of chip id `base`.
+ * With USF_ALIAS_COUNT, a chip's shorter ids follow its record: a header
+ * with bit 7 set and no bytes, as the start of its own id is the id. */
 static usf__p usf__idrec(uint16_t base)
 {
     usf__p p = usf__ids;
-    for (; base; base--)
+    for (; base; base--) {
         p += 1 + (*p & 7);
+#if USF_ALIAS_COUNT
+        while (*p & 0x80)
+            p++;
+#endif
+    }
     return p;
 }
 
@@ -395,7 +528,12 @@ static uint16_t usf__narrow(uint16_t base, const uint8_t *x, uint8_t xl)
 uint8_t usf_lookup(uint8_t family, const uint8_t *id, uint8_t len, usf_chip *out)
 {
     usf__p p = usf__ids;
+#if USF_ALIAS_COUNT
+    usf__p q = p;                       /* the current chip's id bytes */
+    uint16_t e = 0xFFFF, best[USF_LOOKUP_MAX];
+#else
     uint16_t e = 0, best[USF_LOOKUP_MAX];
+#endif
     uint8_t best_len[USF_LOOKUP_MAX];
     uint8_t h, l, i, t, n = 0;
 
@@ -410,6 +548,21 @@ uint8_t usf_lookup(uint8_t family, const uint8_t *id, uint8_t len, usf_chip *out
         id++;
         len--;
     }
+    /* Per type, the chip with the longest of its ids that starts `id`. */
+#if USF_ALIAS_COUNT
+    while ((h = *p++) != 0) {
+        l = h & 7;
+        if (!(h & 0x80)) {              /* a chip's own id, not a shorter one */
+            q = p;
+            p += l;
+            e++;
+        }
+        t = USF__SLOT(h);
+        if (((h >> 4) & 7) != family || l > len || l <= best_len[t])
+            continue;
+        for (i = 0; i < l && q[i] == id[i]; i++)
+            ;
+#else
     for (; (h = *p) != 0; p += 1 + l, e++) {
         l = h & 7;
         t = USF__SLOT(h);
@@ -417,6 +570,7 @@ uint8_t usf_lookup(uint8_t family, const uint8_t *id, uint8_t len, usf_chip *out
             continue;
         for (i = 0; i < l && p[1 + i] == id[i]; i++)
             ;
+#endif
         if (i == l) {
             best_len[t] = l;
             best[t] = e;
@@ -513,19 +667,73 @@ uint8_t usf_has_feature(const usf_chip *c, uint8_t feature)
     usf__p s;
     if (feature >= USF_FEATURE_COUNT) /* past the chip's 3-byte set */
         return 0;
-    s = usf__featsets + 3 * usf__row(c)[USF_E_FEAT];
+    s = usf__featsets + USF__MUL(usf__row(c)[USF_E_FEAT], 3);
     return (uint8_t)((s[feature >> 3] >> (feature & 7)) & 1);
 }
 #endif
 
-#if USF_HAVE_OPERATIONS
-#if USF_OP_COUNT
 #if USF_HAVE_SOURCES
-#define USF__OPITEM 2
+usf_srcmask usf_sources(const usf_chip *c)
+{
+#if USF_SRCMASK_COUNT /* an index into the table of distinct masks */
+    return usf__u16(usf__srcmasks + 2 * usf__row(c)[USF_E_SRCS]);
+#elif USF_SRC_BYTES == 2
+    return usf__u16(usf__row(c) + USF_E_SRCS);
 #else
-#define USF__OPITEM 1
+    return usf__row(c)[USF_E_SRCS];
+#endif
+}
+
+#if USF_SRC_REL
+/* An operation's or a conflict value's mask is stored relative to its
+ * chip's mask `all`: bit j stands for all's j-th set bit. One byte, or two
+ * when the chip has more than eight sources. */
+static uint8_t usf__srcw(usf_srcmask all)
+{
+    uint8_t n = 0;
+    for (; all; all >>= 1)
+        n = (uint8_t)(n + (all & 1));
+    return n > 8 ? 2 : 1;
+}
+
+/* The mask stored relative to `all` at `p`, as an absolute mask. */
+static usf_srcmask usf__srcmask(usf_srcmask all, usf__p p)
+{
+    usf_srcmask out = 0, bit = 1;
+    uint8_t rel = *p, n = 8;
+    for (; all; all >>= 1, bit = (usf_srcmask)(bit << 1))
+        if (all & 1) {
+            if (!n--) {           /* the ninth source: the second byte */
+                rel = p[1];
+                n = 7;
+            }
+            if (rel & 1)
+                out |= bit;
+            rel >>= 1;
+        }
+    return out;
+}
+#define USF__SRCW(all) usf__srcw(all)
+#define USF__SRC(all, p) usf__srcmask((all), (p))
+/* A printer's chip mask: read once into `all` where relative masks need
+ * it for every item, else read where it is printed. */
+#define USF__ALL(c) all
+#elif USF_SRC_BYTES == 2
+/* Stored as they are, two bytes each (`all` is not evaluated). */
+#define USF__SRCW(all) 2
+#define USF__SRC(all, p) usf__u16(p)
+#else
+/* Stored as they are, one byte each (`all` is not evaluated). */
+#define USF__SRCW(all) 1
+#define USF__SRC(all, p) (*(p))
+#endif
+#if !USF_SRC_REL
+#define USF__ALL(c) usf_sources(c)
+#endif
 #endif
 
+#if USF_HAVE_OPERATIONS
+#if USF_OP_COUNT
 static usf__p usf__opset(const usf_chip *c)
 {
     return usf__opsets + usf__u16(usf__row(c) + USF_E_OPS);
@@ -534,13 +742,24 @@ static usf__p usf__opset(const usf_chip *c)
 /* Item i of the chip's operation list: [stored-op index, (source mask)]. */
 static usf__p usf__opitem(const usf_chip *c, uint8_t i)
 {
-    return usf__opset(c) + 1 + USF__OPITEM * i;
+#if USF_HAVE_SOURCES && (USF_SRC_REL || USF_SRC_BYTES == 2)
+    /* Items 2 or 3 bytes long: stepped over, not multiplied by 3 */
+    usf__p p = usf__opset(c) + 1;
+    uint8_t w = (uint8_t)(1 + USF__SRCW(usf_sources(c)));
+    for (; i; i--)
+        p += w;
+    return p;
+#elif USF_HAVE_SOURCES
+    return usf__opset(c) + 1 + 2 * i;
+#else
+    return usf__opset(c) + 1 + i;
+#endif
 }
 
 /* The ops-table row an item points at. */
 static usf__p usf__oprow(usf__p item)
 {
-    return usf__ops + (uint16_t)(USF_OP_SIZE * item[0]);
+    return usf__ops + USF__MUL(item[0], USF_OP_SIZE);
 }
 
 uint8_t usf_op_count(const usf_chip *c) { return *usf__opset(c); }
@@ -561,7 +780,7 @@ uint8_t usf_op_get(const usf_chip *c, uint8_t i, usf_op *out)
     out->data = o[6];
     out->data_bytes = o[7];
 #if USF_HAVE_SOURCES
-    out->sources = s[1];
+    out->sources = USF__SRC(usf_sources(c), s + 1);
 #else
     out->sources = 0;
 #endif
@@ -632,7 +851,12 @@ uint8_t usf_manufacturer(const usf_chip *c, usf_putc_fn sink, void *ctx)
     uint8_t i = usf__row(c)[USF_E_MFR];
     if (i == 0xFF)
         return 0;
-    usf__puts(usf__off(usf__mfrs + USF_OFF_BYTES * i), sink, ctx);
+    usf__puts(usf__off(usf__mfrs + USF__OFFS(i)), sink, ctx);
+#if USF_MFR_INFERRED < USF_MFR_COUNT
+    /* mfrs holds the named manufacturers, then the inferred ones */
+    if (i >= USF_MFR_INFERRED)
+        return 2;
+#endif
     return 1;
 #else
     (void)c;
@@ -656,13 +880,9 @@ uint8_t usf_name(const usf_chip *c, uint8_t i, usf_putc_fn sink, void *ctx)
     usf__p p = usf__names(c);
     if (i >= *p)
         return 0;
-    usf__puts(usf__off(p + 1 + USF_OFF_BYTES * i), sink, ctx);
+    usf__puts(usf__off(p + 1 + USF__OFFS(i)), sink, ctx);
     return 1;
 }
-#endif
-
-#if USF_HAVE_SOURCES
-uint8_t usf_sources(const usf_chip *c) { return usf__row(c)[USF_E_SRCS]; }
 #endif
 
 #if USF_HAVE_JEP106
@@ -758,7 +978,7 @@ static usf__p usf__dslist(const usf_chip *c)
 /* The dsrows row a list item points at. */
 static usf__p usf__dsrow(usf__p item)
 {
-    return usf__dsrows + (uint16_t)(USF_DS_ROW * usf__u16(item));
+    return usf__dsrows + USF__MUL(usf__u16(item), USF_DS_ROW);
 }
 #endif
 
@@ -781,11 +1001,11 @@ static usf__p usf__sfdprow(const usf_chip *c)
 /* Writes the i-th pool string of a fixed OFF array (featnames, ...). */
 static void usf__name(usf__p names, uint8_t i, usf_putc_fn sink, void *ctx)
 {
-    usf__puts(usf__off(names + USF_OFF_BYTES * i), sink, ctx);
+    usf__puts(usf__off(names + USF__OFFS(i)), sink, ctx);
 }
 
 #if USF_HAVE_SOURCES
-static void usf__srclist(uint8_t mask, const char *sep, usf_putc_fn sink, void *ctx)
+static void usf__srclist(usf_srcmask mask, const char *sep, usf_putc_fn sink, void *ctx)
 {
     uint8_t i, first = 1;
     for (i = 0; mask; i++, mask >>= 1)
@@ -798,6 +1018,31 @@ static void usf__srclist(uint8_t mask, const char *sep, usf_putc_fn sink, void *
 }
 #endif
 
+#if USF_SOFT_SHIFT
+/* n >> 10, as a function of its own: see USF__NOINLINE. */
+static USF__NOINLINE uint32_t usf__shr10(uint32_t n)
+{
+    return n >> 10;
+}
+
+static void usf__human(uint32_t n, usf_putc_fn sink, void *ctx)
+{
+    static const USF_ROM char units[] = "KMG";
+    uint8_t u = 0;
+    while (u < 3 && n && !(n & 0x3FFUL)) {
+        n = usf__shr10(n);
+        u++;
+    }
+    usf__dec(n, sink, ctx);
+    if (u) {
+        sink(ctx, ' ');
+        sink(ctx, units[u - 1]);
+        usf__lit("iB", sink, ctx);
+    } else {
+        usf__lit(" B", sink, ctx);
+    }
+}
+#else
 static void usf__human(uint32_t n, usf_putc_fn sink, void *ctx)
 {
     static const USF_ROM char units[] = "GMK";
@@ -815,6 +1060,7 @@ static void usf__human(uint32_t n, usf_putc_fn sink, void *ctx)
     usf__dec(n, sink, ctx);
     usf__lit(" B", sink, ctx);
 }
+#endif
 
 /* Millivolts as Python's "%g" of volts: 2700 -> 2.7, 3000 -> 3. Digit by
  * digit from usf__p10 as usf__dec does: a subtraction loop by a constant
@@ -875,6 +1121,9 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
     uint8_t i, n;
     uint16_t lo, hi;
     uint32_t v;
+#if USF_HAVE_SOURCES && USF_SRC_REL
+    usf_srcmask all = usf_sources(c);   /* the chip's sources, read once */
+#endif
 #if USF_OP_COUNT
     uint8_t w;
     usf__p item, row;
@@ -882,6 +1131,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
 #if USF_CONF_COUNT
     usf__p p;
     uint16_t off;
+    uint8_t sw = (uint8_t)(1 + USF__SRCW(USF__ALL(c)));   /* a conflict value's bytes */
 #endif
 
     /* <ident>  <manufacturer>  <names>  (<type>) */
@@ -893,8 +1143,13 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
         usf__idhex(c, 0, sink, ctx);
     }
     usf__lit("  ", sink, ctx);
-    if (!usf_manufacturer(c, sink, ctx))
+    i = usf_manufacturer(c, sink, ctx);
+    if (!i)
         sink(ctx, '?');
+#if USF_MFR_INFERRED < USF_MFR_COUNT
+    else if (i == 2)
+        usf__lit(" (inferred)", sink, ctx);
+#endif
     usf__lit("  ", sink, ctx);
     for (i = 0, n = usf_name_count(c); i < n; i++) {
         if (i)
@@ -942,19 +1197,30 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
             usf__lit("\n    sources disagree on ", sink, ctx);
             usf__name(usf__attrnames, attr, sink, ctx);
             usf__lit(": ", sink, ctx);
-            for (i = 0; i < k; i++, p += 2) {
+            for (i = 0; i < k; i++, p += sw) {
                 if (i)
                     usf__lit("; ", sink, ctx);
                 usf__value(attr, p[0], sink, ctx);
                 usf__lit(" (", sink, ctx);
-                usf__srclist(p[1], ", ", sink, ctx);
+                usf__srclist(USF__SRC(USF__ALL(c), p + 1), ", ", sink, ctx);
                 sink(ctx, ')');
             }
         }
 #endif
+#if USF_DIFF_COUNT
+    {   /* parts differ on <attr> by ext id: <value> (<ext id>), ... */
+        usf__p d = usf__difflines;
+        uint16_t k;
+        for (k = 0; k < USF_DIFF_COUNT; k++, d += 2 + USF_OFF_BYTES)
+            if (usf__u16(d) == c->entry) {
+                usf__lit("\n    parts differ on ", sink, ctx);
+                usf__puts(usf__off(d + 2), sink, ctx);
+            }
+    }
+#endif
 #if USF_HAVE_SOURCES
     usf__lit("\n    from: ", sink, ctx);
-    usf__srclist(usf_sources(c), ", ", sink, ctx);
+    usf__srclist(USF__ALL(c), ", ", sink, ctx);
 #endif
 #if USF_HAVE_SFDP_SUMMARY && USF_SFDP_COUNT
     {   /* sfdp: <summary>  [<source>: <parts>], one line per dump */
@@ -1004,7 +1270,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
         usf__puts(usf__off(row + USF_OP_NAME + USF_OFF_BYTES), sink, ctx);
 #if USF_HAVE_SOURCES
         usf__lit("  [", sink, ctx);
-        usf__srclist(item[1], ", ", sink, ctx);
+        usf__srclist(USF__SRC(USF__ALL(c), item + 1), ", ", sink, ctx);
         sink(ctx, ']');
 #endif
     }
@@ -1083,7 +1349,7 @@ static void usf__jpool(usf__json *j, usf__off_t off)   /* "pool string" */
 
 static void usf__jname(usf__json *j, usf__p names, uint8_t i)   /* "names[i]" */
 {
-    usf__jpool(j, usf__off(names + USF_OFF_BYTES * i));
+    usf__jpool(j, usf__off(names + USF__OFFS(i)));
 }
 
 static void usf__jint(usf__json *j, uint32_t v) { usf__dec(v, j->sink, j->ctx); }
@@ -1108,7 +1374,7 @@ static void usf__jpair(usf__json *j, uint16_t lo, uint16_t hi)   /* [lo, hi] */
     usf__jclose(j, ']');
 }
 
-static void usf__jsources(usf__json *j, uint8_t mask)   /* ["flashrom", ...] */
+static void usf__jsources(usf__json *j, usf_srcmask mask)   /* ["flashrom", ...] */
 {
     uint8_t i;
     usf__jopen(j, '[');
@@ -1131,13 +1397,11 @@ static void usf__jidhex(usf__json *j, const usf_chip *c, uint8_t bank)
 /* Two decimal digits (a month or a day), without division. */
 static void usf__dec2(uint8_t v, usf_putc_fn sink, void *ctx)
 {
-    char tens = '0';
-    while (v >= 10) {
-        v = (uint8_t)(v - 10);
-        tens++;
-    }
-    sink(ctx, tens);
-    sink(ctx, (char)('0' + v));
+    /* Two digits. Not a subtract-ten loop: compilers turn that into a
+     * division (__udivsi3 on rv32i). */
+    if (v < 10)
+        sink(ctx, '0');
+    usf__dec(v, sink, ctx);
 }
 #endif
 
@@ -1166,42 +1430,28 @@ static void usf__jtree(usf__json *j, usf__p p)
     while ((t = *p++) != 0) {                 /* 0: the end */
         if (t & 0x80)                         /* an array element */
             usf__jitem(j);
-        switch (t & 0x7F) {
-        case 1:
+        /* Ranges, not a switch: GCC compiles a dense switch to a jump
+         * table, which on Thumb-1 calls libgcc's __gnu_thumb1_case_uqi. */
+        t &= 0x7F;
+        if (t >= 7) {                         /* 7 [, 8 {, 9 ], 10 } */
+            if (t < 9)
+                usf__jopen(j, t == 7 ? '[' : '{');
+            else
+                usf__jclose(j, t == 9 ? ']' : '}');
+        } else if (t == 1) {
             usf__jnull(j);
-            break;
-        case 2:
-            usf__lit("false", j->sink, j->ctx);
-            break;
-        case 3:
-            usf__lit("true", j->sink, j->ctx);
-            break;
-        case 4:
+        } else if (t < 4) {
+            usf__lit(t == 2 ? "false" : "true", j->sink, j->ctx);
+        } else if (t == 4) {
             usf__jint(j, usf__u32(p));
             p += 4;
-            break;
-        case 5:                               /* a string, stored escaped */
+        } else {                              /* 5 a string (stored escaped); */
+            if (t == 6)                       /* 6 a member's name, value next */
+                usf__jitem(j);
             usf__jpool(j, usf__off(p));
+            if (t == 6)
+                usf__lit(": ", j->sink, j->ctx);
             p += USF_OFF_BYTES;
-            break;
-        case 6:                               /* a member's name; its value follows */
-            usf__jitem(j);
-            usf__jpool(j, usf__off(p));
-            usf__lit(": ", j->sink, j->ctx);
-            p += USF_OFF_BYTES;
-            break;
-        case 7:
-            usf__jopen(j, '[');
-            break;
-        case 8:
-            usf__jopen(j, '{');
-            break;
-        case 9:
-            usf__jclose(j, ']');
-            break;
-        default:                              /* 10 */
-            usf__jclose(j, '}');
-            break;
         }
     }
 }
@@ -1215,8 +1465,15 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
 #if USF_OP_COUNT
     usf__p item, row;
 #endif
+#if USF_SRC_REL
+    usf_srcmask all = usf_sources(c);   /* the chip's sources, read once */
+#endif
 #if USF_CONF_COUNT
     uint16_t off;
+    uint8_t sw = (uint8_t)(1 + USF__SRCW(USF__ALL(c)));   /* a conflict value's bytes */
+#endif
+#if USF_ALIAS_COUNT
+    usf__p a;
 #endif
 
     usf__jopen(j, '{');
@@ -1224,6 +1481,21 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
     usf__jidhex(j, c, 0);
     usf__jkey(j, "jedec_id");
     usf__jidhex(j, c, usf_bank(c));
+    usf__jkey(j, "ids");                      /* the id, then shorter ones */
+    usf__jopen(j, '[');
+    usf__jitem(j);
+    usf__jidhex(j, c, 0);
+#if USF_ALIAS_COUNT
+    p = usf__idrec(c->base);
+    for (a = p + 1 + (*p & 7); *a & 0x80; a++) {
+        usf__jitem(j);
+        j->sink(j->ctx, '"');
+        for (i = 0; i < (*a & 7); i++)
+            usf__hex8(p[1 + i], j->sink, j->ctx);
+        j->sink(j->ctx, '"');
+    }
+#endif
+    usf__jclose(j, ']');
     usf__jkey(j, "id_family");
     usf__jname(j, usf__famnames, usf_family(c));
     usf__jkey(j, "type");
@@ -1236,13 +1508,19 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
     else
 #endif
         usf__jnull(j);
+    usf__jkey(j, "manufacturer_inferred");
+#if USF_MFR_INFERRED < USF_MFR_COUNT
+    usf__lit(i != 0xFF && i >= USF_MFR_INFERRED ? "true" : "false", j->sink, j->ctx);
+#else
+    usf__lit("false", j->sink, j->ctx);
+#endif
 
     usf__jkey(j, "names");
     p = usf__namelists + usf__u16(usf__row(c) + USF_E_NAMES);
     usf__jopen(j, '[');
     for (i = 0, n = *p; i < n; i++) {
         usf__jitem(j);
-        usf__jpool(j, usf__off(p + 1 + USF_OFF_BYTES * i));
+        usf__jpool(j, usf__off(p + 1 + USF__OFFS(i)));
     }
     usf__jclose(j, ']');
 
@@ -1284,14 +1562,14 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
         usf__jkey(j, "description");
         usf__jpool(j, usf__off(row + USF_OP_NAME + USF_OFF_BYTES));
         usf__jkey(j, "sources");
-        usf__jsources(j, item[1]);
+        usf__jsources(j, USF__SRC(USF__ALL(c), item + 1));
         usf__jclose(j, '}');
     }
 #endif
     usf__jclose(j, ']');
 
     usf__jkey(j, "sources");
-    usf__jsources(j, usf_sources(c));
+    usf__jsources(j, USF__ALL(c));
 
     usf__jkey(j, "conflicts");
     usf__jopen(j, '{');
@@ -1304,13 +1582,13 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
             usf__jname(j, usf__attrnames, attr);
             usf__lit(": ", j->sink, j->ctx);
             usf__jopen(j, '[');
-            for (i = 0; i < k; i++, p += 2) {
+            for (i = 0; i < k; i++, p += sw) {
                 usf__jitem(j);
                 usf__jopen(j, '{');
                 usf__jkey(j, "value");
                 usf__jvalue(j, attr, p[0]);
                 usf__jkey(j, "sources");
-                usf__jsources(j, p[1]);
+                usf__jsources(j, USF__SRC(USF__ALL(c), p + 1));
                 usf__jclose(j, '}');
             }
             usf__jclose(j, ']');
@@ -1498,7 +1776,12 @@ uint8_t usf_probe(usf_bus *bus, usf_probe_result *r)
      * NOR, that could name a chip that isn't there. Only NAND answers count
      * (a lookup gives NOR first, then NAND, at most one of each). */
     if (r->count && usf_type(&r->chip[r->count - 1]) == USF_TYPE_NAND) {
-        r->chip[0] = r->chip[r->count - 1];
+        /* Through locals: a struct assignment is a memcpy call for GCC on
+         * Thumb-1 (usf_chip is only 2-byte aligned); member stores straight
+         * from r->chip[...] cost x86_64 gcc 11 bytes. */
+        uint16_t e = r->chip[r->count - 1].entry, b = r->chip[r->count - 1].base;
+        r->chip[0].entry = e;
+        r->chip[0].base = b;
         r->count = 1;
     } else {
         r->count = 0;
@@ -1584,17 +1867,31 @@ static uint32_t usf__sfdp_dw(usf_bus *bus, uint32_t addr)
         | (uint32_t)rx[3] << 24;
 }
 
-/* Per fast-read mode (USF_SFDP_READ_* order): the BFPT dword holding its
- * 16-bit settings (opcode in the high byte, mode clocks in 7:5, wait states
- * in 4:0), that half's shift, and its support bit (in DW1; for 2-2-2 and
- * 4-4-4, in DW5). */
+/* Per fast-read mode (USF_SFDP_READ_* order): the byte offset in the BFPT
+ * of its 16-bit settings (opcode in the high byte, mode clocks in 7:5, wait
+ * states in 4:0), and the byte offset and mask of its support bit (in DW1;
+ * for 2-2-2 and 4-4-4, in DW5). Byte offsets rather than bit numbers: each
+ * is read from its own address, so no 32-bit value is shifted by a
+ * variable count (a helper call on msp430, __mspabi_srll; an inline shift
+ * loop on SDCC's ports, which is larger).
+ *
+ * usf_sfdp_read reads each setting from its own byte address (an extra
+ * 4-byte RDSFDP beyond the settings dword itself, to fetch the support
+ * bit), rather than extracting both from one dword already in hand. The
+ * reads at ptr+26 and ptr+28+2k can then run up to 2 bytes past a 7- or
+ * 9-dword BFPT (the shortest table that still has that mode), since each
+ * reads a whole dword from a byte offset near the table's end; only the
+ * low byte or two of what comes back is ever used. This is the size-only
+ * trade: no variable shift or extra buffering to assemble a value that
+ * spans two dwords. */
 static const USF_ROM uint8_t usf__sfdp_modes[6][3] = {
-    {4, 0, 16}, {4, 16, 20}, {3, 16, 22}, {3, 0, 21}, {6, 16, 0}, {7, 16, 4},
+    {12, 2, 0x01}, {14, 2, 0x10}, {10, 2, 0x40}, {8, 2, 0x20},
+    {22, 16, 0x01}, {26, 16, 0x10},
 };
 
 uint8_t usf_sfdp_read(usf_bus *bus, usf_sfdp *out)
 {
-    uint32_t d, d1, d5, ptr = 0;
+    uint32_t d, d1, ptr = 0;
     uint16_t i, count;
     uint8_t k, len = 0, rev = 0;
 
@@ -1631,20 +1928,20 @@ uint8_t usf_sfdp_read(usf_bus *bus, usf_sfdp *out)
         d = usf__sfdp_dw(bus, ptr + 4);
         if (d >> 31) {                                  /* 2^N bits */
             d &= 0x7FFFFFFFUL;
-            if (d >= 3 && d < 35)
-                out->size = (uint32_t)1 << (d - 3);
+            if (d >= 3 && d < 35)             /* 2^(d-3) bytes, doubling */
+                for (out->size = 1; d > 3; d--)
+                    out->size += out->size;
         } else {                                        /* N + 1 bits */
             out->size = (d + 1) >> 3;
         }
     }
-    d5 = len >= 7 ? usf__sfdp_dw(bus, ptr + 16) : 0;
     out->reads = 0;
     for (k = 0; k < 6; k++) {
         const USF_ROM uint8_t *m = usf__sfdp_modes[k];
         out->read_opcode[k] = 0;
         out->read_clocks[k] = 0;
-        if (len >= 7 && ((k < 4 ? d1 : d5) >> m[2] & 1)) {
-            d = usf__sfdp_dw(bus, ptr + 4 * (uint32_t)(m[0] - 1)) >> m[1];
+        if (len >= 7 && (usf__sfdp_dw(bus, ptr + m[1]) & m[2])) {
+            d = usf__sfdp_dw(bus, ptr + m[0]);
             out->reads = (uint8_t)(out->reads | 1u << k);
             out->read_opcode[k] = (uint8_t)(d >> 8);
             out->read_clocks[k] = (uint8_t)d;
@@ -1654,7 +1951,7 @@ uint8_t usf_sfdp_read(usf_bus *bus, usf_sfdp *out)
         out->erase_log2[k] = 0;
         out->erase_opcode[k] = 0;
         if (len >= 8 + (k >> 1)) {
-            d = usf__sfdp_dw(bus, ptr + 28 + 4 * (uint32_t)(k >> 1)) >> (k & 1 ? 16 : 0);
+            d = usf__sfdp_dw(bus, ptr + 28 + 2 * (uint32_t)k);
             out->erase_log2[k] = (uint8_t)d;
             out->erase_opcode[k] = (uint8_t)d ? (uint8_t)(d >> 8) : 0;
         }

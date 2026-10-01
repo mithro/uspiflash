@@ -62,6 +62,22 @@ def no_datasheet() -> ChipFilter:
     return ChipFilter(ids=(f.id,), types=(f.type,), families=(f.family,))
 
 
+def one_chip(*, wide: bool) -> ChipFilter:
+    """A filter keeping one chip id, with operations and conflicts and no
+    extended ids (so one entry), whose sources are all among the first eight
+    (``wide`` False: one-byte masks, ``SRC_BYTES`` 1) or more than eight
+    (``wide``: every mask two bytes, stored as it is). Fails, saying why, if
+    no chip in the database is one."""
+    for f in database().flashes:
+        m = layout.mask(f.sources)
+        plain = f.opcodes and f.conflicts and not any(r.ext_id for r in f.records)
+        if plain and (m.bit_count() > 8 if wide else m < 1 << 8):
+            return ChipFilter(ids=(f.id,), types=(f.type,), families=(f.family,))
+    which = "more than eight" if wide else "only the first eight"
+    msg = f"no chip with operations, conflicts and {which} sources"
+    raise AssertionError(msg)
+
+
 @functools.cache
 def render(config: Config) -> str:
     """``emit.render(config)``, once per test session."""
@@ -138,6 +154,8 @@ def queries(snap: Snapshot, seed: int = 20260928) -> list[tuple[int, bytes]]:
         fam = FAMILIES.index(f.family)
         cont = b"\x7f" * f.bank
         out.append((fam, f.id))
+        # A SPI NAND chip's shorter ids, alone and with a byte after them.
+        out.extend((fam, x + p) for x in f.ids[1:] for p in (b"", b"\x00", b"\xff"))
         out.extend((fam, f.id + p) for p in reaching_probes(snap.ext.get(i, ())))
         out.append((fam, cont + f.id))
         if i in snap.ext:
@@ -174,14 +192,21 @@ class Harness:
     binary: Path
 
     @classmethod
-    def build(cls, tmp: Path, config: Config, cc: str) -> Harness:
+    def build(cls, tmp: Path, config: Config, cc: str, defines: Sequence[str] = ()) -> Harness:
         """Generate ``config``'s header in ``tmp`` and compile the harness
-        against it with ``cc``, under ASan and UBSan."""
+        against it with ``cc``, under ASan and UBSan, with ``defines``
+        (``-D`` flags) added."""
         tmp.mkdir(parents=True, exist_ok=True)
         generate(tmp, config)
         (tmp / "harness_names.h").write_text(_names_header(), encoding="ascii")
         binary = tmp / "harness"
-        extra = [*SANITIZE, f"-I{tmp}", f"-I{HERE / 'c'}", f'-DUSF_HEADER="{config.filename}"']
+        extra = [
+            *SANITIZE,
+            *defines,
+            f"-I{tmp}",
+            f"-I{HERE / 'c'}",
+            f'-DUSF_HEADER="{config.filename}"',
+        ]
         compile_c(cc, [HERE / "c" / "harness.c"], binary, extra)
         return cls(binary)
 
@@ -208,13 +233,14 @@ def check(
     compilers: Sequence[str],
     config: Config,
     oracles: Mapping[str, Callable[[int, bytes], str]],
+    defines: Sequence[str] = (),
 ) -> None:
     """For each compiler, build the harness for ``config``; run each harness
     command in ``oracles`` on every query of its snapshot; and compare each
     output with the oracle's ``(family, data)`` answer."""
     qs = queries(snapshot(config))
     for cc in compilers:
-        h = Harness.build(tmp / cc, config, cc)
+        h = Harness.build(tmp / cc, config, cc, defines)
         for cmd, oracle in oracles.items():
             got = h.run([f"{cmd} {fam} {data.hex()}" for fam, data in qs])
             for (fam, data), out in zip(qs, got, strict=True):
