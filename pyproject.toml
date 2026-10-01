@@ -23,11 +23,12 @@ classifiers = [
     "Topic :: Software Development :: Code Generators",
 ]
 # The one runtime dependency: the database. Everything else is optional.
-# 0.0.post74 is the minimum: it added the QEMU and Zephyr sources, SFDP
-# dumps and suffix-group part names. The generated C's output is verified
-# byte-identical to 0.0.post108, the newest release as of the last
-# catch-up (uspiflash.VERIFIED_SPIFLASH).
-dependencies = ["spiflash>=0.0.post74"]
+# 0.0.post173 is the minimum: it added inferred manufacturers, SPI NAND
+# chips' shorter ids, Database.narrow and the "parts differ" lines, which
+# the generator reads. The generated C's output is verified byte-identical
+# to 0.0.post173, the newest release as of the last catch-up
+# (uspiflash.VERIFIED_SPIFLASH).
+dependencies = ["spiflash>=0.0.post173"]
 
 [project.urls]
 Homepage = "https://github.com/mithro/uspiflash"
