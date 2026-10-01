@@ -38,7 +38,7 @@ could not name (`unnamed_operations`) and its warnings.
 byte-identical results.
 
 **Result.** From `results/comparison.json`, against `spiflash`
-**0.0.post108**.
+**0.0.post173**.
 
 - **12 dumps over 11 chip ids** (`c22019` has two: MX25L25635E and
   MX25L25635F). Revisions: JESD216 ×4, JESD216A ×1, JESD216B ×7.
@@ -54,16 +54,19 @@ byte-identical results.
 
   | Chip id | Dump | Only the database claims | Claimed by |
   |---|---|---|---|
-  | `20ba19` | N25Q256A13, N25Q256A | `4byte_opcodes` | flashrom, flashprog, linux, u-boot |
+  | `20ba19` | N25Q256A13, N25Q256A | `4byte_opcodes` | flashrom, flashprog, linux, u-boot, dediprog |
   | | | `erase_32k` | flashrom, flashprog |
   | `2c5b1b` | MT35XU01G | `erase_64k` | linux |
   | | | `octal_read` | u-boot |
   | `2c5b1c` | MT35XU02GBBA | `octal_read` | linux, u-boot |
   | `9d7019` | IS25WP256 | `quad_pp` | linux |
-  | `c22019` | MX25L25635E | `4byte_opcodes` | flashrom, flashprog |
+  | `c22019` | MX25L25635E | `4byte_opcodes` | flashrom, flashprog, dediprog, rockchip |
   | | | `qpi` | flashprog, qemu |
-  | `c22019` | MX25L25635F | `4byte_opcodes` | flashrom, flashprog |
-  | `ef4019` | W25Q256 | `4byte_opcodes` | flashrom, flashprog |
+  | | | `quad_pp` | rockchip |
+  | `c22019` | MX25L25635F | `4byte_opcodes` | flashrom, flashprog, dediprog, rockchip |
+  | | | `quad_pp` | rockchip |
+  | `ef4019` | W25Q256 | `4byte_opcodes` | flashrom, flashprog, dediprog, rockchip |
+  | | | `quad_pp` | rockchip |
 
   `4byte_opcodes` is missing from SFDP exactly where the dump is JESD216
   1.0, which has no 4-byte address instruction table (4BAIT).
@@ -72,9 +75,10 @@ byte-identical results.
   JESD216 1.0 dumps and on `9d7019` (`SE_4B`, `BE_4K_4B`,
   `READ_1_1_1_4B`, ...), `READ_1_1_8` and `READ_1_1_8_4B` on the MT35X
   parts (`2c5b1b`, `2c5b1c`), and `BE_32K` (`0x52`) with `BE_32K_4B` on
-  `20ba19`. Of the operations SFDP describes, 13 across 8 dumps have no
-  name in spiflash (0 to 5 per dump; 5 on `c2201b`), and 6 dumps carry a
-  decoder warning.
+  `20ba19`. Of the operations SFDP describes, 12 across 8 dumps have no
+  name in spiflash (0 to 4 per dump; 4 on `c2201b`, where 0.0.post173's
+  new `PP_1_4_4_4B`, `0x3e`, names a fifth), and 6 dumps carry a decoder
+  warning.
 
 **Two findings.** In two places the database claims an erase size the
 chip's own SFDP does not list. These are findings only. With the
@@ -88,7 +92,8 @@ maintainer's approval, both were filed upstream as
   `MT25QL256` and `N25Q256..3E`, and only the `MT25QL256` records claim the
   32 KiB erase (`block_erasers (1024 x 32768)`); their `N25Q256..3E`
   records do not. Linux and U-Boot name the id `N25Q256A` and `MT25QL256A`,
-  and claim no 32 KiB erase. The id is shared by an N25Q and an MT25Q part,
+  and claim no 32 KiB erase; nor do Dediprog and IMSProg, which list both
+  parts. The id is shared by an N25Q and an MT25Q part,
   and the dump is an N25Q's. So the claim may be right for the MT25QL256
   and wrong for the N25Q256A. This experiment cannot tell which part a chip
   with this id is, and does not decide it.
