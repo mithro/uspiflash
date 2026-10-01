@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from spiflash.enums import FlashType
 
-from harness import check, name, parity, snapshot
+from harness import check, name, one_chip, parity, snapshot
 from uspiflash import oracle
 from uspiflash.levels import ChipFilter, Selection
 from uspiflash.model import FAMILIES
@@ -37,6 +37,9 @@ CONFIGS = [
     ),
     # JSON without TEXT: the shared formatting helpers compiled for JSON alone.
     Config(Selection.make("write", with_=["json"])),
+    # Each way of storing source masks (full's own: a table of entry masks).
+    Config(Selection.make("full", chips=one_chip(wide=False))),
+    Config(Selection.make("full", chips=one_chip(wide=True))),
 ]
 
 

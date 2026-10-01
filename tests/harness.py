@@ -62,6 +62,22 @@ def no_datasheet() -> ChipFilter:
     return ChipFilter(ids=(f.id,), types=(f.type,), families=(f.family,))
 
 
+def one_chip(*, wide: bool) -> ChipFilter:
+    """A filter keeping one chip id, with operations and conflicts and no
+    extended ids (so one entry), whose sources are all among the first eight
+    (``wide`` False: one-byte masks, ``SRC_BYTES`` 1) or more than eight
+    (``wide``: every mask two bytes, stored as it is). Fails, saying why, if
+    no chip in the database is one."""
+    for f in database().flashes:
+        m = layout.mask(f.sources)
+        plain = f.opcodes and f.conflicts and not any(r.ext_id for r in f.records)
+        if plain and (m.bit_count() > 8 if wide else m < 1 << 8):
+            return ChipFilter(ids=(f.id,), types=(f.type,), families=(f.family,))
+    which = "more than eight" if wide else "only the first eight"
+    msg = f"no chip with operations, conflicts and {which} sources"
+    raise AssertionError(msg)
+
+
 @functools.cache
 def render(config: Config) -> str:
     """``emit.render(config)``, once per test session."""
@@ -138,6 +154,8 @@ def queries(snap: Snapshot, seed: int = 20260928) -> list[tuple[int, bytes]]:
         fam = FAMILIES.index(f.family)
         cont = b"\x7f" * f.bank
         out.append((fam, f.id))
+        # A SPI NAND chip's shorter ids, alone and with a byte after them.
+        out.extend((fam, x + p) for x in f.ids[1:] for p in (b"", b"\x00", b"\xff"))
         out.extend((fam, f.id + p) for p in reaching_probes(snap.ext.get(i, ())))
         out.append((fam, cont + f.id))
         if i in snap.ext:
