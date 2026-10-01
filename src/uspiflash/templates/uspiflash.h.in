@@ -600,6 +600,9 @@ static usf_srcmask usf__srcmask(usf_srcmask all, usf__p p)
 }
 #define USF__SRCW(all) usf__srcw(all)
 #define USF__SRC(all, p) usf__srcmask((all), (p))
+/* A printer's chip mask: read once into `all` where relative masks need
+ * it for every item, else read where it is printed. */
+#define USF__ALL(c) all
 #elif USF_SRC_BYTES == 2
 /* Stored as they are, two bytes each (`all` is not evaluated). */
 #define USF__SRCW(all) 2
@@ -608,6 +611,9 @@ static usf_srcmask usf__srcmask(usf_srcmask all, usf__p p)
 /* Stored as they are, one byte each (`all` is not evaluated). */
 #define USF__SRCW(all) 1
 #define USF__SRC(all, p) (*(p))
+#endif
+#if !USF_SRC_REL
+#define USF__ALL(c) usf_sources(c)
 #endif
 #endif
 
@@ -974,7 +980,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
     uint8_t i, n;
     uint16_t lo, hi;
     uint32_t v;
-#if USF_HAVE_SOURCES
+#if USF_HAVE_SOURCES && USF_SRC_REL
     usf_srcmask all = usf_sources(c);   /* the chip's sources, read once */
 #endif
 #if USF_OP_COUNT
@@ -984,7 +990,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
 #if USF_CONF_COUNT
     usf__p p;
     uint16_t off;
-    uint8_t sw = (uint8_t)(1 + USF__SRCW(all));   /* a conflict value's bytes */
+    uint8_t sw = (uint8_t)(1 + USF__SRCW(USF__ALL(c)));   /* a conflict value's bytes */
 #endif
 
     /* <ident>  <manufacturer>  <names>  (<type>) */
@@ -1055,7 +1061,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
                     usf__lit("; ", sink, ctx);
                 usf__value(attr, p[0], sink, ctx);
                 usf__lit(" (", sink, ctx);
-                usf__srclist(USF__SRC(all, p + 1), ", ", sink, ctx);
+                usf__srclist(USF__SRC(USF__ALL(c), p + 1), ", ", sink, ctx);
                 sink(ctx, ')');
             }
         }
@@ -1073,7 +1079,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
 #endif
 #if USF_HAVE_SOURCES
     usf__lit("\n    from: ", sink, ctx);
-    usf__srclist(all, ", ", sink, ctx);
+    usf__srclist(USF__ALL(c), ", ", sink, ctx);
 #endif
 #if USF_HAVE_SFDP_SUMMARY && USF_SFDP_COUNT
     {   /* sfdp: <summary>  [<source>: <parts>], one line per dump */
@@ -1123,7 +1129,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
         usf__puts(usf__off(row + USF_OP_NAME + USF_OFF_BYTES), sink, ctx);
 #if USF_HAVE_SOURCES
         usf__lit("  [", sink, ctx);
-        usf__srclist(USF__SRC(all, item + 1), ", ", sink, ctx);
+        usf__srclist(USF__SRC(USF__ALL(c), item + 1), ", ", sink, ctx);
         sink(ctx, ']');
 #endif
     }
@@ -1334,10 +1340,12 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
 #if USF_OP_COUNT
     usf__p item, row;
 #endif
-    usf_srcmask all = usf_sources(c);   /* JSON needs SOURCES: read once */
+#if USF_SRC_REL
+    usf_srcmask all = usf_sources(c);   /* the chip's sources, read once */
+#endif
 #if USF_CONF_COUNT
     uint16_t off;
-    uint8_t sw = (uint8_t)(1 + USF__SRCW(all));   /* a conflict value's bytes */
+    uint8_t sw = (uint8_t)(1 + USF__SRCW(USF__ALL(c)));   /* a conflict value's bytes */
 #endif
 #if USF_ALIAS_COUNT
     usf__p a;
@@ -1429,14 +1437,14 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
         usf__jkey(j, "description");
         usf__jpool(j, usf__off(row + USF_OP_NAME + USF_OFF_BYTES));
         usf__jkey(j, "sources");
-        usf__jsources(j, USF__SRC(all, item + 1));
+        usf__jsources(j, USF__SRC(USF__ALL(c), item + 1));
         usf__jclose(j, '}');
     }
 #endif
     usf__jclose(j, ']');
 
     usf__jkey(j, "sources");
-    usf__jsources(j, all);
+    usf__jsources(j, USF__ALL(c));
 
     usf__jkey(j, "conflicts");
     usf__jopen(j, '{');
@@ -1455,7 +1463,7 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
                 usf__jkey(j, "value");
                 usf__jvalue(j, attr, p[0]);
                 usf__jkey(j, "sources");
-                usf__jsources(j, USF__SRC(all, p + 1));
+                usf__jsources(j, USF__SRC(USF__ALL(c), p + 1));
                 usf__jclose(j, '}');
             }
             usf__jclose(j, ']');
