@@ -1698,7 +1698,17 @@ static uint32_t usf__sfdp_dw(usf_bus *bus, uint32_t addr)
  * for 2-2-2 and 4-4-4, in DW5). Byte offsets rather than bit numbers: each
  * is read from its own address, so no 32-bit value is shifted by a
  * variable count (a helper call on msp430, __mspabi_srll; an inline shift
- * loop on SDCC's ports, which is larger). */
+ * loop on SDCC's ports, which is larger).
+ *
+ * usf_sfdp_read reads each setting from its own byte address (an extra
+ * 4-byte RDSFDP beyond the settings dword itself, to fetch the support
+ * bit), rather than extracting both from one dword already in hand. The
+ * reads at ptr+26 and ptr+28+2k can then run up to 2 bytes past a 7- or
+ * 9-dword BFPT (the shortest table that still has that mode), since each
+ * reads a whole dword from a byte offset near the table's end; only the
+ * low byte or two of what comes back is ever used. This is the size-only
+ * trade: no variable shift or extra buffering to assemble a value that
+ * spans two dwords. */
 static const USF_ROM uint8_t usf__sfdp_modes[6][3] = {
     {12, 2, 0x01}, {14, 2, 0x10}, {10, 2, 0x40}, {8, 2, 0x20},
     {22, 16, 0x01}, {26, 16, 0x10},
