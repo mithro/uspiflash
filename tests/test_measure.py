@@ -256,6 +256,28 @@ def test_a_native_target_refuses_a_wrong_default_machine(
         ledger.build(tmp_path, configs=(("id", ID),), targets=(target,))
 
 
+def test_a_native_target_accepts_a_right_default_machine(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ppc64le's gcc target also has no ``target_flags`` (``CPUS["ppc64le"].gcc``
+    is ``()``): the check above must accept it when the compiler's default
+    machine actually matches, not only refuse a mismatch. The same stubbed
+    ``default_machine`` must still refuse a genuinely wrong native target
+    (``x86_64``), so the acceptance is not just a check that was skipped."""
+    monkeypatch.setattr(measure, "default_machine", lambda _compiler: "powerpc64le")
+    monkeypatch.setattr(measure, "version", lambda _name: "stub 1.0")
+    monkeypatch.setattr(measure, "linker", lambda _target: None)
+    monkeypatch.setattr(measure, "measure", lambda _config, _target, _workdir: Sizes({}))
+
+    ppc = measure.target("ppc64le", "gcc")
+    result = ledger.build(tmp_path, configs=(("id", ID),), targets=(ppc,))
+    assert result["targets"][0]["name"] == "ppc64le"
+
+    x86 = Target("x86_64", "gcc", link_flags=("-no-pie",))
+    with pytest.raises(MeasureError, match="gcc builds for powerpc64le by default"):
+        ledger.build(tmp_path, configs=(("id", ID),), targets=(x86,))
+
+
 def test_write_then_check_passes(
     tmp_path: Path, small: list[Target], capsys: pytest.CaptureFixture[str]
 ) -> None:
