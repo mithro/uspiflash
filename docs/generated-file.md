@@ -19,7 +19,7 @@ without a field simply has no such declaration to warn about).
 |---|---|---|
 | `usf_chip` | `id` | One answer: which entry (a chip id, or an extended-id variant of it) and the chip id it belongs to. Filled by `usf_lookup()` and `usf_probe()`; four bytes of RAM. |
 | `usf_putc_fn` | `id` | A character sink: every string the library writes leaves through one of these, one character at a time, so no buffer is ever needed. |
-| `usf_srcmask` | `id` | A source mask: bit `USF_SOURCE_*` set for each upstream that vouches (`usf_sources()`, `usf_op.sources`). `uint8_t` while every source the file's chips cite is among the first eight, else `uint16_t` (`USF_SRC_BYTES`). |
+| `usf_srcmask` | `id` | A source mask: bit `USF_SOURCE_*` set for each upstream that vouches (`usf_sources()`, `usf_op.sources`). `uint8_t` when the file has no `sources` field (below `full`) or every source its chips cite is among the first eight, else `uint16_t` (`USF_SRC_BYTES`). |
 | `usf_op` | `read` (`USF_HAVE_OPERATIONS`) | One operation the chip supports and the transaction it is on the bus: `id`, `opcode`, `kind`, `protocol`, `address_bytes`, `dummy_clocks`, `data`, `data_bytes`, `sources`. |
 | `usf_bus`, `usf_xfer_fn` | `id` (`USF_HAVE_PROBE`) | The transport. By default `struct usf_bus` is a function pointer (`usf_xfer_fn`) and a context pointer; when you define `USF_XFER` yourself, neither that definition nor `usf_xfer_fn` exists, and `struct usf_bus` is yours to define (see [Macros](#macros)). The `usf_bus` typedef (of `struct usf_bus`) always exists. |
 | `usf_probe_result` | `id` (`USF_HAVE_PROBE`) | What `usf_probe()` found: which command answered (`family`), the raw bytes (`id[USF_RDID_LEN]`), and up to `USF_LOOKUP_MAX` looked-up `usf_chip` answers (`chip[]`, `count` of them). |
@@ -71,7 +71,11 @@ source, operation kind, protocol and operation the selected chips use
 (`USF_FAMILY_*`, `USF_TYPE_*`, `USF_FEATURE_*`, `USF_SOURCE_*`,
 `USF_KIND_*`, `USF_PROTO_*`, `USF_OP_*`). Which of these exist, and how
 many, depends on the selection (`--level`, `--with`/`--without`, the chip
-filters): they are not fixed macros to enumerate here.
+filters): they are not fixed macros to enumerate here. Their values can
+change between spiflash versions (a new source or operation renumbers the
+ones after it: spiflash 0.0.post173 moved `USF_SOURCE_OPENOCD` from 4 to
+6, 0.0.post182 to 7), so use the names, and regenerate every file a
+program includes together.
 
 ## Example: probing with a function-pointer bus
 
