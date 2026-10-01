@@ -132,9 +132,12 @@ jobs:
     # As apt-repo-action's reusable workflow (scripts/build-matrix.py) runs
     # them: amd64 and i386 natively on x86, arm64 natively on GitHub's arm64
     # runners, which also run armhf natively; riscv64 is emulated (QEMU), so
-    # it is slower and debian/rules skips its tests.
+    # it is slower and debian/rules skips its tests. armhf's time varies by
+    # runner: on 2026-10-01 the same commit's bookworm armhf build took 6
+    # minutes once and passed 20 twice, its tests running several times
+    # slower, so armhf gets the emulated build's allowance too.
     runs-on: ${{ (matrix.arch == 'arm64' || matrix.arch == 'armhf') && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
-    timeout-minutes: ${{ matrix.arch == 'riscv64' && 60 || 20 }}
+    timeout-minutes: ${{ (matrix.arch == 'riscv64' || matrix.arch == 'armhf') && 60 || 20 }}
     strategy:
       fail-fast: false
       matrix:
