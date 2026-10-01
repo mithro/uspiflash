@@ -80,8 +80,10 @@ jobs:
       - name: C compilers
         run: gcc --version && clang --version
 
+      # In parallel, as locally: run serially, spiflash 0.0.post182's larger
+      # database took Python 3.11 and 3.12 past the 20-minute timeout.
       - name: Tests + coverage gate
-        run: uv run pytest
+        run: uv run pytest -n auto
 
   # The size ledger (sizes/ledger.json) must match a fresh measurement. The
   # numbers only reproduce with the tools that made them, so this runs in the
