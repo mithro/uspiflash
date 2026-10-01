@@ -2,9 +2,14 @@
 
 An :class:`Entry` is one answer the C library can give: a chip id's
 :class:`~spiflash.Flash`, or that flash narrowed by the extended-id bytes a
-chip sends after its id (:meth:`~spiflash.Flash.with_ext_id`). Narrowing
-changes consensus values, so each distinct narrowing is its own entry.
-Base entries come first, in the database's order; variants follow.
+chip sends after its id (:meth:`Database.narrow <spiflash.db.Database.narrow>`).
+Narrowing changes consensus values, the manufacturer and the datasheets, so
+each distinct narrowing (as spiflash prints it, :func:`printed`) is its own
+entry. Base entries come first, in the database's order; variants follow.
+
+A SPI NAND chip can also answer to shorter ids (:attr:`Flash.ids
+<spiflash.model.Flash.ids>`: sources that match fewer of its id bytes),
+each the start of its id.
 
 Which narrowing applies depends only on *which* of the chip's extended ids
 agree with the bytes read (:func:`ext_mask`), so the C library computes that
@@ -15,9 +20,11 @@ how every variant is found and tested.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from spiflash.cli import describe
 from spiflash.db import Database, database
 from spiflash.enums import FlashType, IdFamily
 from spiflash.model import strip_continuation
@@ -67,6 +74,12 @@ def reaching_probes(ids: Sequence[bytes]) -> tuple[bytes, ...]:
     return tuple(sorted(out))
 
 
+def printed(f: Flash) -> str:
+    """Everything spiflash prints about ``f`` (``spiflash id --json``, and
+    ``-v --opcodes``): two narrowings that print alike are one entry."""
+    return json.dumps(f.to_json(), default=str) + describe(f, verbose=True, opcodes=True)
+
+
 @dataclass(frozen=True)
 class Entry:
     """One answer: ``flash`` (possibly narrowed), the index of its chip id's
@@ -101,17 +114,23 @@ class Snapshot:
             if not ids:
                 continue
             ext[i] = ids
-            by_records: dict[tuple[object, ...], int] = {}
+            if len(f.ids) > 1:
+                # The C narrows only after a chip's whole id.
+                msg = f"chip {f.key} has both shorter ids and extended ids"
+                raise ValueError(msg)
+            base = printed(f)
+            by_output: dict[str, int] = {}
             table: dict[int, int] = {}
             for probe in reaching_probes(ids):
                 mask = ext_mask(ids, probe)
-                narrowed = f.with_ext_id(probe)
-                if mask in table or narrowed.records == f.records:
+                narrowed = db.narrow(f, probe)
+                out = printed(narrowed)
+                if mask in table or out == base:
                     continue
-                if narrowed.records not in by_records:
-                    by_records[narrowed.records] = len(entries)
+                if out not in by_output:
+                    by_output[out] = len(entries)
                     entries.append(Entry(narrowed, i, mask))
-                table[mask] = by_records[narrowed.records]
+                table[mask] = by_output[out]
             if table:
                 variants[i] = table
         return cls(db, tuple(entries), ext, variants)
@@ -128,14 +147,17 @@ class Snapshot:
         return self.variants[base].get(ext_mask(self.ext[base], leftover), base)
 
     def lookup(self, family: IdFamily, data: bytes) -> list[int]:
-        """Entry indices answering ``data``, as :meth:`Database.lookup` would."""
+        """Entry indices answering ``data``, as :meth:`Database.lookup` would:
+        per type, the chip with the longest of its ids that starts ``data``,
+        narrowed by the bytes after its whole id."""
         _bank, core = strip_continuation(data)
-        best: dict[FlashType, int] = {}
+        best: dict[FlashType, tuple[int, int]] = {}
         for i in range(self.n_base):
             f = self.entries[i].flash
-            if f.family is not family or core[: len(f.id)] != f.id:
+            fits = next((len(x) for x in f.ids if core[: len(x)] == x), 0)
+            if f.family is not family or not fits:
                 continue
-            if f.type not in best or len(f.id) > len(self.entries[best[f.type]].flash.id):
-                best[f.type] = i
+            if f.type not in best or fits > best[f.type][0]:
+                best[f.type] = (fits, i)
         order = sorted(best.items(), key=lambda kv: kv[0] is not FlashType.NOR)
-        return [self.resolve(i, core[len(self.entries[i].flash.id) :]) for _, i in order]
+        return [self.resolve(i, core[len(self.entries[i].flash.id) :]) for _, (_n, i) in order]
