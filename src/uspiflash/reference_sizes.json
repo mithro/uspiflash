@@ -3,9 +3,9 @@
   "05305d9391d69f6648a6a92644404bfe497c682052e7655f0d83d20dd868f475": {
    "name": "full+sfdp+sfdp_dumps",
    "total": {
-    "cortex-m0": 118664,
-    "rv32imc": 121288,
-    "x86_64": 117319
+    "cortex-m0": 118548,
+    "rv32imc": 121036,
+    "x86_64": 117358
    }
   },
   "1f16111c2bd439d8be7bdacd9041608a48ec7292603481e20cefa60a416a2ac9": {
@@ -51,9 +51,9 @@
   "4a871a4bc7c758d86b21682da61eea757ef2e95d215ac906fec755d7a1fc18ec": {
    "name": "full",
    "total": {
-    "cortex-m0": 98373,
-    "rv32imc": 100753,
-    "x86_64": 96988
+    "cortex-m0": 98285,
+    "rv32imc": 100501,
+    "x86_64": 97053
    }
   },
   "5f7918e12d65dd919e1c42c08f82b87d7d5a2768506a33d8c37a158eea1c49a8": {
@@ -67,25 +67,25 @@
   "6986deb92a69d4649b3836a6013c70bfff13c749e8c00966331ef92bf0bf21a0": {
    "name": "full+sfdp_dumps:nor",
    "total": {
-    "cortex-m0": 104548,
-    "rv32imc": 107116,
-    "x86_64": 103348
+    "cortex-m0": 104404,
+    "rv32imc": 106868,
+    "x86_64": 103381
    }
   },
   "6a6afaea6311125518398dd68f2c84ef1e973ff50a91a70dfb8dde97ab794aca": {
    "name": "full-sfdp_summary:nor",
    "total": {
-    "cortex-m0": 84086,
-    "rv32imc": 86474,
-    "x86_64": 82998
+    "cortex-m0": 83974,
+    "rv32imc": 86200,
+    "x86_64": 83016
    }
   },
   "9a0d484c28bf82c5ac09c6df329a012561675a9a44760dcc7533898fcae1de00": {
    "name": "full+datasheet",
    "total": {
-    "cortex-m0": 151752,
-    "rv32imc": 154220,
-    "x86_64": 150126
+    "cortex-m0": 151616,
+    "rv32imc": 153900,
+    "x86_64": 150097
    }
   },
   "9e727d3944182759953ea632882834cc7f504b37588d63b9894a39504e992f4a": {
@@ -123,9 +123,9 @@
   "b0d23f44628e369f817ebd56f95c60d2b768075f2ed76e285359448be1534d93": {
    "name": "full+records+provenance+jep106",
    "total": {
-    "cortex-m0": 364485,
-    "rv32imc": 367029,
-    "x86_64": 362735
+    "cortex-m0": 364365,
+    "rv32imc": 366751,
+    "x86_64": 362713
    }
   },
   "cbd8afd98596c0ab55c023582b399e99972cab0e4b292f87014e6229544be6e3": {
@@ -147,17 +147,17 @@
   "df989b9bdc27cf0af2b9ae7a19c7a8202e38762fab0e2e7c52bebb6c63fa488e": {
    "name": "full:nor",
    "total": {
-    "cortex-m0": 84971,
-    "rv32imc": 87419,
-    "x86_64": 83810
+    "cortex-m0": 84855,
+    "rv32imc": 87111,
+    "x86_64": 83875
    }
   },
   "ecf6c96339ba3d56e9763f46a3689f4963dac8978366112a068c7c2a7512a459": {
    "name": "full+datasheets",
    "total": {
-    "cortex-m0": 217458,
-    "rv32imc": 220080,
-    "x86_64": 215669
+    "cortex-m0": 217342,
+    "rv32imc": 219766,
+    "x86_64": 215748
    }
   }
  },
