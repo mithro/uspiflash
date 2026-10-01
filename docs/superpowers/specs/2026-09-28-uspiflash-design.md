@@ -824,12 +824,13 @@ merging.
     - The simulator-measured stack and instruction counts (decision 22):
       M3.
 
-## 15. Amendments (spiflash 0.0.post173 catch-up, 2026-10-01)
+## 15. Amendments (spiflash catch-up to 0.0.post182, 2026-10-01)
 
 25. **Source masks follow the selection.** spiflash 0.0.post173 has eleven
     sources (Dediprog, Rockchip and IMSProg are new) and 0.0.post182
     twelve (MediaTek, SPI NAND only). SPI NOR chips alone cite eleven, so
-    a one-byte mask (§5.4) cannot hold them.
+    the M1 baseline layout's one-byte mask (`uspiflash.layout`, from
+    the M1 model plan; §5.4 leaves encodings to it) cannot hold them.
     - One byte each while every mask the selection stores fits eight bits
       (`SRC_BYTES` 1): the old format, at no cost.
     - Past that, two bytes (`usf_srcmask` is `uint16_t`). An entry's mask
@@ -837,11 +838,15 @@ merging.
       when that is smaller than a second byte per entry. An operation's or
       a conflict value's mask is stored relative to its entry's (bit *j*
       for the entry's *j*-th source: one byte up to eight sources, two
-      past that) when that saves more than its code (`layout.REL_CODE`).
-    - Measured on the ledger's targets (`full:nor`, Cortex-M0, clang 19):
-      two bytes for every mask 91,806 bytes; entry masks two bytes and
-      the rest relative 85,748; entry-mask table and the rest two bytes
-      90,978; table and relative (chosen) 84,976. For `full:nand` (a
+      past that) when the deduplicated blobs it shrinks
+      (`layout.mask_blob_bytes`) save more than its code
+      (`layout.REL_CODE`).
+    - The designs compared, measured at 0.0.post173 on the ledger's
+      targets (`full:nor`, Cortex-M0, clang 19): two bytes for every mask
+      91,806 bytes; entry masks two bytes and the rest relative 85,748;
+      entry-mask table and the rest two bytes 90,978; table and relative
+      (chosen) 84,976. The final ledger, at 0.0.post182 and with the
+      printers reading the mask once, has 84,855. For `full:nand` (a
       dozen operation and conflict masks) the relative code costs more
       than it saves, so the rule leaves them two bytes.
     - Sixteen sources fill two bytes: the generator refuses a 17th.
