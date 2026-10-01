@@ -354,6 +354,27 @@ typedef const USF_ROM uint8_t *usf__p;
 #endif
 
 #if USF_SOFT_MUL
+/* k is a uint8_t: a row size of 256 or more would wrap rather than fail to
+ * compile. Guard every generated row-size macro USF__MUL is called with
+ * (USF_ENTRY_SIZE, USF_OP_SIZE, USF_DS_ROW); USF_E_FEAT's featset row and
+ * USF__OFFS's offset row both multiply by the literal 3, not a macro, so
+ * they are not (and cannot be) checked here. #ifdef first: USF_OP_SIZE and
+ * USF_DS_ROW are only defined where their table is (-Wundef, -Werror). */
+#ifdef USF_ENTRY_SIZE
+#if USF_ENTRY_SIZE > 255
+#error "USF_ENTRY_SIZE no longer fits usf__mul's uint8_t k"
+#endif
+#endif
+#ifdef USF_OP_SIZE
+#if USF_OP_SIZE > 255
+#error "USF_OP_SIZE no longer fits usf__mul's uint8_t k"
+#endif
+#endif
+#ifdef USF_DS_ROW
+#if USF_DS_ROW > 255
+#error "USF_DS_ROW no longer fits usf__mul's uint8_t k"
+#endif
+#endif
 static USF__NOINLINE uint16_t usf__mul(uint16_t a, uint8_t k)
 {
     uint16_t r = 0;
