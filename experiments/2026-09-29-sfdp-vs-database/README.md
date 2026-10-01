@@ -38,7 +38,7 @@ could not name (`unnamed_operations`) and its warnings.
 byte-identical results.
 
 **Result.** From `results/comparison.json`, against `spiflash`
-**0.0.post173**.
+**0.0.post182**.
 
 - **12 dumps over 11 chip ids** (`c22019` has two: MX25L25635E and
   MX25L25635F). Revisions: JESD216 ×4, JESD216A ×1, JESD216B ×7.
