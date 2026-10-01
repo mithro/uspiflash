@@ -74,10 +74,12 @@ SPI NOR is the primary target: `uspiflash generate` keeps only SPI NOR chips
 unless told otherwise (`--type nor --type nand` keeps every chip, NAND
 included; `--type nand` only NAND).
 
-On 16-bit targets (AVR, msp430, the 8051) the levels `id` to `full` fit, if
-the part has the flash (`full` is about 59 KB of code and tables); the
-`datasheet`, `datasheets`, `records`, `provenance` and `jep106` extras do
-not, as their tables pass the 64 KiB a 16-bit pointer can address. On AVR,
+On 16-bit targets (AVR, msp430, the 8051) a 16-bit pointer addresses
+64 KiB: `write` is the largest level that fits (on `cortex-m0`, 21,993
+bytes of code and tables for SPI NOR, 25,968 for every chip type).
+`describe` is at that limit (65,165 bytes for SPI NOR), and `full` and the
+`datasheet`, `datasheets`, `records`, `provenance` and `jep106` extras
+pass it. On AVR,
 define `USF_ROM` as a flash address space (avr-gcc's `__flash`) to keep the
 tables in flash rather than copied to RAM.
 

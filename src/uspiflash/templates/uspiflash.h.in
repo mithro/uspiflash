@@ -35,10 +35,11 @@ extern "C" {
  * space (avr-gcc's __flash, in GNU C): there plain const data is copied to
  * RAM at startup.
  *
- * On 16-bit targets (AVR, msp430, the 8051) the levels id to full fit, as
- * long as the part has the flash (full is about 59 KB of code and tables);
- * the datasheet, datasheets, records, provenance and jep106 extras do not,
- * as their tables pass the 64 KiB a 16-bit pointer can address.
+ * On 16-bit targets (AVR, msp430, the 8051) a 16-bit pointer addresses
+ * 64 KiB: write is the largest level that fits (on Cortex-M0, 21,993 bytes
+ * of code and tables for SPI NOR, 25,968 for every type). describe is at
+ * that limit (65,165 for SPI NOR), and full and the datasheet, datasheets,
+ * records, provenance and jep106 extras pass it.
  */
 #ifndef USF_ROM
 #define USF_ROM
