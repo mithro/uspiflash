@@ -3,25 +3,25 @@
   "05305d9391d69f6648a6a92644404bfe497c682052e7655f0d83d20dd868f475": {
    "name": "full+sfdp+sfdp_dumps",
    "total": {
-    "cortex-m0": 117423,
-    "rv32imc": 120047,
-    "x86_64": 116078
+    "cortex-m0": 118664,
+    "rv32imc": 121288,
+    "x86_64": 117319
    }
   },
   "1f16111c2bd439d8be7bdacd9041608a48ec7292603481e20cefa60a416a2ac9": {
    "name": "full:nand",
    "total": {
-    "cortex-m0": 20354,
-    "rv32imc": 22226,
-    "x86_64": 18940
+    "cortex-m0": 21608,
+    "rv32imc": 23480,
+    "x86_64": 20194
    }
   },
   "2b53ae001d745e53881a2111e5599e7abc51fcd75ef71e469b1402085f528fbd": {
    "name": "id",
    "total": {
-    "cortex-m0": 7553,
-    "rv32imc": 7639,
-    "x86_64": 7475
+    "cortex-m0": 7640,
+    "rv32imc": 7726,
+    "x86_64": 7562
    }
   },
   "2d2391a03b149988e26d35a1cf69150ec5645655c22f03baf916e6821a3d7032": {
@@ -51,49 +51,49 @@
   "4a871a4bc7c758d86b21682da61eea757ef2e95d215ac906fec755d7a1fc18ec": {
    "name": "full",
    "total": {
-    "cortex-m0": 97132,
-    "rv32imc": 99512,
-    "x86_64": 95747
+    "cortex-m0": 98373,
+    "rv32imc": 100753,
+    "x86_64": 96988
    }
   },
   "5f7918e12d65dd919e1c42c08f82b87d7d5a2768506a33d8c37a158eea1c49a8": {
    "name": "read",
    "total": {
-    "cortex-m0": 19043,
-    "rv32imc": 19235,
-    "x86_64": 18870
+    "cortex-m0": 19262,
+    "rv32imc": 19454,
+    "x86_64": 19089
    }
   },
   "6986deb92a69d4649b3836a6013c70bfff13c749e8c00966331ef92bf0bf21a0": {
    "name": "full+sfdp_dumps:nor",
    "total": {
-    "cortex-m0": 104537,
-    "rv32imc": 107105,
-    "x86_64": 103337
+    "cortex-m0": 104548,
+    "rv32imc": 107116,
+    "x86_64": 103348
    }
   },
   "6a6afaea6311125518398dd68f2c84ef1e973ff50a91a70dfb8dde97ab794aca": {
    "name": "full-sfdp_summary:nor",
    "total": {
-    "cortex-m0": 84075,
-    "rv32imc": 86463,
-    "x86_64": 82987
+    "cortex-m0": 84086,
+    "rv32imc": 86474,
+    "x86_64": 82998
    }
   },
   "9a0d484c28bf82c5ac09c6df329a012561675a9a44760dcc7533898fcae1de00": {
    "name": "full+datasheet",
    "total": {
-    "cortex-m0": 150412,
-    "rv32imc": 152880,
-    "x86_64": 148786
+    "cortex-m0": 151752,
+    "rv32imc": 154220,
+    "x86_64": 150126
    }
   },
   "9e727d3944182759953ea632882834cc7f504b37588d63b9894a39504e992f4a": {
    "name": "describe",
    "total": {
-    "cortex-m0": 76222,
-    "rv32imc": 77308,
-    "x86_64": 75575
+    "cortex-m0": 77352,
+    "rv32imc": 78438,
+    "x86_64": 76705
    }
   },
   "a9358060f1ca01609b2538359cd21cb469c40a409049d4d0d94f534f8a9b4781": {
@@ -115,17 +115,17 @@
   "ac8445c888644b0b63e2ac1ecf5fd9eae02f5d6cda3aa46b4f49a45e291129d5": {
    "name": "read:nand",
    "total": {
-    "cortex-m0": 4166,
-    "rv32imc": 4330,
-    "x86_64": 3946
+    "cortex-m0": 4385,
+    "rv32imc": 4549,
+    "x86_64": 4165
    }
   },
   "b0d23f44628e369f817ebd56f95c60d2b768075f2ed76e285359448be1534d93": {
    "name": "full+records+provenance+jep106",
    "total": {
-    "cortex-m0": 358679,
-    "rv32imc": 361223,
-    "x86_64": 356929
+    "cortex-m0": 364485,
+    "rv32imc": 367029,
+    "x86_64": 362735
    }
   },
   "cbd8afd98596c0ab55c023582b399e99972cab0e4b292f87014e6229544be6e3": {
@@ -139,29 +139,29 @@
   "d97422c2fc1412e427f5b92bd1158e292a94c2bd28ad7c5c3564e46ac7729f83": {
    "name": "write",
    "total": {
-    "cortex-m0": 25707,
-    "rv32imc": 25921,
-    "x86_64": 25505
+    "cortex-m0": 25968,
+    "rv32imc": 26182,
+    "x86_64": 25766
    }
   },
   "df989b9bdc27cf0af2b9ae7a19c7a8202e38762fab0e2e7c52bebb6c63fa488e": {
    "name": "full:nor",
    "total": {
-    "cortex-m0": 84960,
-    "rv32imc": 87408,
-    "x86_64": 83799
+    "cortex-m0": 84971,
+    "rv32imc": 87419,
+    "x86_64": 83810
    }
   },
   "ecf6c96339ba3d56e9763f46a3689f4963dac8978366112a068c7c2a7512a459": {
    "name": "full+datasheets",
    "total": {
-    "cortex-m0": 216118,
-    "rv32imc": 218740,
-    "x86_64": 214329
+    "cortex-m0": 217458,
+    "rv32imc": 220080,
+    "x86_64": 215669
    }
   }
  },
- "spiflash": "0.0.post173",
+ "spiflash": "0.0.post182",
  "targets": [
   "cortex-m0",
   "rv32imc",
