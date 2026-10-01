@@ -23,10 +23,10 @@ static void out(void *ctx, char ch)
 
 #if USF_HAVE_SOURCES || USF_HAVE_OPERATIONS
 /* A source mask as names: the sources= line and each op's src=. */
-static void srcs(uint8_t mask)
+static void srcs(usf_srcmask mask)
 {
     unsigned i, first = 1;
-    for (i = 0; i < 8; i++)
+    for (i = 0; i < sizeof SOURCE_NAMES / sizeof *SOURCE_NAMES; i++)
         if (mask >> i & 1) {
             printf(first ? "%s" : ",%s", SOURCE_NAMES[i]);
             first = 0;
@@ -75,8 +75,16 @@ static void dump(const usf_chip *c)
 #endif
 #if USF_HAVE_MANUFACTURER
     printf("mfr=");
-    if (!usf_manufacturer(c, out, NULL))
+    switch (usf_manufacturer(c, out, NULL)) {
+    case 0:
         putchar('?');
+        break;
+    case 2:
+        printf(" (inferred)");
+        break;
+    default:
+        break;
+    }
     putchar('\n');
 #endif
 #if USF_HAVE_NAMES

@@ -64,9 +64,9 @@ Beyond a level, `--with FIELD` adds one of these:
 printed, so selecting either without a printer (`text` or `json`) adds
 nothing to the file. Two extras cost the most: on `cortex-m0` at `-Os`
 (clang), `sfdp` adds about 710 bytes to `id` or `read`, and `sfdp_dumps`
-about 19.6 KB to `full`, for SPI NOR (from `sizes/README.md`: `id:nor`
-4,142 and `id+sfdp:nor` 4,852 bytes; `full:nor` 54,547 and
-`full+sfdp_dumps:nor` 74,125). The exact costs of every configuration,
+about 19.5 KB to `full`, for SPI NOR (from `sizes/README.md`: `id:nor`
+6,094 and `id+sfdp:nor` 6,804 bytes; `full:nor` 84,855 and
+`full+sfdp_dumps:nor` 104,404). The exact costs of every configuration,
 on every measured target, are in [Sizes](sizes.md).
 
 ### Chip filters and `--prefix`
@@ -87,7 +87,7 @@ The generated file's provenance comment also states its measured size for
 the reference targets, quoted from the committed size ledger, when the
 ledger measured this exact selection with the spiflash version installed
 now (for example `Size (full:nor in sizes/ledger.json, spiflash 1.2.3):
-cortex-m0 54,547, rv32imc ..., x86_64 ... bytes of flash for code and
+cortex-m0 84,855, rv32imc ..., x86_64 ... bytes of flash for code and
 tables at -Os, and no static RAM.`). When the selection is not one the
 ledger measures, it says so instead of claiming a size (`uspiflash
 measure` only sizes the ledger's own selections, not arbitrary ones); when

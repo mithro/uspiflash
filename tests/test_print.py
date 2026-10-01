@@ -9,7 +9,7 @@ from spiflash.cli import describe
 from spiflash.db import database
 from spiflash.enums import FlashType
 
-from harness import check, name, parity, snapshot
+from harness import check, name, one_chip, parity, snapshot
 from uspiflash import oracle
 from uspiflash.levels import ChipFilter, Selection
 from uspiflash.model import FAMILIES
@@ -25,8 +25,11 @@ CONFIGS = [
     # variants carry dumps); without the summary, and before a datasheet line.
     Config(Selection.make("full", without=["sfdp_summary"])),
     Config(Selection.make("full", with_=["datasheet"])),
-    # No NAND chip has an operation, a voltage or a conflict.
+    # NAND only: one type, chips with shorter ids, and no voltage.
     Config(Selection.make("full", chips=ChipFilter(types=(FlashType.NAND,)))),
+    # Each way of storing source masks (full's own: a table of entry masks).
+    Config(Selection.make("full", chips=one_chip(wide=False))),
+    Config(Selection.make("full", chips=one_chip(wide=True))),
 ]
 
 

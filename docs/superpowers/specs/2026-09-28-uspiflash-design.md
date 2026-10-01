@@ -823,3 +823,47 @@ merging.
     - Classic AVR (decision 20): M4.
     - The simulator-measured stack and instruction counts (decision 22):
       M3.
+
+## 15. Amendments (spiflash catch-up to 0.0.post182, 2026-10-01)
+
+25. **Source masks follow the selection.** spiflash 0.0.post173 has eleven
+    sources (Dediprog, Rockchip and IMSProg are new) and 0.0.post182
+    twelve (MediaTek, SPI NAND only). SPI NOR chips alone cite eleven, so
+    the M1 baseline layout's one-byte mask (`uspiflash.layout`, from
+    the M1 model plan; §5.4 leaves encodings to it) cannot hold them.
+    - One byte each while every mask the selection stores fits eight bits
+      (`SRC_BYTES` 1): the old format, at no cost.
+    - Past that, two bytes (`usf_srcmask` is `uint16_t`). An entry's mask
+      is a one-byte index into a table of the distinct ones (`srcmasks`)
+      when that is smaller than a second byte per entry. An operation's or
+      a conflict value's mask is stored relative to its entry's (bit *j*
+      for the entry's *j*-th source: one byte up to eight sources, two
+      past that) when the deduplicated blobs it shrinks
+      (`layout.mask_blob_bytes`) save more than its code
+      (`layout.REL_CODE`).
+    - The designs compared, measured at 0.0.post173 on the ledger's
+      targets (`full:nor`, Cortex-M0, clang 19): two bytes for every mask
+      91,806 bytes; entry masks two bytes and the rest relative 85,748;
+      entry-mask table and the rest two bytes 90,978; table and relative
+      (chosen) 84,976. The final ledger, at 0.0.post182 and with the
+      printers reading the mask once, has 84,855. For `full:nand` (a
+      dozen operation and conflict masks) the relative code costs more
+      than it saves, so the rule leaves them two bytes.
+    - Sixteen sources fill two bytes: the generator refuses a 17th.
+26. **A filtered build answers as the whole database does.** spiflash
+    infers a chip's manufacturer from the other chips and folds a SPI NAND
+    id into a longer one, so a database rebuilt from the kept chips'
+    records could answer differently. `ChipFilter.apply` keeps the whole
+    database's own chips (`levels.Kept`), narrowed by the whole database.
+27. **Variants are what spiflash prints.** `Database.narrow` also re-infers
+    the manufacturer and keeps only the remaining parts' datasheets, so
+    two narrowings with the same records can print differently. The
+    snapshot tells variants apart by spiflash's own JSON and verbose text
+    (`model.printed`).
+28. **0.0.post173's output.** A SPI NAND chip's shorter ids follow its own
+    in `ids` as bare headers (bit 7), matched by `usf_lookup` and printed
+    in the JSON's `"ids"`; inferred manufacturers follow the named ones in
+    `mfrs` (`usf_manufacturer` returns 2 for one: `(inferred)` and
+    `"manufacturer_inferred"`); the `parts differ on` lines are stored as
+    text (`difflines`), about 1 KB at `describe:nor`. A SPI NOR-only build
+    has no shorter ids and pays nothing for them.

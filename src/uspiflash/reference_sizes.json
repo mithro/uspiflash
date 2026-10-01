@@ -3,165 +3,165 @@
   "05305d9391d69f6648a6a92644404bfe497c682052e7655f0d83d20dd868f475": {
    "name": "full+sfdp+sfdp_dumps",
    "total": {
-    "cortex-m0": 79481,
-    "rv32imc": 81741,
-    "x86_64": 78639
+    "cortex-m0": 118548,
+    "rv32imc": 121036,
+    "x86_64": 117358
    }
   },
   "1f16111c2bd439d8be7bdacd9041608a48ec7292603481e20cefa60a416a2ac9": {
    "name": "full:nand",
    "total": {
-    "cortex-m0": 9795,
-    "rv32imc": 10833,
-    "x86_64": 9134
+    "cortex-m0": 21608,
+    "rv32imc": 23480,
+    "x86_64": 20194
    }
   },
   "2b53ae001d745e53881a2111e5599e7abc51fcd75ef71e469b1402085f528fbd": {
    "name": "id",
    "total": {
-    "cortex-m0": 4862,
-    "rv32imc": 5014,
-    "x86_64": 4857
+    "cortex-m0": 7640,
+    "rv32imc": 7726,
+    "x86_64": 7562
    }
   },
   "2d2391a03b149988e26d35a1cf69150ec5645655c22f03baf916e6821a3d7032": {
    "name": "describe:nor",
    "total": {
-    "cortex-m0": 40312,
-    "rv32imc": 41386,
-    "x86_64": 39850
+    "cortex-m0": 65165,
+    "rv32imc": 66271,
+    "x86_64": 64628
    }
   },
   "31175e7c3bd76ef3d41ddb8d5b9b866cf6f2e432d0f98c0f5b0fd6bac59ac826": {
    "name": "id+sfdp:nor",
    "total": {
-    "cortex-m0": 4804,
-    "rv32imc": 5022,
-    "x86_64": 4934
+    "cortex-m0": 6804,
+    "rv32imc": 7022,
+    "x86_64": 6925
    }
   },
   "480dbe9115267b8220c6d81af8d878306a42f79de9f837838ec1b86e80502f87": {
    "name": "read+sfdp:nor",
    "total": {
-    "cortex-m0": 11937,
-    "rv32imc": 12285,
-    "x86_64": 11961
+    "cortex-m0": 16587,
+    "rv32imc": 16935,
+    "x86_64": 16602
    }
   },
   "4a871a4bc7c758d86b21682da61eea757ef2e95d215ac906fec755d7a1fc18ec": {
    "name": "full",
    "total": {
-    "cortex-m0": 59261,
-    "rv32imc": 61329,
-    "x86_64": 58411
+    "cortex-m0": 98285,
+    "rv32imc": 100501,
+    "x86_64": 97053
    }
   },
   "5f7918e12d65dd919e1c42c08f82b87d7d5a2768506a33d8c37a158eea1c49a8": {
    "name": "read",
    "total": {
-    "cortex-m0": 12801,
-    "rv32imc": 13071,
-    "x86_64": 12711
+    "cortex-m0": 19262,
+    "rv32imc": 19454,
+    "x86_64": 19089
    }
   },
   "6986deb92a69d4649b3836a6013c70bfff13c749e8c00966331ef92bf0bf21a0": {
    "name": "full+sfdp_dumps:nor",
    "total": {
-    "cortex-m0": 74105,
-    "rv32imc": 76209,
-    "x86_64": 73187
+    "cortex-m0": 104404,
+    "rv32imc": 106868,
+    "x86_64": 103381
    }
   },
   "6a6afaea6311125518398dd68f2c84ef1e973ff50a91a70dfb8dde97ab794aca": {
    "name": "full-sfdp_summary:nor",
    "total": {
-    "cortex-m0": 53662,
-    "rv32imc": 55638,
-    "x86_64": 52896
+    "cortex-m0": 83974,
+    "rv32imc": 86200,
+    "x86_64": 83016
    }
   },
   "9a0d484c28bf82c5ac09c6df329a012561675a9a44760dcc7533898fcae1de00": {
    "name": "full+datasheet",
    "total": {
-    "cortex-m0": 106844,
-    "rv32imc": 109062,
-    "x86_64": 105849
+    "cortex-m0": 151616,
+    "rv32imc": 153900,
+    "x86_64": 150097
    }
   },
   "9e727d3944182759953ea632882834cc7f504b37588d63b9894a39504e992f4a": {
    "name": "describe",
    "total": {
-    "cortex-m0": 44645,
-    "rv32imc": 45763,
-    "x86_64": 44164
+    "cortex-m0": 77352,
+    "rv32imc": 78438,
+    "x86_64": 76705
    }
   },
   "a9358060f1ca01609b2538359cd21cb469c40a409049d4d0d94f534f8a9b4781": {
    "name": "id:nor",
    "total": {
-    "cortex-m0": 4142,
-    "rv32imc": 4242,
-    "x86_64": 4177
+    "cortex-m0": 6094,
+    "rv32imc": 6194,
+    "x86_64": 6129
    }
   },
   "aa31a301c1f5043d5b857be627d20fadaa51e156437f2bedd2ce8c7a301b7e65": {
    "name": "read:nor",
    "total": {
-    "cortex-m0": 11275,
-    "rv32imc": 11505,
-    "x86_64": 11204
+    "cortex-m0": 15877,
+    "rv32imc": 16107,
+    "x86_64": 15806
    }
   },
   "ac8445c888644b0b63e2ac1ecf5fd9eae02f5d6cda3aa46b4f49a45e291129d5": {
    "name": "read:nand",
    "total": {
-    "cortex-m0": 2165,
-    "rv32imc": 2259,
-    "x86_64": 2046
+    "cortex-m0": 4385,
+    "rv32imc": 4549,
+    "x86_64": 4165
    }
   },
   "b0d23f44628e369f817ebd56f95c60d2b768075f2ed76e285359448be1534d93": {
    "name": "full+records+provenance+jep106",
    "total": {
-    "cortex-m0": 210817,
-    "rv32imc": 213183,
-    "x86_64": 209565
+    "cortex-m0": 364365,
+    "rv32imc": 366751,
+    "x86_64": 362713
    }
   },
   "cbd8afd98596c0ab55c023582b399e99972cab0e4b292f87014e6229544be6e3": {
    "name": "write:nor",
    "total": {
-    "cortex-m0": 16200,
-    "rv32imc": 16452,
-    "x86_64": 16100
+    "cortex-m0": 21993,
+    "rv32imc": 22245,
+    "x86_64": 21893
    }
   },
   "d97422c2fc1412e427f5b92bd1158e292a94c2bd28ad7c5c3564e46ac7729f83": {
    "name": "write",
    "total": {
-    "cortex-m0": 17982,
-    "rv32imc": 18274,
-    "x86_64": 17863
+    "cortex-m0": 25968,
+    "rv32imc": 26182,
+    "x86_64": 25766
    }
   },
   "df989b9bdc27cf0af2b9ae7a19c7a8202e38762fab0e2e7c52bebb6c63fa488e": {
    "name": "full:nor",
    "total": {
-    "cortex-m0": 54547,
-    "rv32imc": 56577,
-    "x86_64": 53716
+    "cortex-m0": 84855,
+    "rv32imc": 87111,
+    "x86_64": 83875
    }
   },
   "ecf6c96339ba3d56e9763f46a3689f4963dac8978366112a068c7c2a7512a459": {
    "name": "full+datasheets",
    "total": {
-    "cortex-m0": 175362,
-    "rv32imc": 177796,
-    "x86_64": 174208
+    "cortex-m0": 217342,
+    "rv32imc": 219766,
+    "x86_64": 215748
    }
   }
  },
- "spiflash": "0.0.post108",
+ "spiflash": "0.0.post182",
  "targets": [
   "cortex-m0",
   "rv32imc",

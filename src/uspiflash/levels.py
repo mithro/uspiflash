@@ -180,6 +180,27 @@ def _close(fields: set[Field]) -> set[Field]:
     return fields
 
 
+class Kept(Database):
+    """Some of a database's chips, each as the whole database has it.
+
+    spiflash infers a chip's manufacturer, where no source names one, from
+    the other chips (:func:`spiflash.db.infer_manufacturer`), and folds a SPI
+    NAND id into a longer one of the same part: a database rebuilt from the
+    kept chips' records alone could answer differently from ``spiflash id``.
+    So the chips are ``full``'s own, and narrowing one by an extended id
+    (:meth:`narrow`) infers from all of ``full``'s chips too."""
+
+    def __init__(self, full: Database, flashes: tuple[Flash, ...]) -> None:
+        records = [r for f in flashes for r in f.records]
+        super().__init__(records, full.manufacturers, full.sources, full.datasheets)
+        self.flashes = flashes
+        self.full = full
+
+    def narrow(self, flash: Flash, ext: bytes) -> Flash:
+        """``full``'s narrowing of ``flash`` by extended id ``ext``."""
+        return self.full.narrow(flash, ext)
+
+
 @dataclass(frozen=True)
 class ChipFilter:
     """Which chips to keep; an empty criterion keeps everything.
@@ -215,10 +236,9 @@ class ChipFilter:
         return not (self.max_size is not None and (f.size is None or f.size > self.max_size))
 
     def apply(self, db: Database) -> Database:
-        """A database of the kept chips' records (same manufacturers, sources
-        and datasheets, so kept chips keep theirs)."""
-        records = [r for f in db.flashes if self.keeps(f) for r in f.records]
-        return Database(records, db.manufacturers, db.sources, db.datasheets)
+        """A database of the kept chips (same manufacturers, sources and
+        datasheets), each exactly as ``db`` has it: see :class:`Kept`."""
+        return Kept(db, tuple(f for f in db.flashes if self.keeps(f)))
 
     def to_json(self) -> dict[str, Any]:
         """Plain JSON, for the provenance header."""

@@ -45,7 +45,8 @@ def accessors(flash: Flash, sel: Selection) -> str:
     if has(Field.FEATURES):
         out.append("features=" + " ".join(f for f in layout.FEATURES if f in flash.features))
     if has(Field.MANUFACTURER):
-        out.append(f"mfr={flash.manufacturer or '?'}")
+        inferred = " (inferred)" if flash.manufacturer_inferred else ""
+        out.append(f"mfr={flash.manufacturer or '?'}{inferred}")
     if has(Field.NAMES):
         out.append("names=" + ",".join(flash.names))
     if has(Field.SOURCES):

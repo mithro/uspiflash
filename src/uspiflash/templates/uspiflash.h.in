@@ -35,10 +35,11 @@ extern "C" {
  * space (avr-gcc's __flash, in GNU C): there plain const data is copied to
  * RAM at startup. SDCC's 8051 port is measured with USF_ROM as __code.
  *
- * On 16-bit targets (AVR, msp430, the 8051) the levels id to full fit, as
- * long as the part has the flash (full is about 59 KB of code and tables);
- * the datasheet, datasheets, records, provenance and jep106 extras do not,
- * as their tables pass the 64 KiB a 16-bit pointer can address.
+ * On 16-bit targets (AVR, msp430, the 8051) a 16-bit pointer addresses
+ * 64 KiB: write is the largest level that fits (on Cortex-M0, 21,993 bytes
+ * of code and tables for SPI NOR, 25,968 for every type). describe is at
+ * that limit (65,165 for SPI NOR), and full and the datasheet, datasheets,
+ * records, provenance and jep106 extras pass it.
  */
 #ifndef USF_ROM
 #define USF_ROM
@@ -120,6 +121,15 @@ uint8_t usf_voltage(const usf_chip *c, uint16_t *min_mv, uint16_t *max_mv);
  * a number past the last feature (USF_FEATURE_COUNT or more). */
 uint8_t usf_has_feature(const usf_chip *c, uint8_t feature);
 #endif
+/* A source mask: bit USF_SOURCE_* set for each upstream that vouches. One
+ * byte while every source this file cites is among the first eight, else
+ * two (USF_SRC_BYTES). */
+#if USF_SRC_BYTES == 1
+typedef uint8_t usf_srcmask;
+#else
+typedef uint16_t usf_srcmask;
+#endif
+
 #if USF_HAVE_OPERATIONS
 /* One operation the chip supports, and the transaction it is on the bus. */
 typedef struct usf_op {
@@ -131,7 +141,7 @@ typedef struct usf_op {
     uint8_t dummy_clocks;  /* 0xFF: set in the part's registers or its SFDP */
     uint8_t data;          /* 0: none, 1: read, 2: write */
     uint8_t data_bytes;    /* 0: as many as the host clocks, or up to a page */
-    uint8_t sources;       /* bit USF_SOURCE_*: who vouches (0 without sources) */
+    usf_srcmask sources;   /* bit USF_SOURCE_*: who vouches (0 without sources) */
 } usf_op;
 /* How many operations the chip has (in spiflash's order: id, read,
  * program, erase, register, mode); 0 when none is known. */
@@ -148,7 +158,9 @@ uint8_t usf_op_description(uint8_t op_id, usf_putc_fn sink, void *ctx);
 #endif
 #endif
 #if USF_HAVE_MANUFACTURER
-/* Writes the manufacturer's name; returns 0 (writing nothing) if unknown. */
+/* Writes the manufacturer's name; returns 0 (writing nothing) if unknown, 1
+ * if a source names it, or 2 if no source does and spiflash infers it from
+ * other chips with the same manufacturer byte and part names. */
 uint8_t usf_manufacturer(const usf_chip *c, usf_putc_fn sink, void *ctx);
 #endif
 #if USF_HAVE_NAMES
@@ -159,7 +171,7 @@ uint8_t usf_name(const usf_chip *c, uint8_t i, usf_putc_fn sink, void *ctx);
 #endif
 #if USF_HAVE_SOURCES
 /* Bit USF_SOURCE_* set for each upstream describing the chip. */
-uint8_t usf_sources(const usf_chip *c);
+usf_srcmask usf_sources(const usf_chip *c);
 #endif
 #if USF_HAVE_JEP106
 /* Writes the JEP106 name of manufacturer byte `id` in `bank`; 0 if none. */
@@ -415,7 +427,7 @@ typedef uint32_t usf__off_t;
     || (USF_HAVE_SFDP_DUMPS && USF_SFDP_COUNT))
 #define USF__NEED_U16 (USF__NEED_U32 || USF__NEED_OFF || USF_PAGE_COUNT || USF_VOLT_COUNT \
     || USF_EXT_COUNT || USF_OP_COUNT || USF_CONF_COUNT || USF_HAVE_RECORDS || USF_DS_COUNT \
-    || USF_SFDP_COUNT)
+    || USF_SFDP_COUNT || USF_DIFF_COUNT || (USF_HAVE_SOURCES && USF_SRC_BYTES == 2))
 
 #if USF__NEED_U16
 /* Every byte is widened to an unsigned type before it is shifted: a byte
@@ -458,12 +470,19 @@ static usf__p usf__row(const usf_chip *c)
     return usf__entries + USF__MUL(c->entry, USF_ENTRY_SIZE);
 }
 
-/* The ids-table record (header byte, then id bytes) of chip id `base`. */
+/* The ids-table record (header byte, then id bytes) of chip id `base`.
+ * With USF_ALIAS_COUNT, a chip's shorter ids follow its record: a header
+ * with bit 7 set and no bytes, as the start of its own id is the id. */
 static usf__p usf__idrec(uint16_t base)
 {
     usf__p p = usf__ids;
-    for (; base; base--)
+    for (; base; base--) {
         p += 1 + (*p & 7);
+#if USF_ALIAS_COUNT
+        while (*p & 0x80)
+            p++;
+#endif
+    }
     return p;
 }
 
@@ -509,7 +528,12 @@ static uint16_t usf__narrow(uint16_t base, const uint8_t *x, uint8_t xl)
 uint8_t usf_lookup(uint8_t family, const uint8_t *id, uint8_t len, usf_chip *out)
 {
     usf__p p = usf__ids;
+#if USF_ALIAS_COUNT
+    usf__p q = p;                       /* the current chip's id bytes */
+    uint16_t e = 0xFFFF, best[USF_LOOKUP_MAX];
+#else
     uint16_t e = 0, best[USF_LOOKUP_MAX];
+#endif
     uint8_t best_len[USF_LOOKUP_MAX];
     uint8_t h, l, i, t, n = 0;
 
@@ -524,6 +548,21 @@ uint8_t usf_lookup(uint8_t family, const uint8_t *id, uint8_t len, usf_chip *out
         id++;
         len--;
     }
+    /* Per type, the chip with the longest of its ids that starts `id`. */
+#if USF_ALIAS_COUNT
+    while ((h = *p++) != 0) {
+        l = h & 7;
+        if (!(h & 0x80)) {              /* a chip's own id, not a shorter one */
+            q = p;
+            p += l;
+            e++;
+        }
+        t = USF__SLOT(h);
+        if (((h >> 4) & 7) != family || l > len || l <= best_len[t])
+            continue;
+        for (i = 0; i < l && q[i] == id[i]; i++)
+            ;
+#else
     for (; (h = *p) != 0; p += 1 + l, e++) {
         l = h & 7;
         t = USF__SLOT(h);
@@ -531,6 +570,7 @@ uint8_t usf_lookup(uint8_t family, const uint8_t *id, uint8_t len, usf_chip *out
             continue;
         for (i = 0; i < l && p[1 + i] == id[i]; i++)
             ;
+#endif
         if (i == l) {
             best_len[t] = l;
             best[t] = e;
@@ -632,14 +672,68 @@ uint8_t usf_has_feature(const usf_chip *c, uint8_t feature)
 }
 #endif
 
-#if USF_HAVE_OPERATIONS
-#if USF_OP_COUNT
 #if USF_HAVE_SOURCES
-#define USF__OPITEM 2
+usf_srcmask usf_sources(const usf_chip *c)
+{
+#if USF_SRCMASK_COUNT /* an index into the table of distinct masks */
+    return usf__u16(usf__srcmasks + 2 * usf__row(c)[USF_E_SRCS]);
+#elif USF_SRC_BYTES == 2
+    return usf__u16(usf__row(c) + USF_E_SRCS);
 #else
-#define USF__OPITEM 1
+    return usf__row(c)[USF_E_SRCS];
+#endif
+}
+
+#if USF_SRC_REL
+/* An operation's or a conflict value's mask is stored relative to its
+ * chip's mask `all`: bit j stands for all's j-th set bit. One byte, or two
+ * when the chip has more than eight sources. */
+static uint8_t usf__srcw(usf_srcmask all)
+{
+    uint8_t n = 0;
+    for (; all; all >>= 1)
+        n = (uint8_t)(n + (all & 1));
+    return n > 8 ? 2 : 1;
+}
+
+/* The mask stored relative to `all` at `p`, as an absolute mask. */
+static usf_srcmask usf__srcmask(usf_srcmask all, usf__p p)
+{
+    usf_srcmask out = 0, bit = 1;
+    uint8_t rel = *p, n = 8;
+    for (; all; all >>= 1, bit = (usf_srcmask)(bit << 1))
+        if (all & 1) {
+            if (!n--) {           /* the ninth source: the second byte */
+                rel = p[1];
+                n = 7;
+            }
+            if (rel & 1)
+                out |= bit;
+            rel >>= 1;
+        }
+    return out;
+}
+#define USF__SRCW(all) usf__srcw(all)
+#define USF__SRC(all, p) usf__srcmask((all), (p))
+/* A printer's chip mask: read once into `all` where relative masks need
+ * it for every item, else read where it is printed. */
+#define USF__ALL(c) all
+#elif USF_SRC_BYTES == 2
+/* Stored as they are, two bytes each (`all` is not evaluated). */
+#define USF__SRCW(all) 2
+#define USF__SRC(all, p) usf__u16(p)
+#else
+/* Stored as they are, one byte each (`all` is not evaluated). */
+#define USF__SRCW(all) 1
+#define USF__SRC(all, p) (*(p))
+#endif
+#if !USF_SRC_REL
+#define USF__ALL(c) usf_sources(c)
+#endif
 #endif
 
+#if USF_HAVE_OPERATIONS
+#if USF_OP_COUNT
 static usf__p usf__opset(const usf_chip *c)
 {
     return usf__opsets + usf__u16(usf__row(c) + USF_E_OPS);
@@ -648,7 +742,18 @@ static usf__p usf__opset(const usf_chip *c)
 /* Item i of the chip's operation list: [stored-op index, (source mask)]. */
 static usf__p usf__opitem(const usf_chip *c, uint8_t i)
 {
-    return usf__opset(c) + 1 + USF__OPITEM * i;
+#if USF_HAVE_SOURCES && (USF_SRC_REL || USF_SRC_BYTES == 2)
+    /* Items 2 or 3 bytes long: stepped over, not multiplied by 3 */
+    usf__p p = usf__opset(c) + 1;
+    uint8_t w = (uint8_t)(1 + USF__SRCW(usf_sources(c)));
+    for (; i; i--)
+        p += w;
+    return p;
+#elif USF_HAVE_SOURCES
+    return usf__opset(c) + 1 + 2 * i;
+#else
+    return usf__opset(c) + 1 + i;
+#endif
 }
 
 /* The ops-table row an item points at. */
@@ -675,7 +780,7 @@ uint8_t usf_op_get(const usf_chip *c, uint8_t i, usf_op *out)
     out->data = o[6];
     out->data_bytes = o[7];
 #if USF_HAVE_SOURCES
-    out->sources = s[1];
+    out->sources = USF__SRC(usf_sources(c), s + 1);
 #else
     out->sources = 0;
 #endif
@@ -747,6 +852,11 @@ uint8_t usf_manufacturer(const usf_chip *c, usf_putc_fn sink, void *ctx)
     if (i == 0xFF)
         return 0;
     usf__puts(usf__off(usf__mfrs + USF__OFFS(i)), sink, ctx);
+#if USF_MFR_INFERRED < USF_MFR_COUNT
+    /* mfrs holds the named manufacturers, then the inferred ones */
+    if (i >= USF_MFR_INFERRED)
+        return 2;
+#endif
     return 1;
 #else
     (void)c;
@@ -773,10 +883,6 @@ uint8_t usf_name(const usf_chip *c, uint8_t i, usf_putc_fn sink, void *ctx)
     usf__puts(usf__off(p + 1 + USF__OFFS(i)), sink, ctx);
     return 1;
 }
-#endif
-
-#if USF_HAVE_SOURCES
-uint8_t usf_sources(const usf_chip *c) { return usf__row(c)[USF_E_SRCS]; }
 #endif
 
 #if USF_HAVE_JEP106
@@ -899,7 +1005,7 @@ static void usf__name(usf__p names, uint8_t i, usf_putc_fn sink, void *ctx)
 }
 
 #if USF_HAVE_SOURCES
-static void usf__srclist(uint8_t mask, const char *sep, usf_putc_fn sink, void *ctx)
+static void usf__srclist(usf_srcmask mask, const char *sep, usf_putc_fn sink, void *ctx)
 {
     uint8_t i, first = 1;
     for (i = 0; mask; i++, mask >>= 1)
@@ -1015,6 +1121,9 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
     uint8_t i, n;
     uint16_t lo, hi;
     uint32_t v;
+#if USF_HAVE_SOURCES && USF_SRC_REL
+    usf_srcmask all = usf_sources(c);   /* the chip's sources, read once */
+#endif
 #if USF_OP_COUNT
     uint8_t w;
     usf__p item, row;
@@ -1022,6 +1131,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
 #if USF_CONF_COUNT
     usf__p p;
     uint16_t off;
+    uint8_t sw = (uint8_t)(1 + USF__SRCW(USF__ALL(c)));   /* a conflict value's bytes */
 #endif
 
     /* <ident>  <manufacturer>  <names>  (<type>) */
@@ -1033,8 +1143,13 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
         usf__idhex(c, 0, sink, ctx);
     }
     usf__lit("  ", sink, ctx);
-    if (!usf_manufacturer(c, sink, ctx))
+    i = usf_manufacturer(c, sink, ctx);
+    if (!i)
         sink(ctx, '?');
+#if USF_MFR_INFERRED < USF_MFR_COUNT
+    else if (i == 2)
+        usf__lit(" (inferred)", sink, ctx);
+#endif
     usf__lit("  ", sink, ctx);
     for (i = 0, n = usf_name_count(c); i < n; i++) {
         if (i)
@@ -1082,19 +1197,30 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
             usf__lit("\n    sources disagree on ", sink, ctx);
             usf__name(usf__attrnames, attr, sink, ctx);
             usf__lit(": ", sink, ctx);
-            for (i = 0; i < k; i++, p += 2) {
+            for (i = 0; i < k; i++, p += sw) {
                 if (i)
                     usf__lit("; ", sink, ctx);
                 usf__value(attr, p[0], sink, ctx);
                 usf__lit(" (", sink, ctx);
-                usf__srclist(p[1], ", ", sink, ctx);
+                usf__srclist(USF__SRC(USF__ALL(c), p + 1), ", ", sink, ctx);
                 sink(ctx, ')');
             }
         }
 #endif
+#if USF_DIFF_COUNT
+    {   /* parts differ on <attr> by ext id: <value> (<ext id>), ... */
+        usf__p d = usf__difflines;
+        uint16_t k;
+        for (k = 0; k < USF_DIFF_COUNT; k++, d += 2 + USF_OFF_BYTES)
+            if (usf__u16(d) == c->entry) {
+                usf__lit("\n    parts differ on ", sink, ctx);
+                usf__puts(usf__off(d + 2), sink, ctx);
+            }
+    }
+#endif
 #if USF_HAVE_SOURCES
     usf__lit("\n    from: ", sink, ctx);
-    usf__srclist(usf_sources(c), ", ", sink, ctx);
+    usf__srclist(USF__ALL(c), ", ", sink, ctx);
 #endif
 #if USF_HAVE_SFDP_SUMMARY && USF_SFDP_COUNT
     {   /* sfdp: <summary>  [<source>: <parts>], one line per dump */
@@ -1144,7 +1270,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
         usf__puts(usf__off(row + USF_OP_NAME + USF_OFF_BYTES), sink, ctx);
 #if USF_HAVE_SOURCES
         usf__lit("  [", sink, ctx);
-        usf__srclist(item[1], ", ", sink, ctx);
+        usf__srclist(USF__SRC(USF__ALL(c), item + 1), ", ", sink, ctx);
         sink(ctx, ']');
 #endif
     }
@@ -1248,7 +1374,7 @@ static void usf__jpair(usf__json *j, uint16_t lo, uint16_t hi)   /* [lo, hi] */
     usf__jclose(j, ']');
 }
 
-static void usf__jsources(usf__json *j, uint8_t mask)   /* ["flashrom", ...] */
+static void usf__jsources(usf__json *j, usf_srcmask mask)   /* ["flashrom", ...] */
 {
     uint8_t i;
     usf__jopen(j, '[');
@@ -1339,8 +1465,15 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
 #if USF_OP_COUNT
     usf__p item, row;
 #endif
+#if USF_SRC_REL
+    usf_srcmask all = usf_sources(c);   /* the chip's sources, read once */
+#endif
 #if USF_CONF_COUNT
     uint16_t off;
+    uint8_t sw = (uint8_t)(1 + USF__SRCW(USF__ALL(c)));   /* a conflict value's bytes */
+#endif
+#if USF_ALIAS_COUNT
+    usf__p a;
 #endif
 
     usf__jopen(j, '{');
@@ -1348,6 +1481,21 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
     usf__jidhex(j, c, 0);
     usf__jkey(j, "jedec_id");
     usf__jidhex(j, c, usf_bank(c));
+    usf__jkey(j, "ids");                      /* the id, then shorter ones */
+    usf__jopen(j, '[');
+    usf__jitem(j);
+    usf__jidhex(j, c, 0);
+#if USF_ALIAS_COUNT
+    p = usf__idrec(c->base);
+    for (a = p + 1 + (*p & 7); *a & 0x80; a++) {
+        usf__jitem(j);
+        j->sink(j->ctx, '"');
+        for (i = 0; i < (*a & 7); i++)
+            usf__hex8(p[1 + i], j->sink, j->ctx);
+        j->sink(j->ctx, '"');
+    }
+#endif
+    usf__jclose(j, ']');
     usf__jkey(j, "id_family");
     usf__jname(j, usf__famnames, usf_family(c));
     usf__jkey(j, "type");
@@ -1360,6 +1508,12 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
     else
 #endif
         usf__jnull(j);
+    usf__jkey(j, "manufacturer_inferred");
+#if USF_MFR_INFERRED < USF_MFR_COUNT
+    usf__lit(i != 0xFF && i >= USF_MFR_INFERRED ? "true" : "false", j->sink, j->ctx);
+#else
+    usf__lit("false", j->sink, j->ctx);
+#endif
 
     usf__jkey(j, "names");
     p = usf__namelists + usf__u16(usf__row(c) + USF_E_NAMES);
@@ -1408,14 +1562,14 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
         usf__jkey(j, "description");
         usf__jpool(j, usf__off(row + USF_OP_NAME + USF_OFF_BYTES));
         usf__jkey(j, "sources");
-        usf__jsources(j, item[1]);
+        usf__jsources(j, USF__SRC(USF__ALL(c), item + 1));
         usf__jclose(j, '}');
     }
 #endif
     usf__jclose(j, ']');
 
     usf__jkey(j, "sources");
-    usf__jsources(j, usf_sources(c));
+    usf__jsources(j, USF__ALL(c));
 
     usf__jkey(j, "conflicts");
     usf__jopen(j, '{');
@@ -1428,13 +1582,13 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
             usf__jname(j, usf__attrnames, attr);
             usf__lit(": ", j->sink, j->ctx);
             usf__jopen(j, '[');
-            for (i = 0; i < k; i++, p += 2) {
+            for (i = 0; i < k; i++, p += sw) {
                 usf__jitem(j);
                 usf__jopen(j, '{');
                 usf__jkey(j, "value");
                 usf__jvalue(j, attr, p[0]);
                 usf__jkey(j, "sources");
-                usf__jsources(j, p[1]);
+                usf__jsources(j, USF__SRC(USF__ALL(c), p + 1));
                 usf__jclose(j, '}');
             }
             usf__jclose(j, ']');
