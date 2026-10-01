@@ -355,17 +355,9 @@ static usf__p usf__row(const usf_chip *c)
     return usf__entries + (uint16_t)(c->entry * (uint16_t)USF_ENTRY_SIZE);
 }
 
-/* An ids-table header: a chip's own id, or (bit 7, only with USF_ALIAS_COUNT)
- * one of its shorter ids, which is the start of its own and has no bytes. */
-#if USF_ALIAS_COUNT
-#define USF__OWN(h) (!((h) & 0x80))
-#define USF__FAM(h) (((h) >> 4) & 7)
-#else
-#define USF__OWN(h) 1
-#define USF__FAM(h) ((h) >> 4)
-#endif
-
-/* The ids-table record (header byte, then id bytes) of chip id `base`. */
+/* The ids-table record (header byte, then id bytes) of chip id `base`.
+ * With USF_ALIAS_COUNT, a chip's shorter ids follow its record: a header
+ * with bit 7 set and no bytes, as the start of its own id is the id. */
 static usf__p usf__idrec(uint16_t base)
 {
     usf__p p = usf__ids;
@@ -420,8 +412,13 @@ static uint16_t usf__narrow(uint16_t base, const uint8_t *x, uint8_t xl)
 
 uint8_t usf_lookup(uint8_t family, const uint8_t *id, uint8_t len, usf_chip *out)
 {
-    usf__p p = usf__ids, q = p;         /* q: the current chip's id bytes */
+    usf__p p = usf__ids;
+#if USF_ALIAS_COUNT
+    usf__p q = p;                       /* the current chip's id bytes */
     uint16_t e = 0xFFFF, best[USF_LOOKUP_MAX];
+#else
+    uint16_t e = 0, best[USF_LOOKUP_MAX];
+#endif
     uint8_t best_len[USF_LOOKUP_MAX];
     uint8_t h, l, i, t, n = 0;
 
@@ -437,18 +434,28 @@ uint8_t usf_lookup(uint8_t family, const uint8_t *id, uint8_t len, usf_chip *out
         len--;
     }
     /* Per type, the chip with the longest of its ids that starts `id`. */
+#if USF_ALIAS_COUNT
     while ((h = *p++) != 0) {
         l = h & 7;
-        if (USF__OWN(h)) {
+        if (!(h & 0x80)) {              /* a chip's own id, not a shorter one */
             q = p;
             p += l;
             e++;
         }
         t = USF__SLOT(h);
-        if (USF__FAM(h) != family || l > len || l <= best_len[t])
+        if (((h >> 4) & 7) != family || l > len || l <= best_len[t])
             continue;
         for (i = 0; i < l && q[i] == id[i]; i++)
             ;
+#else
+    for (; (h = *p) != 0; p += 1 + l, e++) {
+        l = h & 7;
+        t = USF__SLOT(h);
+        if ((h >> 4) != family || l > len || l <= best_len[t])
+            continue;
+        for (i = 0; i < l && p[1 + i] == id[i]; i++)
+            ;
+#endif
         if (i == l) {
             best_len[t] = l;
             best[t] = e;
