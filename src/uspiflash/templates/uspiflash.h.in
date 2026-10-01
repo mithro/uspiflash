@@ -974,6 +974,9 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
     uint8_t i, n;
     uint16_t lo, hi;
     uint32_t v;
+#if USF_HAVE_SOURCES
+    usf_srcmask all = usf_sources(c);   /* the chip's sources, read once */
+#endif
 #if USF_OP_COUNT
     uint8_t w;
     usf__p item, row;
@@ -981,6 +984,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
 #if USF_CONF_COUNT
     usf__p p;
     uint16_t off;
+    uint8_t sw = (uint8_t)(1 + USF__SRCW(all));   /* a conflict value's bytes */
 #endif
 
     /* <ident>  <manufacturer>  <names>  (<type>) */
@@ -1046,12 +1050,12 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
             usf__lit("\n    sources disagree on ", sink, ctx);
             usf__name(usf__attrnames, attr, sink, ctx);
             usf__lit(": ", sink, ctx);
-            for (i = 0; i < k; i++, p += 1 + USF__SRCW(usf_sources(c))) {
+            for (i = 0; i < k; i++, p += sw) {
                 if (i)
                     usf__lit("; ", sink, ctx);
                 usf__value(attr, p[0], sink, ctx);
                 usf__lit(" (", sink, ctx);
-                usf__srclist(USF__SRC(usf_sources(c), p + 1), ", ", sink, ctx);
+                usf__srclist(USF__SRC(all, p + 1), ", ", sink, ctx);
                 sink(ctx, ')');
             }
         }
@@ -1069,7 +1073,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
 #endif
 #if USF_HAVE_SOURCES
     usf__lit("\n    from: ", sink, ctx);
-    usf__srclist(usf_sources(c), ", ", sink, ctx);
+    usf__srclist(all, ", ", sink, ctx);
 #endif
 #if USF_HAVE_SFDP_SUMMARY && USF_SFDP_COUNT
     {   /* sfdp: <summary>  [<source>: <parts>], one line per dump */
@@ -1119,7 +1123,7 @@ static void usf__describe(const usf_chip *c, uint8_t flags, usf_putc_fn sink, vo
         usf__puts(usf__off(row + USF_OP_NAME + USF_OFF_BYTES), sink, ctx);
 #if USF_HAVE_SOURCES
         usf__lit("  [", sink, ctx);
-        usf__srclist(USF__SRC(usf_sources(c), item + 1), ", ", sink, ctx);
+        usf__srclist(USF__SRC(all, item + 1), ", ", sink, ctx);
         sink(ctx, ']');
 #endif
     }
@@ -1330,8 +1334,10 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
 #if USF_OP_COUNT
     usf__p item, row;
 #endif
+    usf_srcmask all = usf_sources(c);   /* JSON needs SOURCES: read once */
 #if USF_CONF_COUNT
     uint16_t off;
+    uint8_t sw = (uint8_t)(1 + USF__SRCW(all));   /* a conflict value's bytes */
 #endif
 #if USF_ALIAS_COUNT
     usf__p a;
@@ -1423,14 +1429,14 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
         usf__jkey(j, "description");
         usf__jpool(j, usf__off(row + USF_OP_NAME + USF_OFF_BYTES));
         usf__jkey(j, "sources");
-        usf__jsources(j, USF__SRC(usf_sources(c), item + 1));
+        usf__jsources(j, USF__SRC(all, item + 1));
         usf__jclose(j, '}');
     }
 #endif
     usf__jclose(j, ']');
 
     usf__jkey(j, "sources");
-    usf__jsources(j, usf_sources(c));
+    usf__jsources(j, all);
 
     usf__jkey(j, "conflicts");
     usf__jopen(j, '{');
@@ -1443,13 +1449,13 @@ static void usf__jchip(usf__json *j, const usf_chip *c)
             usf__jname(j, usf__attrnames, attr);
             usf__lit(": ", j->sink, j->ctx);
             usf__jopen(j, '[');
-            for (i = 0; i < k; i++, p += 1 + USF__SRCW(usf_sources(c))) {
+            for (i = 0; i < k; i++, p += sw) {
                 usf__jitem(j);
                 usf__jopen(j, '{');
                 usf__jkey(j, "value");
                 usf__jvalue(j, attr, p[0]);
                 usf__jkey(j, "sources");
-                usf__jsources(j, USF__SRC(usf_sources(c), p + 1));
+                usf__jsources(j, USF__SRC(all, p + 1));
                 usf__jclose(j, '}');
             }
             usf__jclose(j, ']');
