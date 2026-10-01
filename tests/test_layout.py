@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime
 import random
-from dataclasses import replace
+from dataclasses import fields, replace
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -13,6 +13,7 @@ from spiflash.enums import FlashType, IdFamily
 from spiflash.model import Voltage
 from spiflash.opcodes import OPERATIONS
 
+from harness import one_chip
 from uspiflash import decode, layout
 from uspiflash.levels import LEVELS, ChipFilter, Field, Selection
 from uspiflash.model import FAMILIES, Snapshot, reaching_probes
@@ -41,6 +42,7 @@ def expected(sel: Selection, flash: Flash) -> dict[str, object]:
         out["features"] = sorted(flash.features)
     if sel.has(Field.MANUFACTURER):
         out["manufacturer"] = flash.manufacturer
+        out["manufacturer_inferred"] = flash.manufacturer_inferred
     if sel.has(Field.NAMES):
         out["names"] = list(flash.names)
     if sel.has(Field.SOURCES):
@@ -58,7 +60,7 @@ def expected(sel: Selection, flash: Flash) -> dict[str, object]:
     if sel.has(Field.DATASHEET) or sel.has(Field.DATASHEETS):
         every = sel.has(Field.DATASHEETS)
         ds = flash.datasheets if every else flash.datasheets[:1]
-        out["datasheets"] = [(d.url, flash.key in d.confirmed if every else None) for d in ds]
+        out["datasheets"] = [(d.url, flash.confirms(d) if every else None) for d in ds]
     return out
 
 
@@ -74,6 +76,18 @@ def test_every_entry_round_trips(snap: Snapshot, level: str) -> None:
     lay = layout.build(snap, sel)
     for i, e in enumerate(snap.entries):
         assert ordered(decode.entry(lay, i)) == ordered(expected(sel, e.flash)), (level, i)
+
+
+def test_shorter_ids_and_ext_id_lines_round_trip(snap: Snapshot) -> None:
+    """Every chip's ids (a SPI NAND chip's shorter ones too) and every
+    entry's ``parts differ on`` lines read back as spiflash gives them."""
+    lay = layout.build(snap, Selection.make("describe"))
+    for i in range(snap.n_base):
+        assert decode.ids(lay, i) == list(snap.entries[i].flash.ids), i
+    for i, e in enumerate(snap.entries):
+        assert decode.diff_lines(lay, i) == layout.diff_lines(e.flash), i
+    assert lay.defines["ALIAS_COUNT"] == sum(len(f.ids) - 1 for f in snap.database.flashes) > 0
+    assert lay.defines["DIFF_COUNT"] > 0
 
 
 @pytest.mark.parametrize(
@@ -206,12 +220,18 @@ _READ_TABLES = _ID_TABLES | {"sizes", "featsets", "ops", "opsets", "ext"}
 _WRITE_TABLES = _READ_TABLES | {"pages", "sectors"}
 #: The sfdp: lines' tables, in describe and full (SFDP_SUMMARY with TEXT).
 _SFDP_LINES_TABLES = {"sfdprows", "sfdplines"}
+#: The text printer's "parts differ on" lines.
+_DIFF_TABLES = {"difflines"}
 _DESCRIBE_TABLES = (
     _WRITE_TABLES
     | {"volts", "mfrs", "namelists", "str", "featnames", "famnames", "typenames"}
     | _SFDP_LINES_TABLES
+    | _DIFF_TABLES
 )
-_FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrnames"}
+#: The source names, and the table of the distinct entry source masks (with
+#: sources past the eighth, and fewer distinct masks than half the entries).
+_SOURCES_TABLES = {"srcnames", "srcmasks"}
+_FULL_TABLES = _DESCRIBE_TABLES | _SOURCES_TABLES | {"conflicts", "kindnames", "attrnames"}
 
 
 @pytest.mark.parametrize(
@@ -226,18 +246,23 @@ _FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrna
         # A string field alone brings the pool, without any name array.
         ("id", ["jep106"], _ID_TABLES | {"jep106", "str"}),
         # TEXT with SOURCES: srcnames, still no kindnames (JSON only).
-        ("describe", ["sources"], _DESCRIBE_TABLES | {"srcnames"}),
+        ("describe", ["sources"], _DESCRIBE_TABLES | _SOURCES_TABLES),
         # CONFLICTS brings SOURCES, whose names its lines print.
-        ("describe", ["conflicts"], _DESCRIBE_TABLES | {"conflicts", "srcnames", "attrnames"}),
+        (
+            "describe",
+            ["conflicts"],
+            _DESCRIBE_TABLES | _SOURCES_TABLES | {"conflicts", "attrnames"},
+        ),
         # DESCRIPTIONS alone: usf_op_name and usf_op_description read the pool.
         ("write", ["descriptions"], _WRITE_TABLES | {"str"}),
         # JSON without TEXT (write has no TEXT): JSON brings every field full
         # has and prints the conflicts, so the tables are full's, conflicts
         # included (and no `sfdp:` lines: they are the text printer's).
-        ("write", ["json"], _FULL_TABLES - _SFDP_LINES_TABLES),
+        ("write", ["json"], _FULL_TABLES - _SFDP_LINES_TABLES - _DIFF_TABLES),
         # CONFLICTS without a printer adds nothing itself (no conflicts, no
         # attrnames); only VOLTAGE, which it requires, adds volts.
-        ("write", ["conflicts"], _WRITE_TABLES | {"volts"}),
+        # SOURCES, which it also requires, adds srcmasks (usf_sources reads it).
+        ("write", ["conflicts"], _WRITE_TABLES | {"volts", "srcmasks"}),
         # Datasheets: the text line and the JSON list each read both tables.
         ("full", ["datasheet"], _FULL_TABLES | {"dsrows", "dslists"}),
         ("full", ["datasheets"], _FULL_TABLES | {"dsrows", "dslists"}),
@@ -250,7 +275,7 @@ _FULL_TABLES = _DESCRIBE_TABLES | {"conflicts", "kindnames", "srcnames", "attrna
         (
             "write",
             ["json", "sfdp_dumps"],
-            (_FULL_TABLES - _SFDP_LINES_TABLES) | {"sfdprows", "sfdptree"},
+            (_FULL_TABLES - _SFDP_LINES_TABLES - _DIFF_TABLES) | {"sfdprows", "sfdptree"},
         ),
     ],
 )
@@ -433,8 +458,8 @@ def test_a_counted_table_without_rows_is_left_out(keep: FlashType) -> None:
     assert ("attrnames" in lay.tables) == (d["CONF_COUNT"] > 0)
     assert ("dslists" in lay.tables) == (d["DS_COUNT"] > 0)
     if keep is FlashType.NAND:
-        # No NAND chip has a voltage, an operation, an extended id or a conflict.
-        assert [d[c] for c in ("VOLT_COUNT", "OP_COUNT", "EXT_COUNT", "CONF_COUNT")] == [0] * 4
+        # No NAND chip has a voltage or an SFDP dump.
+        assert [d[c] for c in ("VOLT_COUNT", "SFDP_COUNT")] == [0] * 2
 
 
 def test_conflicts_are_stored_only_with_a_printer(snap: Snapshot) -> None:
@@ -473,6 +498,19 @@ def _chip_records() -> list[Record]:
     return list(f.records)
 
 
+def _with(r: Record, change: dict[str, Any]) -> Record:
+    """``r`` with ``change`` applied. A field spiflash works out itself
+    (``init=False``: ``sector_size`` from 0.0.post199, derived from the
+    erasers) can't go through :func:`dataclasses.replace`, so it is set on
+    the copy directly, as the record's own ``__post_init__`` does."""
+    init = {f.name for f in fields(r) if f.init}
+    r = replace(r, **{k: v for k, v in change.items() if k in init})
+    for k, v in change.items():
+        if k not in init:
+            object.__setattr__(r, k, v)
+    return r
+
+
 def _build(records: list[Record], level: str) -> layout.Layout:
     db = database()
     small = Database(records, db.manufacturers, db.sources, db.datasheets)
@@ -489,7 +527,7 @@ def _build(records: list[Record], level: str) -> layout.Layout:
     ],
 )
 def test_a_value_too_wide_for_its_table_is_refused(change: dict[str, Any], message: str) -> None:
-    records = [replace(r, **change) for r in _chip_records()]
+    records = [_with(r, change) for r in _chip_records()]
     with pytest.raises(ValueError, match=message):
         _build(records, "describe")
 
@@ -512,13 +550,98 @@ def test_more_than_254_distinct_values_is_refused() -> None:
 
 
 def test_the_source_mask_holds_every_source() -> None:
-    """spiflash 0.0.post74 has eight sources, which fill a one-byte mask; a
-    ninth must fail loudly, not wrap or overflow."""
+    """spiflash 0.0.post182 has twelve sources, which a two-byte mask holds;
+    a 17th must fail loudly, not wrap or overflow."""
     layout.check_sources()
-    assert len(layout.SOURCES) <= 8
-    nine = (*layout.SOURCES, *layout.SOURCES)[:9]
-    with pytest.raises(ValueError, match=r"has 9 sources .* a source mask is one byte"):
-        layout.check_sources(nine)
+    assert len(layout.SOURCES) <= 16
+    many = (*layout.SOURCES, *layout.SOURCES)[:17]
+    with pytest.raises(ValueError, match=r"has 17 sources .* a source mask is at most two"):
+        layout.check_sources(many)
+
+
+def test_source_masks_take_the_smallest_storage(snap: Snapshot) -> None:
+    """One byte each while every mask fits; past that, entry masks in a table
+    of the distinct ones when it is smaller than a second byte per entry,
+    and the others relative to their entry's when that saves more than its
+    code costs: so full's masks are relative, the NAND chips' (a dozen
+    operations and conflicts) and one chip's are not."""
+    full = layout.build(snap, Selection.make("full")).defines
+    assert (full["SRC_BYTES"], full["SRC_REL"]) == (2, 1)
+    assert 0 < full["SRCMASK_COUNT"] < len(snap.entries) // 2
+    nand = Snapshot.build(ChipFilter(types=(FlashType.NAND,)).apply(database()))
+    d = layout.build(nand, Selection.make("full")).defines
+    assert (d["SRC_BYTES"], d["SRC_REL"]) == (2, 0)
+    assert 0 < d["SRCMASK_COUNT"] < len(nand.entries) // 2
+    for wide, want in ((False, (1, 0, 0)), (True, (2, 0, 0))):
+        one = Snapshot.build(one_chip(wide=wide).apply(database()))
+        d = layout.build(one, Selection.make("full")).defines
+        assert (d["SRC_BYTES"], d["SRC_REL"], d["SRCMASK_COUNT"]) == want, wide
+    # Without SOURCES nothing reads a mask.
+    d = layout.build(snap, Selection.make("describe")).defines
+    assert (d["SRC_BYTES"], d["SRC_REL"], d["SRCMASK_COUNT"]) == (1, 0, 0)
+
+
+@pytest.mark.parametrize(
+    ("sub", "full", "want"),
+    [(0b1010, 0b1110, 0b101), (0, 0b1, 0), (0b111_1111_1111, 0b111_1111_1111, 0b111_1111_1111)],
+)
+def test_a_relative_mask_numbers_the_entrys_sources(sub: int, full: int, want: int) -> None:
+    assert layout.relative(sub, full) == want
+    assert layout.rel_bytes(full) == (2 if full.bit_count() > 8 else 1)
+
+
+def test_a_mask_outside_its_entrys_is_refused() -> None:
+    with pytest.raises(ValueError, match="is not within"):
+        layout.relative(0b1, 0b10)
+
+
+def _mask_tables(snap: Snapshot, sel: Selection, *, rel: bool, mp: pytest.MonkeyPatch) -> int:
+    """The bytes of ``opsets`` and ``conflicts`` with two-byte masks, stored
+    relative to their entry's (``rel``) or as they are."""
+    table = layout.SourceMasks.choose(snap, sel).table
+    forced = layout.SourceMasks(2, rel=rel, table=table)
+    with mp.context() as m:
+        m.setattr(layout.SourceMasks, "choose", classmethod(lambda _cls, _s, _sel: forced))
+        tables = layout.build(snap, sel).tables
+    return len(tables.get("opsets", b"")) + len(tables.get("conflicts", b""))
+
+
+@pytest.mark.parametrize(
+    "chips",
+    [
+        ChipFilter(types=(FlashType.NOR,)),
+        ChipFilter(manufacturers=("ISSI",), types=(FlashType.NOR,)),
+    ],
+    ids=["nor", "issi"],
+)
+def test_relative_masks_are_chosen_by_the_bytes_they_save(
+    chips: ChipFilter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """mask_blob_bytes counts the deduplicated blobs exactly as build stores
+    them, so relative masks are chosen only where they save more than their
+    code: all SPI NOR chips (about 6.4 KB saved), not ISSI's alone (290 B)."""
+    sel = Selection.make("full", chips=chips)
+    snap = Snapshot.build(chips.apply(database()))
+    direct, rel = layout.mask_blob_bytes(snap, sel)
+    as_is = _mask_tables(snap, sel, rel=False, mp=monkeypatch)
+    saved = as_is - _mask_tables(snap, sel, rel=True, mp=monkeypatch)
+    assert direct - rel == saved > 0
+    chosen = layout.SourceMasks.choose(snap, sel).rel
+    assert chosen == (saved > layout.REL_CODE) == (not chips.manufacturers)
+
+
+@pytest.mark.parametrize("full", [0xFFFF, 0b1_0101_0101_0101_0101, 0b1_1111_1111])
+def test_a_relative_mask_reads_back(full: int) -> None:
+    """Every sub-mask of 16 sources, of nine scattered ones and of nine in a
+    row (two bytes each) reads back as it was, as decode reads it."""
+    lay = layout.Layout(Selection.make("full"), Snapshot.build(), off_bytes=2)
+    lay.defines.update(SRC_REL=1, SRC_BYTES=2)
+    rng = random.Random(full)
+    assert layout.rel_bytes(full) == 2
+    for _ in range(500):
+        sub = rng.getrandbits(17) & full
+        stored = layout.relative(sub, full).to_bytes(2, "little")
+        assert decode._item_mask(lay, stored, 0, full) == sub  # noqa: SLF001
 
 
 def test_a_datasheet_before_the_year_1000_is_refused() -> None:

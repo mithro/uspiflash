@@ -12,10 +12,26 @@ Conventions
   little-endian.
 - ``OFF`` is an offset into ``str``, ``OFF_BYTES`` (2, or 3 once the pool
   reaches 0xFFFF bytes) wide.
-- A **source mask** is one byte: bit *i* set for ``SOURCES[i]``
-  (:data:`SOURCES`: flashrom, flashprog, linux, u-boot, openocd,
-  openfpgaloader, qemu, zephyr, spiflash's priority order). Eight sources
-  fill the byte: :func:`build` refuses a ninth (:func:`check_sources`).
+- A **source mask** has bit *i* set for ``SOURCES[i]`` (:data:`SOURCES`:
+  flashrom, flashprog, linux, u-boot, dediprog, rockchip, mediatek,
+  openocd, openfpgaloader, imsprog, qemu, zephyr, spiflash's priority
+  order). How a selection stores masks is chosen per selection
+  (:class:`SourceMasks`), the smallest of:
+
+  - one byte each (``SRC_BYTES`` 1), while every mask fits eight bits;
+  - otherwise two bytes (``SRC_BYTES`` 2), with ``E_SRCS`` a one-byte index
+    into ``srcmasks`` (``SRCMASK_COUNT`` rows) when that table is smaller
+    than a second byte in every entry; and an operation's or a conflict
+    value's mask stored **relative** to its entry's (``SRC_REL``) when that
+    saves more than the code reading it costs (:data:`REL_CODE`): bit *j*
+    stands for the entry mask's *j*-th set bit (:func:`relative`), in one
+    byte, or two when the entry has more than eight sources
+    (:func:`rel_bytes`). A mask item below (in ``opsets`` and
+    ``conflicts``) is that relative mask, or the mask itself, ``SRC_BYTES``
+    wide.
+
+  Two bytes hold sixteen sources: :func:`build` refuses a 17th
+  (:func:`check_sources`).
 - A **blob table** (``opsets``, ``namelists``, ``conflicts``, ``ext``,
   ``records``, ``dslists``) is a run of variable-length blobs, each stored
   once however many entries share it; entries point at a blob by its
@@ -28,8 +44,8 @@ Conventions
   ``mfrs``, ``ops`` (with ``opsets``), ``ext``, ``conflicts``, ``dsrows``
   (with ``dslists``) and ``sfdprows`` (with ``sfdplines`` and ``sfdptree``)
   can have no rows in a filtered snapshot (a ``--type nand`` one has no
-  voltages, operations, extended ids, conflicts or SFDP dumps; a chip may
-  have no datasheet). The C code that indexes such a
+  voltages or SFDP dumps; a chip may have no datasheet). The C code that
+  indexes such a
   table is compiled only when it has rows (``<NAME>_COUNT``, below), so a
   table with none is left out: nothing reads it, and no compiler sees an
   index into an empty array. The C emitter still pads any 0-byte table to
@@ -43,7 +59,11 @@ Tables
     Per base entry, in entry order: ``hdr`` = ``len`` (bits 0-2) | ``type``
     (bit 3: 0 NOR, 1 NAND) | ``family`` (bits 4-6: the index in
     :data:`~uspiflash.model.FAMILIES`), then ``len`` (1-7) id bytes, without
-    continuation codes. Ends with a ``0`` byte (``len`` is never 0).
+    continuation codes; then a header with ``ID_ALIAS`` (bit 7) set and no
+    bytes for each of the chip's shorter ids (a SPI NAND chip's, from
+    sources matching fewer of its bytes: :attr:`Flash.ids
+    <spiflash.model.Flash.ids>`), longest first: each is the first ``len``
+    bytes of the chip's id. Ends with a ``0`` byte (``len`` is never 0).
 ``entries`` (always)
     ``ENTRY_SIZE`` bytes per entry (base entries, then variants), the fields
     at offsets ``E_*`` (below).
@@ -69,15 +89,18 @@ Tables
     operations some entry keeps are stored.
 ``opsets`` (OPERATIONS)
     Blobs: count, then per operation: its row index in ``ops``, and, with
-    SOURCES, a source mask (who says the chip has it). Operations appear in
+    SOURCES, a mask item (who says the chip has it). Operations appear in
     stable-id order.
 ``namelists`` (NAMES)
     Blobs: count, then ``OFF`` per part name, most-cited first.
 ``mfrs`` (MANUFACTURER)
-    ``OFF`` per distinct manufacturer name, sorted by name.
+    ``OFF`` per distinct manufacturer name that a source gives, sorted by
+    name; then (from row ``MFR_INFERRED``) per distinct one spiflash infers
+    for a chip no source names one for
+    (:attr:`~spiflash.model.Flash.manufacturer_inferred`), sorted.
 ``conflicts`` (CONFLICTS, and TEXT or JSON: :func:`stores_conflicts`)
     Blobs, one per distinct list of a chip's conflicts: repeated ``attr``,
-    ``n``, ``n x (value index, source mask)``, then ``0xFF``. ``attr`` is the
+    ``n``, ``n x (value index, mask item)``, then ``0xFF``. ``attr`` is the
     index in :data:`CONFLICT_ATTRS` (size, page_size, sector_size, voltage);
     the value index is into ``sizes``, ``pages``, ``sectors`` or ``volts``
     respectively. Attributes and values are in spiflash's order
@@ -112,7 +135,7 @@ Tables
     order: ``u16`` entry index; with ``sfdplines``, at ``SFDP_LINES``, a
     ``u16`` offset into ``sfdplines``; with SFDP_DUMPS, at ``SFDP_TREE``, a
     ``u16`` offset into ``sfdptree``. ``SFDP_COUNT`` rows (13 at spiflash
-    0.0.post108: 11 chip ids and 2 extended-id variants). An entry without a
+    0.0.post182: 11 chip ids and 2 extended-id variants). An entry without a
     row has no dump; the C finds a row by scanning (no ``E_*`` field: two
     bytes per entry would cost more than the rows).
 ``sfdplines`` (SFDP_SUMMARY with TEXT: :func:`stores_sfdp_lines`)
@@ -131,6 +154,14 @@ Tables
     separator before it unasked; ``T_ITEM`` is never set on ``T_KEY``,
     ``T_LIST_END`` or ``T_DICT_END``. Flat, so the C walks it in one loop,
     without recursion.
+``srcmasks`` (SOURCES, when ``SRCMASK_COUNT`` is not 0)
+    ``u16`` per distinct entry source mask, sorted ascending.
+``difflines`` (TEXT)
+    ``2 + OFF_BYTES`` bytes per ``parts differ on`` line (where parts that
+    extended ids tell apart differ, :meth:`~spiflash.model.Flash.by_ext_id`),
+    in entry order: ``u16`` entry index, then ``OFF`` of the text after
+    ``"    parts differ on "`` (:func:`diff_lines`). ``DIFF_COUNT`` rows;
+    the C prints every row of the entry, by scanning.
 ``str`` (whenever compiled code reads a string, :func:`reads_strings`)
     NUL-terminated printable-ASCII strings with no ``"`` or ``\\``, each
     stored once. The readers are MANUFACTURER (with ``mfrs``), NAMES,
@@ -139,8 +170,8 @@ Tables
     the character rule: datasheet titles and revisions and every
     ``sfdptree`` string, which only JSON prints, are stored as
     ``json.dumps`` writes them between the quotes (ASCII, with
-    ``\\u00d7``-style escapes; :meth:`StringPool.add_json`). URLs and
-    ``sfdp:`` lines follow the rule.
+    ``\\u00d7``-style escapes; :meth:`StringPool.add_json`). URLs,
+    ``sfdp:`` lines and ``parts differ on`` lines follow the rule.
 Name arrays
     ``OFF`` arrays holding each member's value (``str(member)``: ``"nor"``,
     ``"u-boot"``, ``"erase_4k"``), for the printers (:func:`name_arrays`):
@@ -162,7 +193,8 @@ Present only with their table, in this order, packed:
 - ``E_SIZE``, ``E_PAGE``, ``E_SECTOR``, ``E_VOLT``, ``E_FEAT`` and ``E_MFR``:
   indices into ``sizes``, ``pages``, ``sectors``, ``volts``, ``featsets`` and
   ``mfrs``; ``0xFF`` = unknown (``E_FEAT`` is never ``0xFF``).
-- ``E_SRCS``: a source mask (who has an entry for the chip).
+- ``E_SRCS``: the entry's source mask (who has an entry for the chip),
+  ``SRC_BYTES`` wide, or with ``SRCMASK_COUNT`` its index in ``srcmasks``.
 - ``E_NAMES``, ``E_OPS``, ``E_CONF``, ``E_EXT``, ``E_RECS`` and ``E_DS``:
   ``u16`` offsets into ``namelists``, ``opsets``, ``conflicts``, ``ext``,
   ``records`` and ``dslists``; ``0xFFFF`` = none. ``E_DS`` is present with
@@ -191,13 +223,16 @@ Lookup
 1. Skip leading ``0x7f`` continuation codes while more than one byte
    remains; the rest is ``core``. The bank is not compared (spiflash ignores
    it too, since many chips leave the codes out).
-2. Walk ``ids``, counting entries. An id matches when its ``family`` is
-   ``family``, its ``len`` is at most ``len(core)`` and its bytes equal the
-   start of ``core``. Keep, per type, the first longest match.
+2. Walk ``ids``, counting entries (a shorter id is its chip's). An id
+   matches when its ``family`` is ``family``, its ``len`` is at most
+   ``len(core)`` and its bytes equal the start of ``core``. Keep, per type,
+   the first longest match.
 3. The answer is the NOR match, then the NAND match, each narrowed:
 
 Narrowing, with EXT only (without it, the base entry is the answer): let
-``x`` be the bytes of ``core`` after the id. If ``x`` is empty, or the base
+``x`` be the bytes of ``core`` after the id that matched (a chip with
+shorter ids has no extended ids: :meth:`Snapshot.build
+<uspiflash.model.Snapshot.build>` refuses one). If ``x`` is empty, or the base
 entry's ``E_EXT`` is ``0xFFFF``, the answer is the base entry. Otherwise form
 a mask: bit *i* set when the *i*-th extended id ``e`` of its ``ext`` blob
 agrees with ``x``, by spiflash's two-way prefix rule ``e[:len(x)] ==
@@ -212,11 +247,17 @@ Constants for the C template, in :attr:`Layout.defines`:
 - ``ENTRY_COUNT``, ``BASE_COUNT``, ``ENTRY_SIZE`` and each present ``E_*``;
 - ``OFF_BYTES``; ``OP_SIZE`` and (with DESCRIPTIONS) ``OP_NAME``;
   ``JEP106_COUNT`` (0 without JEP106);
+- ``SRC_BYTES``, ``SRC_REL`` and ``SRCMASK_COUNT``: how source masks are
+  stored (above; 1, 0 and 0 without SOURCES);
 - the row counts of the counted tables, 0 when the table is absent:
   ``SIZE_COUNT``, ``PAGE_COUNT``, ``SECTOR_COUNT``, ``VOLT_COUNT``,
   ``MFR_COUNT``, ``OP_COUNT`` (rows of ``ops``), ``EXT_COUNT`` and
   ``CONF_COUNT`` (blobs of ``ext`` and ``conflicts``), ``DS_COUNT``
-  (rows of ``dsrows``) and ``SFDP_COUNT`` (rows of ``sfdprows``);
+  (rows of ``dsrows``), ``SFDP_COUNT`` (rows of ``sfdprows``) and
+  ``DIFF_COUNT`` (rows of ``difflines``);
+- ``ALIAS_COUNT``: the shorter ids in ``ids``;
+- ``MFR_INFERRED``: the first inferred manufacturer's row in ``mfrs``
+  (``MFR_COUNT`` when none is; 0 without MANUFACTURER);
 - with DATASHEET or DATASHEETS: ``DS_ROW`` (the ``dsrows`` row size),
   ``DS_ITEM`` (a ``dslists`` item's size: 2, or 3 with DATASHEETS) and
   ``NONE_OFF`` (``2 ** (8 * OFF_BYTES) - 1``, which no real offset
@@ -245,7 +286,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from spiflash.cli import describe
-from spiflash.enums import DataPhase, Feature, FlashType, OperationKind, Source
+from spiflash.enums import DataPhase, Feature, FlashType, IdFamily, OperationKind, Source
 from spiflash.opcodes import OPERATIONS, sort_key
 
 from .levels import Field
@@ -280,7 +321,10 @@ T_END, T_NULL, T_FALSE, T_TRUE, T_INT, T_STR, T_KEY = 0, 1, 2, 3, 4, 5, 6
 T_LIST, T_DICT, T_LIST_END, T_DICT_END = 7, 8, 9, 10
 #: Set on a token whose value is an array element: the C writes the separator.
 T_ITEM = 0x80
+#: Set on an ``ids`` header that is a shorter id of the chip before it.
+ID_ALIAS = 0x80
 _SFDP_LINE = "    sfdp: "
+_DIFF_LINE = "    parts differ on "
 _PRINTABLE = set(string.printable) - set('\t\n\r\x0b\x0c"\\')
 _DATA = {None: 0, DataPhase.READ: 1, DataPhase.WRITE: 2}
 
@@ -479,6 +523,9 @@ def _strings(
         if stores_sfdp_lines(sel):
             for line in sfdp_lines(f):
                 pool.add(line)
+        if has(Field.TEXT):
+            for line in diff_lines(f):
+                pool.add(line)
         if has(Field.SFDP_DUMPS):
             for s in _json_strings(sfdp_json(f)):
                 pool.add_json(s)
@@ -500,6 +547,22 @@ def sfdp_lines(f: Flash) -> list[str]:
         return []
     lines = describe(f).split("\n")
     return [line[len(_SFDP_LINE) :] for line in lines if line.startswith(_SFDP_LINE)]
+
+
+def diff_lines(f: Flash) -> list[str]:
+    """What follows ``"    parts differ on "`` on each of ``f``'s lines
+    giving the values that parts its extended ids tell apart differ on
+    (:meth:`~spiflash.model.Flash.by_ext_id`), taken from ``spiflash id``'s
+    own text."""
+    if not any(r.ext_id for r in f.records):
+        return []
+    lines = describe(f).split("\n")
+    return [line[len(_DIFF_LINE) :] for line in lines if line.startswith(_DIFF_LINE)]
+
+
+def _maker(f: Flash) -> tuple[str, bool] | None:
+    """``f``'s manufacturer, and whether it is inferred; ``None`` if unknown."""
+    return (f.manufacturer, f.manufacturer_inferred) if f.manufacturer else None
 
 
 def sfdp_json(f: Flash) -> list[Any]:
@@ -593,12 +656,12 @@ def _ops_of(f: Flash, sel: Selection) -> list[str]:
 
 
 def check_sources(sources: tuple[Source, ...] = SOURCES) -> None:
-    """Refuse more sources than a one-byte source mask holds."""
-    if len(sources) > 8:
+    """Refuse more sources than a two-byte source mask holds."""
+    if len(sources) > 16:
         names = ", ".join(sources)
         msg = (
-            f"spiflash has {len(sources)} sources ({names}), but a source mask is one "
-            "byte: widen the mask (layout, template and decode) for the ninth"
+            f"spiflash has {len(sources)} sources ({names}), but a source mask is at "
+            "most two bytes: widen the mask (layout, template and decode) for the 17th"
         )
         raise ValueError(msg)
 
@@ -606,6 +669,117 @@ def check_sources(sources: tuple[Source, ...] = SOURCES) -> None:
 def mask(sources: Iterable[Source]) -> int:
     """The source mask: bit i for ``SOURCES[i]``."""
     return sum(1 << SOURCES.index(s) for s in sources)
+
+
+def relative(sub: int, full: int) -> int:
+    """Source mask ``sub`` relative to ``full``, which holds every bit of it:
+    bit j set when ``full``'s j-th set bit (counting from bit 0) is set in
+    ``sub``."""
+    if sub & ~full:
+        msg = f"source mask {sub:#x} is not within {full:#x}"
+        raise ValueError(msg)
+    out = j = 0
+    for i in range(full.bit_length()):
+        if full >> i & 1:
+            out |= (sub >> i & 1) << j
+            j += 1
+    return out
+
+
+#: About what reading relative source masks (``usf__srcw``, ``usf__srcmask``)
+#: costs in code, in bytes, on the ledger's targets: 250 to 500.
+REL_CODE = 512
+
+
+def rel_bytes(full: int) -> int:
+    """The bytes of a mask relative to ``full``: 1, or 2 past eight sources."""
+    return 1 if full.bit_count() <= 8 else 2
+
+
+def mask_blob_bytes(snap: Snapshot, sel: Selection) -> tuple[int, int]:
+    """The bytes of the distinct ``opsets`` and ``conflicts`` blobs that
+    carry two-byte source masks: with the masks as they are, and relative to
+    their entry's (each distinct blob stored once, as :func:`build` stores
+    it)."""
+    direct: dict[tuple[object, ...], int] = {}
+    rel: dict[tuple[object, ...], int] = {}
+    for e in snap.entries:
+        f = e.flash
+        full = mask(f.sources)
+        w = rel_bytes(full)
+        if sel.has(Field.OPERATIONS):
+            ops = [(o.name, mask(o.sources)) for o in f.opcodes.values()]
+            ops = [(n, m) for n, m in ops if f.opcodes[n].operation.kind in sel.op_kinds]
+            # count, then per operation: its index and its mask
+            direct[("ops", *ops)] = 1 + 3 * len(ops)
+            rel_ops = ((n, relative(m, full)) for n, m in ops)
+            rel[("ops", w, *rel_ops)] = 1 + (1 + w) * len(ops)
+        if stores_conflicts(sel) and f.conflicts:
+            vals = [(a, v, mask(s)) for a, vs in f.conflicts.items() for v, s in vs.items()]
+            # attribute and count per attribute, the end marker; per value:
+            # its index and its mask
+            head = 2 * len(f.conflicts) + 1
+            direct[("conf", *vals)] = head + 3 * len(vals)
+            rel_vals = ((a, v, relative(m, full)) for a, v, m in vals)
+            rel[("conf", w, *rel_vals)] = head + (1 + w) * len(vals)
+    return sum(direct.values()), sum(rel.values())
+
+
+@dataclass(frozen=True)
+class SourceMasks:
+    """How a selection stores its source masks (``SRC_BYTES``, ``SRC_REL``
+    and ``SRCMASK_COUNT``; see "Source masks" above)."""
+
+    #: ``SRC_BYTES``: an absolute mask's width; 1 while every mask fits 8 bits.
+    width: int
+    #: ``SRC_REL``: operations' and conflicts' masks are relative to the entry's.
+    rel: bool
+    #: ``srcmasks``: the distinct entry masks, sorted, when ``E_SRCS`` is an
+    #: index into them; empty when ``E_SRCS`` holds the mask itself.
+    table: tuple[int, ...]
+
+    @classmethod
+    def choose(cls, snap: Snapshot, sel: Selection) -> SourceMasks:
+        """The smallest storage for ``snap``'s masks: one byte each while
+        every mask fits. Past that, entry masks as indices into a table of
+        the distinct ones, when that is smaller than two bytes per entry; and
+        operations' and conflicts' masks relative to their entry's, when the
+        bytes that saves in the deduplicated ``opsets`` and ``conflicts``
+        blobs (:func:`mask_blob_bytes`) are more than the code reading them
+        costs (:data:`REL_CODE`). Without SOURCES there are none: one byte,
+        which nothing reads."""
+        if not sel.has(Field.SOURCES):
+            return cls(1, rel=False, table=())
+        widest = 0
+        entries: set[int] = set()
+        for e in snap.entries:
+            full = mask(e.flash.sources)
+            entries.add(full)
+            widest |= full
+        if widest < 1 << 8:
+            return cls(1, rel=False, table=())
+        small = len(entries) < NONE8 and 2 * len(entries) < len(snap.entries)
+        table = tuple(sorted(entries)) if small else ()
+        direct, rel = mask_blob_bytes(snap, sel)
+        return cls(2, rel=direct - rel > REL_CODE, table=table)
+
+    @property
+    def entry_bytes(self) -> int:
+        """``E_SRCS``'s width."""
+        return 1 if self.table else self.width
+
+    def entry(self, full: int) -> bytes:
+        """``E_SRCS`` for entry mask ``full``."""
+        if self.table:
+            return _u8(self.table.index(full))
+        return _uint(full, self.width, "source mask")
+
+    def item(self, sub: int, full: int) -> bytes:
+        """The stored form of an operation's or a conflict value's mask
+        ``sub``, in an entry whose mask is ``full``."""
+        if self.rel:
+            return _uint(relative(sub, full), rel_bytes(full), "relative source mask")
+        return _uint(sub, self.width, "source mask")
 
 
 def _value(attr: str, v: object) -> object:
@@ -656,6 +830,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         raise ValueError(msg)
     tables, defines, values = lay.tables, lay.defines, lay.values
     bases = [snap.entries[i].flash for i in range(snap.n_base)]
+    srcm = SourceMasks.choose(snap, sel)
 
     def off(s: str) -> bytes:
         return pool.add(s).to_bytes(lay.off_bytes, "little")
@@ -666,13 +841,26 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
 
     # ids
     ids = bytearray()
+    seen: set[tuple[FlashType, IdFamily, bytes]] = set()
+    aliases = 0
     for f in bases:
         if not 1 <= len(f.id) <= 7:
             msg = f"id {f.id.hex()} is not 1-7 bytes"
             raise ValueError(msg)
-        typ = 8 if f.type is FlashType.NAND else 0
-        ids += bytes([len(f.id) | typ | FAMILIES.index(f.family) << 4]) + f.id
+        if f.ids[0] != f.id or any(not f.id.startswith(x) for x in f.ids):
+            msg = f"chip {f.key}'s ids {[x.hex() for x in f.ids]} do not all start its id"
+            raise ValueError(msg)
+        for x in f.ids:
+            if (f.type, f.family, x) in seen:
+                msg = f"two {f.type} chips answer to id {x.hex()}"
+                raise ValueError(msg)
+            seen.add((f.type, f.family, x))
+        hdr = (8 if f.type is FlashType.NAND else 0) | FAMILIES.index(f.family) << 4
+        ids += bytes([len(f.id) | hdr]) + f.id
+        ids += bytes(ID_ALIAS | len(x) | hdr for x in f.ids[1:])
+        aliases += len(f.ids) - 1
     tables["ids"] = bytes(ids) + b"\0"
+    defines["ALIAS_COUNT"] = aliases
 
     # Value tables.
     widths = {"sizes": 4, "pages": 2, "sectors": 4}
@@ -730,10 +918,13 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     conflicts = _Blobs("conflicts")
     ext = _Blobs("ext")
     records = _Blobs("records")
-    mfrs = tuple(sorted({m for e in snap.entries if (m := e.flash.manufacturer)}))
+    named = sorted({m for e in snap.entries if (m := _maker(e.flash)) and not m[1]})
+    inferred = sorted({m for e in snap.entries if (m := _maker(e.flash)) and m[1]})
+    mfrs = (*named, *inferred)
     if has(Field.MANUFACTURER):
         values["mfrs"] = mfrs
-        tables["mfrs"] = b"".join(off(m) for m in mfrs)
+        tables["mfrs"] = b"".join(off(m) for m, _inferred in mfrs)
+    defines["MFR_INFERRED"] = len(named) if has(Field.MANUFACTURER) else 0
 
     ext_at: dict[int, int] = {}
     if has(Field.EXT):
@@ -786,15 +977,17 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         if has(Field.FEATURES):
             row += _u8(_idx(tuple(featsets), f.features))
         if has(Field.MANUFACTURER):
-            row += _u8(_idx(mfrs, f.manufacturer))
+            row += _u8(_idx(mfrs, _maker(f)))
+        full = mask(f.sources)
         if has(Field.SOURCES):
-            row += _u8(mask(f.sources))
+            row += srcm.entry(full)
         if has(Field.NAMES):
             row += _u16(namelists.add(_u8(len(f.names)) + b"".join(off(n) for n in f.names)))
         if has(Field.OPERATIONS):
             kept = [o for o in f.opcodes.values() if o.operation.kind in sel.op_kinds]
             blob = _u8(len(kept)) + b"".join(
-                _u8(_idx(ops, o.name)) + (_u8(mask(o.sources)) if has(Field.SOURCES) else b"")
+                _u8(_idx(ops, o.name))
+                + (srcm.item(mask(o.sources), full) if has(Field.SOURCES) else b"")
                 for o in kept
             )
             row += _u16(opsets.add(blob))
@@ -806,7 +999,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
                     conf_blob += _u8(CONFLICT_ATTRS.index(attr)) + _u8(len(vals))
                     for v, srcs in vals.items():
                         vi = _idx(values[_ATTR_TABLE[attr]], _value(attr, v))
-                        conf_blob += _u8(vi) + _u8(mask(srcs))
+                        conf_blob += _u8(vi) + srcm.item(mask(srcs), full)
                 row += _u16(conflicts.add(bytes(conf_blob) + bytes([NONE8])))
             else:
                 row += _u16(NONE16)
@@ -827,7 +1020,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
                     _u8(len(ds))
                     + b"".join(
                         _u16(sheet_row[d.url])
-                        + (_u8(f.key in d.confirmed) if has(Field.DATASHEETS) else b"")
+                        + (_u8(f.confirms(d)) if has(Field.DATASHEETS) else b"")
                         for d in ds
                     )
                 )
@@ -839,7 +1032,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     for name, width, flds in _ENTRY_FIELDS:
         if (sel.fields & flds and (name != "CONF" or with_conflicts)) or name == "BANK":
             defines[f"E_{name}"] = at
-            at += width
+            at += srcm.entry_bytes if name == "SRCS" else width
     defines["ENTRY_SIZE"] = at
     if len(rows) != at * len(snap.entries):
         msg = "entry rows disagree with ENTRY_SIZE"
@@ -890,6 +1083,16 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
             defines["SFDP_TREE"] = defines["SFDP_ROW"]
             defines["SFDP_ROW"] += 2
 
+    # difflines
+    diff_count = 0
+    if has(Field.TEXT):
+        diff_rows = bytearray()
+        for i, e in enumerate(snap.entries):
+            for line in diff_lines(e.flash):
+                diff_count += 1
+                diff_rows += _u16(i) + off(line)
+        tables["difflines"] = _row_table("difflines", bytes(diff_rows))
+
     # Strings.
     for table, members in name_arrays(sel, ops=bool(ops), conflicts=any_conflicts).items():
         tables[table] = b"".join(off(str(n)) for n in members)
@@ -912,6 +1115,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
         "CONF_COUNT": ("conflicts", len(conflicts)),
         "DS_COUNT": ("dsrows", len(sheets)),
         "SFDP_COUNT": ("sfdprows", sfdp_count),
+        "DIFF_COUNT": ("difflines", diff_count),
     }
     for name, (table, n) in counts.items():
         defines[name] = n
@@ -929,6 +1133,11 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     defines["ENTRY_COUNT"] = len(snap.entries)
     defines["BASE_COUNT"] = snap.n_base
     defines["OFF_BYTES"] = lay.off_bytes
+    defines["SRC_BYTES"] = srcm.width
+    defines["SRC_REL"] = int(srcm.rel)
+    defines["SRCMASK_COUNT"] = len(srcm.table)
+    if srcm.table:
+        tables["srcmasks"] = b"".join(_u16(m) for m in srcm.table)
     defines["JEP106_COUNT"] = len(jep) if has(Field.JEP106) else 0
     for fld in Field:
         defines[f"HAVE_{fld.name}"] = int(has(fld))

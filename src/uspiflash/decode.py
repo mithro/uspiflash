@@ -12,6 +12,7 @@ from .layout import (
     ALL_OPS,
     CONFLICT_ATTRS,
     FEATURES,
+    ID_ALIAS,
     NONE8,
     NONE16,
     SOURCES,
@@ -27,6 +28,7 @@ from .layout import (
     T_NULL,
     T_STR,
     T_TRUE,
+    rel_bytes,
 )
 
 if TYPE_CHECKING:
@@ -65,20 +67,36 @@ def lookup(lay: Layout, family: int, data: bytes) -> list[int]:
     ids = lay.tables["ids"]
     best_len = [0, 0]
     best = [0, 0]
-    at, e = 0, 0
+    at, e, own = 0, -1, 0
     while ids[at]:
         hdr = ids[at]
         n, t = hdr & 7, hdr >> 3 & 1
+        if not hdr & ID_ALIAS:  # a chip's own id; a shorter one starts it
+            own, e = at + 1, e + 1
         if (
-            hdr >> 4 == family
+            hdr >> 4 & 7 == family
             and n <= len(core)
             and n > best_len[t]
-            and ids[at + 1 : at + 1 + n] == core[:n]
+            and ids[own : own + n] == core[:n]
         ):
             best_len[t], best[t] = n, e
-        at += 1 + n
-        e += 1
+        at += 1 if hdr & ID_ALIAS else 1 + n
     return [_narrow(lay, best[t], core[best_len[t] :]) for t in (0, 1) if best_len[t]]
+
+
+def ids(lay: Layout, base: int) -> list[bytes]:
+    """Chip id ``base``'s ids, its own then the shorter ones (JSON's ``ids``)."""
+    b, at = lay.tables["ids"], 0
+    for _ in range(base):
+        at += 1 + (b[at] & 7)
+        while b[at] & ID_ALIAS:
+            at += 1
+    own = b[at + 1 : at + 1 + (b[at] & 7)]
+    out, at = [own], at + 1 + len(own)
+    while b[at] & ID_ALIAS:
+        out.append(own[: b[at] & 7])
+        at += 1
+    return out
 
 
 def _narrow(lay: Layout, base: int, x: bytes) -> int:
@@ -122,33 +140,64 @@ def _value(lay: Layout, table: str, i: int) -> object:
     return int.from_bytes(row, "little")
 
 
-def _operations(lay: Layout, offset: int) -> list[tuple[str, list[Source] | None]]:
+def entry_mask(lay: Layout, row: bytes) -> int:
+    """An entry row's source mask (C's ``usf_sources``): ``E_SRCS`` itself,
+    or an index into ``srcmasks``."""
+    d = lay.defines
+    at = d["E_SRCS"]
+    if d["SRCMASK_COUNT"]:
+        return _u16(lay.tables["srcmasks"], 2 * row[at])
+    return int.from_bytes(row[at : at + d["SRC_BYTES"]], "little")
+
+
+def _item_bytes(lay: Layout, full: int) -> int:
+    """The width of an operation's or a conflict value's mask, in an entry
+    whose mask is ``full``."""
+    return rel_bytes(full) if lay.defines["SRC_REL"] else lay.defines["SRC_BYTES"]
+
+
+def _item_mask(lay: Layout, b: bytes, at: int, full: int) -> int:
+    """The operation's or conflict value's mask stored at ``b[at]`` (C's
+    ``USF__SRC``), as an absolute mask."""
+    stored = int.from_bytes(b[at : at + _item_bytes(lay, full)], "little")
+    if not lay.defines["SRC_REL"]:
+        return stored
+    bits = [i for i in range(full.bit_length()) if full >> i & 1]
+    return sum(1 << i for j, i in enumerate(bits) if stored >> j & 1)
+
+
+def _operations(lay: Layout, offset: int, full: int) -> list[tuple[str, list[Source] | None]]:
     if not lay.defines["OP_COUNT"]:  # no operation stored: no opsets either
         return []
     b, ops = lay.tables["opsets"], lay.tables["ops"]
     with_sources = bool(lay.defines["HAVE_SOURCES"])
-    step = 2 if with_sources else 1
+    step = 1 + (_item_bytes(lay, full) if with_sources else 0)
     out: list[tuple[str, list[Source] | None]] = []
     for j in range(b[offset]):
         at = offset + 1 + j * step
         stable = ops[b[at] * lay.defines["OP_SIZE"]]
-        out.append((ALL_OPS[stable], _sources(b[at + 1]) if with_sources else None))
+        srcs = _sources(_item_mask(lay, b, at + 1, full)) if with_sources else None
+        out.append((ALL_OPS[stable], srcs))
     return out
 
 
-def _conflicts(lay: Layout, offset: int) -> dict[str, list[tuple[object, list[Source]]]]:
+def _conflicts(lay: Layout, offset: int, full: int) -> dict[str, list[tuple[object, list[Source]]]]:
     out: dict[str, list[tuple[object, list[Source]]]] = {}
     if offset == NONE16:
         return out
     b, at = lay.tables["conflicts"], offset
+    step = 1 + _item_bytes(lay, full)
     while b[at] != NONE8:
         attr, n = CONFLICT_ATTRS[b[at]], b[at + 1]
         at += 2
         out[attr] = [
-            (_value(lay, _ATTR_TABLE[attr], b[at + 2 * j]), _sources(b[at + 2 * j + 1]))
+            (
+                _value(lay, _ATTR_TABLE[attr], b[at + step * j]),
+                _sources(_item_mask(lay, b, at + step * j + 1, full)),
+            )
             for j in range(n)
         ]
-        at += 2 * n
+        at += step * n
     return out
 
 
@@ -172,15 +221,17 @@ def entry(lay: Layout, index: int) -> dict[str, object]:
         i = row[d["E_MFR"]]
         mfr = None if i == NONE8 else string(lay, _off(lay, lay.tables["mfrs"], i * lay.off_bytes))
         out["manufacturer"] = mfr
+        out["manufacturer_inferred"] = i != NONE8 and i >= d["MFR_INFERRED"]
     if "E_NAMES" in d:
         b, at = lay.tables["namelists"], _u16(row, d["E_NAMES"])
         out["names"] = [string(lay, _off(lay, b, at + 1 + j * lay.off_bytes)) for j in range(b[at])]
+    full = entry_mask(lay, row) if "E_SRCS" in d else 0
     if "E_SRCS" in d:
-        out["sources"] = _sources(row[d["E_SRCS"]])
+        out["sources"] = _sources(full)
     if "E_OPS" in d:
-        out["operations"] = _operations(lay, _u16(row, d["E_OPS"]))
+        out["operations"] = _operations(lay, _u16(row, d["E_OPS"]), full)
     if "E_CONF" in d:
-        out["conflicts"] = _conflicts(lay, _u16(row, d["E_CONF"]))
+        out["conflicts"] = _conflicts(lay, _u16(row, d["E_CONF"]), full)
     if "E_DS" in d:
         out["datasheets"] = _datasheets(lay, _u16(row, d["E_DS"]))
     return out
@@ -232,6 +283,14 @@ def _sfdp_row(lay: Layout, index: int) -> int | None:
     ``usf__sfdprow``), or ``None`` when it has no SFDP dump."""
     rows, size = lay.tables.get("sfdprows", b""), lay.defines.get("SFDP_ROW", 2)
     return next((at for at in range(0, len(rows), size) if _u16(rows, at) == index), None)
+
+
+def diff_lines(lay: Layout, index: int) -> list[str]:
+    """Entry ``index``'s ``parts differ on`` lines, without their prefix."""
+    b, step = lay.tables.get("difflines", b""), 2 + lay.off_bytes
+    return [
+        string(lay, _off(lay, b, at + 2)) for at in range(0, len(b), step) if _u16(b, at) == index
+    ]
 
 
 def sfdp_lines(lay: Layout, index: int) -> list[str]:

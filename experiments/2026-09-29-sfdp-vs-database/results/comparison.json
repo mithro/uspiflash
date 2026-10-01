@@ -23,7 +23,8 @@
      "flashrom",
      "flashprog",
      "linux",
-     "u-boot"
+     "u-boot",
+     "dediprog"
     ],
     "erase_32k": [
      "flashrom",
@@ -33,11 +34,16 @@
    "features_only_sfdp": [],
    "names": [
     "N25Q256A",
-    "N25Q256..3E",
-    "MT25QL256",
     "MT25QL256A",
+    "MT25QL256",
+    "N25Q256A13",
     "N25Q256",
-    "N25Q256A13"
+    "MT25QL256BBB",
+    "N25Q256A33",
+    "N25Q256A83",
+    "N25Q256A83ESF42EE01",
+    "MT25QL256AB",
+    "N25Q256..3E"
    ],
    "operations_only_database": {
     "BE_32K": [
@@ -67,7 +73,8 @@
      "flashrom",
      "flashprog",
      "linux",
-     "u-boot"
+     "u-boot",
+     "dediprog"
     ],
     "READ_1_1_2_4B": [
      "linux",
@@ -85,6 +92,7 @@
      "flashprog",
      "linux",
      "u-boot",
+     "dediprog",
      "openocd",
      "openfpgaloader"
     ]
@@ -95,10 +103,20 @@
     "sfdp": null
    },
    "records": [
+    "dediprog: MT25QL256A",
+    "dediprog: MT25QL256A(Secure)",
+    "dediprog: MT25QL256BBB",
+    "dediprog: N25Q256A13",
+    "dediprog: N25Q256A13(Secure)",
+    "dediprog: N25Q256A33",
+    "dediprog: N25Q256A83",
+    "dediprog: N25Q256A83ESF42EE01",
     "flashprog: N25Q256..3E",
     "flashprog: MT25QL256",
     "flashrom: MT25QL256",
     "flashrom: N25Q256..3E",
+    "imsprog: N25Q256A",
+    "imsprog: MT25QL256AB",
     "linux: MT25QL256A",
     "linux: N25Q256A",
     "openfpgaloader: N25Q256",
@@ -153,7 +171,9 @@
    "names": [
     "MT35XU01GBBA",
     "MT35XU01G",
-    "MT35XU01GABA"
+    "MT35XU01GABA",
+    "MT35XU01GBBA1",
+    "MT35XU01GBBA2"
    ],
    "operations_only_database": {
     "READ_1_1_8": [
@@ -169,6 +189,8 @@
     "sfdp": 256
    },
    "records": [
+    "dediprog: MT35XU01GBBA1",
+    "dediprog: MT35XU01GBBA2",
     "linux: MT35XU01GBBA",
     "qemu: MT35XU01G",
     "u-boot: MT35XU01GABA",
@@ -224,6 +246,10 @@
    "features_only_sfdp": [],
    "names": [
     "MT35XU02G",
+    "MT35XL02GCBA1XXX-OSIT",
+    "MT35XL02GCBA2XXX-OSIT",
+    "MT35XU02GCBA1XXX-OSIT",
+    "MT35XU02GCBA2XXX-OSIT",
     "MT35XU02GBBA"
    ],
    "operations_only_database": {
@@ -242,6 +268,10 @@
     "sfdp": 256
    },
    "records": [
+    "dediprog: MT35XL02GCBA1XXX-OSIT",
+    "dediprog: MT35XL02GCBA2XXX-OSIT",
+    "dediprog: MT35XU02GCBA1XXX-OSIT",
+    "dediprog: MT35XU02GCBA2XXX-OSIT",
     "flashrom: MT35XU02G",
     "linux: MT35XU02G",
     "qemu: MT35XU02GBBA",
@@ -295,7 +325,10 @@
    "features_only_sfdp": [],
    "names": [
     "IS25WP256",
-    "IS25WP256D"
+    "IS25WP256D",
+    "IS25DWP512M",
+    "IS25WE256E",
+    "IS25WP256E"
    ],
    "operations_only_database": {
     "BE_32K_4B": [
@@ -320,7 +353,8 @@
      "flashrom",
      "flashprog",
      "linux",
-     "u-boot"
+     "u-boot",
+     "dediprog"
     ],
     "READ_1_1_2_4B": [
      "u-boot"
@@ -335,6 +369,7 @@
      "flashrom",
      "flashprog",
      "u-boot",
+     "dediprog",
      "openocd",
      "openfpgaloader"
     ]
@@ -345,8 +380,13 @@
     "sfdp": 256
    },
    "records": [
+    "dediprog: IS25DWP512M(one die)",
+    "dediprog: IS25WE256E",
+    "dediprog: IS25WP256D",
+    "dediprog: IS25WP256E",
     "flashprog: IS25WP256",
     "flashrom: IS25WP256",
+    "imsprog: IS25WP256D(1.8V)",
     "linux: IS25WP256",
     "openfpgaloader: IS25WP256",
     "openocd: IS25WP256D",
@@ -394,20 +434,36 @@
    "features_only_database": {
     "4byte_opcodes": [
      "flashrom",
-     "flashprog"
+     "flashprog",
+     "dediprog",
+     "rockchip"
     ],
     "qpi": [
      "flashprog",
      "qemu"
+    ],
+    "quad_pp": [
+     "rockchip"
     ]
    },
    "features_only_sfdp": [],
    "names": [
-    "MX25L25635F",
     "MX25L25645G",
+    "MX25L25635F",
     "MX25L25635E",
-    "MACRONIX-C22019",
-    "MX25L25645"
+    "KH25L25639F",
+    "MX25L25633F",
+    "MX25L25636E",
+    "MX25L25639F",
+    "MX25L25672F",
+    "MX25L25673G",
+    "MX25L25733F",
+    "MX25L25735E",
+    "MX25L25735F",
+    "MX25L25745G",
+    "MX25L25645",
+    "MX25L25645GMI-08G",
+    "MACRONIX-C22019"
    ],
    "operations_only_database": {
     "BE_32K_4B": [
@@ -417,17 +473,23 @@
     "BE_4K_4B": [
      "flashrom",
      "flashprog",
+     "rockchip",
      "openfpgaloader"
     ],
     "READ_1_1_1_4B": [
      "flashrom",
      "flashprog",
+     "rockchip",
      "openocd",
      "openfpgaloader"
     ],
     "READ_1_1_1_FAST_4B": [
      "flashrom",
-     "flashprog"
+     "flashprog",
+     "dediprog"
+    ],
+    "READ_1_1_4_4B": [
+     "rockchip"
     ],
     "READ_1_4_4_4B": [
      "openocd"
@@ -438,6 +500,8 @@
     "SE_4B": [
      "flashrom",
      "flashprog",
+     "dediprog",
+     "rockchip",
      "openocd",
      "openfpgaloader"
     ]
@@ -448,13 +512,28 @@
     "sfdp": null
    },
    "records": [
+    "dediprog: KH25L25639F",
+    "dediprog: MX25L25633F",
+    "dediprog: MX25L25635E",
+    "dediprog: MX25L25635F",
+    "dediprog: MX25L25636E",
+    "dediprog: MX25L25639F",
+    "dediprog: MX25L25645G",
+    "dediprog: MX25L25672F",
+    "dediprog: MX25L25673G",
+    "dediprog: MX25L25733F",
+    "dediprog: MX25L25735E",
+    "dediprog: MX25L25735F",
+    "dediprog: MX25L25745G",
     "flashprog: MX25L25635F/MX25L25645G",
     "flashrom: MX25L25635F/MX25L25645G",
+    "imsprog: MX25L25635E",
     "linux: MACRONIX-C22019",
     "openfpgaloader: MX25L25645G",
     "openocd: MX25L25645",
     "qemu: MX25L25635E",
     "qemu: MX25L25635F",
+    "rockchip: MX25L25635E/MX25L25635F/MX25L25645G/MX25L25645GMI-08G",
     "u-boot: MX25L25635E"
    ],
    "revision": "JESD216",
@@ -498,16 +577,32 @@
    "features_only_database": {
     "4byte_opcodes": [
      "flashrom",
-     "flashprog"
+     "flashprog",
+     "dediprog",
+     "rockchip"
+    ],
+    "quad_pp": [
+     "rockchip"
     ]
    },
    "features_only_sfdp": [],
    "names": [
-    "MX25L25635F",
     "MX25L25645G",
+    "MX25L25635F",
     "MX25L25635E",
-    "MACRONIX-C22019",
-    "MX25L25645"
+    "KH25L25639F",
+    "MX25L25633F",
+    "MX25L25636E",
+    "MX25L25639F",
+    "MX25L25672F",
+    "MX25L25673G",
+    "MX25L25733F",
+    "MX25L25735E",
+    "MX25L25735F",
+    "MX25L25745G",
+    "MX25L25645",
+    "MX25L25645GMI-08G",
+    "MACRONIX-C22019"
    ],
    "operations_only_database": {
     "BE_32K_4B": [
@@ -517,17 +612,23 @@
     "BE_4K_4B": [
      "flashrom",
      "flashprog",
+     "rockchip",
      "openfpgaloader"
     ],
     "READ_1_1_1_4B": [
      "flashrom",
      "flashprog",
+     "rockchip",
      "openocd",
      "openfpgaloader"
     ],
     "READ_1_1_1_FAST_4B": [
      "flashrom",
-     "flashprog"
+     "flashprog",
+     "dediprog"
+    ],
+    "READ_1_1_4_4B": [
+     "rockchip"
     ],
     "READ_1_4_4_4B": [
      "openocd"
@@ -538,6 +639,8 @@
     "SE_4B": [
      "flashrom",
      "flashprog",
+     "dediprog",
+     "rockchip",
      "openocd",
      "openfpgaloader"
     ]
@@ -548,13 +651,28 @@
     "sfdp": null
    },
    "records": [
+    "dediprog: KH25L25639F",
+    "dediprog: MX25L25633F",
+    "dediprog: MX25L25635E",
+    "dediprog: MX25L25635F",
+    "dediprog: MX25L25636E",
+    "dediprog: MX25L25639F",
+    "dediprog: MX25L25645G",
+    "dediprog: MX25L25672F",
+    "dediprog: MX25L25673G",
+    "dediprog: MX25L25733F",
+    "dediprog: MX25L25735E",
+    "dediprog: MX25L25735F",
+    "dediprog: MX25L25745G",
     "flashprog: MX25L25635F/MX25L25645G",
     "flashrom: MX25L25635F/MX25L25645G",
+    "imsprog: MX25L25635E",
     "linux: MACRONIX-C22019",
     "openfpgaloader: MX25L25645G",
     "openocd: MX25L25645",
     "qemu: MX25L25635E",
     "qemu: MX25L25635F",
+    "rockchip: MX25L25635E/MX25L25635F/MX25L25645G/MX25L25645GMI-08G",
     "u-boot: MX25L25635E"
    ],
    "revision": "JESD216",
@@ -598,7 +716,9 @@
    "features_only_database": {},
    "features_only_sfdp": [],
    "names": [
-    "MX66L1G45G"
+    "MX66L1G45G",
+    "MX66L1G43J",
+    "MX66L1G65G"
    ],
    "operations_only_database": {},
    "operations_only_sfdp": [],
@@ -607,6 +727,9 @@
     "sfdp": 256
    },
    "records": [
+    "dediprog: MX66L1G43J",
+    "dediprog: MX66L1G45G",
+    "dediprog: MX66L1G65G",
     "flashprog: MX66L1G45G",
     "flashrom: MX66L1G45G",
     "linux: MX66L1G45G",
@@ -641,7 +764,7 @@
     "database": 134217728,
     "sfdp": 134217728
    },
-   "unnamed_operations": 5,
+   "unnamed_operations": 4,
    "warnings": [
     "4BAIT claims instructions the BFPT gives no read mode for, ignored: fast read 1-1-8 (bit 20), fast read 1-8-8 (bit 21), DTR fast read 1-8-8 (bit 22), page program 1-1-8 (bit 23), page program 1-8-8 (bit 24)"
    ]
@@ -657,12 +780,15 @@
    "features_only_database": {},
    "features_only_sfdp": [],
    "names": [
-    "W25Q80BV",
     "W25Q80BL",
+    "W25Q80BV",
     "W25Q80DV",
     "W25Q80RV",
-    "W25Q80.V",
-    "S25FL008K"
+    "W25Q80",
+    "W25Q80JV",
+    "W25Q81DV",
+    "S25FL008K",
+    "W25Q80.V"
    ],
    "operations_only_database": {},
    "operations_only_sfdp": [],
@@ -671,9 +797,18 @@
     "sfdp": 256
    },
    "records": [
+    "dediprog: S25FL008K",
+    "dediprog: W25Q80",
+    "dediprog: W25Q80BL",
+    "dediprog: W25Q80BV",
+    "dediprog: W25Q80DV",
+    "dediprog: W25Q80JV",
+    "dediprog: W25Q80RV",
+    "dediprog: W25Q81DV",
     "flashprog: W25Q80.V",
     "flashrom: W25Q80BV/W25Q80DV",
     "flashrom: W25Q80RV",
+    "imsprog: W25Q80BL",
     "linux: S25FL008K",
     "linux: W25Q80BL",
     "openfpgaloader: W25Q80BV",
@@ -722,7 +857,12 @@
    "features_only_database": {
     "4byte_opcodes": [
      "flashrom",
-     "flashprog"
+     "flashprog",
+     "dediprog",
+     "rockchip"
+    ],
+    "quad_pp": [
+     "rockchip"
     ]
    },
    "features_only_sfdp": [],
@@ -730,7 +870,15 @@
     "W25Q256FV",
     "W25Q256",
     "W25Q256JV_Q",
-    "W25Q256JV"
+    "W25Q256JV",
+    "W25Q257FV",
+    "W25Q257JV",
+    "W25Q258JV",
+    "W25Q259JV",
+    "W25R256JV",
+    "W25R259JV",
+    "W25Q256F",
+    "W25Q256J"
    ],
    "operations_only_database": {
     "BE_4K_4B": [
@@ -739,15 +887,21 @@
     ],
     "READ_1_1_1_4B": [
      "flashrom",
-     "flashprog"
+     "flashprog",
+     "rockchip"
     ],
     "READ_1_1_1_FAST_4B": [
      "flashrom",
-     "flashprog"
+     "flashprog",
+     "dediprog"
+    ],
+    "READ_1_1_4_4B": [
+     "rockchip"
     ],
     "SE_4B": [
      "flashrom",
-     "flashprog"
+     "flashprog",
+     "dediprog"
     ]
    },
    "operations_only_sfdp": [],
@@ -756,13 +910,23 @@
     "sfdp": null
    },
    "records": [
+    "dediprog: W25Q256FV",
+    "dediprog: W25Q256JV",
+    "dediprog: W25Q257FV",
+    "dediprog: W25Q257JV",
+    "dediprog: W25Q258JV",
+    "dediprog: W25Q259JV",
+    "dediprog: W25R256JV",
+    "dediprog: W25R259JV",
     "flashprog: W25Q256FV",
     "flashprog: W25Q256JV_Q",
     "flashrom: W25Q256FV",
     "flashrom: W25Q256JV_Q",
+    "imsprog: W25Q256FV",
     "linux: W25Q256",
     "openocd: W25Q256FV/JV",
     "qemu: W25Q256",
+    "rockchip: W25Q256F/W25Q256J",
     "u-boot: W25Q256"
    ],
    "revision": "JESD216",
@@ -808,6 +972,9 @@
    "names": [
     "W25Q512JV",
     "W25Q512JVQ",
+    "W25Q512JV-IN",
+    "W25Q512JV-IQ",
+    "W25R512JV",
     "W25Q512JVFIQ"
    ],
    "operations_only_database": {},
@@ -817,6 +984,10 @@
     "sfdp": 256
    },
    "records": [
+    "dediprog: W25Q512JV",
+    "dediprog: W25Q512JV-IN",
+    "dediprog: W25Q512JV-IQ",
+    "dediprog: W25R512JV",
     "flashprog: W25Q512JV",
     "flashrom: W25Q512JV",
     "linux: W25Q512JVQ",
@@ -878,6 +1049,7 @@
     "sfdp": 256
    },
    "records": [
+    "dediprog: W25Q01JV",
     "flashrom: W25Q01JV",
     "linux: W25Q01JV",
     "openocd: W25Q01JV",
@@ -938,6 +1110,7 @@
     "sfdp": 256
    },
    "records": [
+    "dediprog: W25Q02JV",
     "linux: W25Q02JV",
     "openocd: W25Q02JV-DTR",
     "qemu: W25Q02JVM",
@@ -976,5 +1149,5 @@
    ]
   }
  ],
- "spiflash_version": "0.0.post108"
+ "spiflash_version": "0.0.post182"
 }

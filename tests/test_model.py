@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from spiflash.db import database
 
-from uspiflash.model import FAMILIES, Snapshot, compatible, ext_mask, reaching_probes
+from uspiflash.model import FAMILIES, Snapshot, compatible, ext_mask, printed, reaching_probes
 
 if TYPE_CHECKING:
     from spiflash.enums import IdFamily
@@ -75,6 +75,8 @@ def test_random_ids(snap: Snapshot) -> None:
 
 
 def test_variants_differ_from_their_base(snap: Snapshot) -> None:
+    """A variant prints differently from its base: other records, values,
+    manufacturer or datasheets (the records alone can be the same)."""
     for base, table in snap.variants.items():
         for entry in table.values():
-            assert snap.entries[entry].flash.records != snap.entries[base].flash.records
+            assert printed(snap.entries[entry].flash) != printed(snap.entries[base].flash)

@@ -15,7 +15,7 @@ from uspiflash import oracle
 from uspiflash.levels import ChipFilter, Selection
 from uspiflash.provenance import Config
 
-#: Every distinct SFDP dump in the database (12 at spiflash 0.0.post108, all QEMU's).
+#: Every distinct SFDP dump in the database (12 at spiflash 0.0.post182, all QEMU's).
 DUMPS = sorted({r.sfdp for f in database().flashes for r in f.records if r.sfdp})
 #: The smallest header with the reader: NOR chips, id level.
 CONFIG = Config(Selection.make("id", with_=["sfdp"], chips=ChipFilter(types=(FlashType.NOR,))))
