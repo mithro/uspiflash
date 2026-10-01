@@ -827,8 +827,9 @@ merging.
 ## 15. Amendments (spiflash 0.0.post173 catch-up, 2026-10-01)
 
 25. **Source masks follow the selection.** spiflash 0.0.post173 has eleven
-    sources (Dediprog, Rockchip and IMSProg are new), and SPI NOR chips
-    alone cite all eleven, so a one-byte mask (§5.4) cannot hold them.
+    sources (Dediprog, Rockchip and IMSProg are new) and 0.0.post182
+    twelve (MediaTek, SPI NAND only). SPI NOR chips alone cite eleven, so
+    a one-byte mask (§5.4) cannot hold them.
     - One byte each while every mask the selection stores fits eight bits
       (`SRC_BYTES` 1): the old format, at no cost.
     - Past that, two bytes (`usf_srcmask` is `uint16_t`). An entry's mask
