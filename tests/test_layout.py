@@ -582,6 +582,55 @@ def test_a_mask_outside_its_entrys_is_refused() -> None:
         layout.relative(0b1, 0b10)
 
 
+def _mask_tables(snap: Snapshot, sel: Selection, *, rel: bool, mp: pytest.MonkeyPatch) -> int:
+    """The bytes of ``opsets`` and ``conflicts`` with two-byte masks, stored
+    relative to their entry's (``rel``) or as they are."""
+    table = layout.SourceMasks.choose(snap, sel).table
+    forced = layout.SourceMasks(2, rel=rel, table=table)
+    with mp.context() as m:
+        m.setattr(layout.SourceMasks, "choose", classmethod(lambda _cls, _s, _sel: forced))
+        tables = layout.build(snap, sel).tables
+    return len(tables.get("opsets", b"")) + len(tables.get("conflicts", b""))
+
+
+@pytest.mark.parametrize(
+    "chips",
+    [
+        ChipFilter(types=(FlashType.NOR,)),
+        ChipFilter(manufacturers=("ISSI",), types=(FlashType.NOR,)),
+    ],
+    ids=["nor", "issi"],
+)
+def test_relative_masks_are_chosen_by_the_bytes_they_save(
+    chips: ChipFilter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """mask_blob_bytes counts the deduplicated blobs exactly as build stores
+    them, so relative masks are chosen only where they save more than their
+    code: all SPI NOR chips (about 6.4 KB saved), not ISSI's alone (290 B)."""
+    sel = Selection.make("full", chips=chips)
+    snap = Snapshot.build(chips.apply(database()))
+    direct, rel = layout.mask_blob_bytes(snap, sel)
+    as_is = _mask_tables(snap, sel, rel=False, mp=monkeypatch)
+    saved = as_is - _mask_tables(snap, sel, rel=True, mp=monkeypatch)
+    assert direct - rel == saved > 0
+    chosen = layout.SourceMasks.choose(snap, sel).rel
+    assert chosen == (saved > layout.REL_CODE) == (not chips.manufacturers)
+
+
+@pytest.mark.parametrize("full", [0xFFFF, 0b1_0101_0101_0101_0101, 0b1_1111_1111])
+def test_a_relative_mask_reads_back(full: int) -> None:
+    """Every sub-mask of 16 sources, of nine scattered ones and of nine in a
+    row (two bytes each) reads back as it was, as decode reads it."""
+    lay = layout.Layout(Selection.make("full"), Snapshot.build(), off_bytes=2)
+    lay.defines.update(SRC_REL=1, SRC_BYTES=2)
+    rng = random.Random(full)
+    assert layout.rel_bytes(full) == 2
+    for _ in range(500):
+        sub = rng.getrandbits(17) & full
+        stored = layout.relative(sub, full).to_bytes(2, "little")
+        assert decode._item_mask(lay, stored, 0, full) == sub  # noqa: SLF001
+
+
 def test_a_datasheet_before_the_year_1000_is_refused() -> None:
     """The C prints a year with usf__dec, which does not zero-pad."""
     db = database()

@@ -696,6 +696,35 @@ def rel_bytes(full: int) -> int:
     return 1 if full.bit_count() <= 8 else 2
 
 
+def mask_blob_bytes(snap: Snapshot, sel: Selection) -> tuple[int, int]:
+    """The bytes of the distinct ``opsets`` and ``conflicts`` blobs that
+    carry two-byte source masks: with the masks as they are, and relative to
+    their entry's (each distinct blob stored once, as :func:`build` stores
+    it)."""
+    direct: dict[tuple[object, ...], int] = {}
+    rel: dict[tuple[object, ...], int] = {}
+    for e in snap.entries:
+        f = e.flash
+        full = mask(f.sources)
+        w = rel_bytes(full)
+        if sel.has(Field.OPERATIONS):
+            ops = [(o.name, mask(o.sources)) for o in f.opcodes.values()]
+            ops = [(n, m) for n, m in ops if f.opcodes[n].operation.kind in sel.op_kinds]
+            # count, then per operation: its index and its mask
+            direct[("ops", *ops)] = 1 + 3 * len(ops)
+            rel_ops = ((n, relative(m, full)) for n, m in ops)
+            rel[("ops", w, *rel_ops)] = 1 + (1 + w) * len(ops)
+        if stores_conflicts(sel) and f.conflicts:
+            vals = [(a, v, mask(s)) for a, vs in f.conflicts.items() for v, s in vs.items()]
+            # attribute and count per attribute, the end marker; per value:
+            # its index and its mask
+            head = 2 * len(f.conflicts) + 1
+            direct[("conf", *vals)] = head + 3 * len(vals)
+            rel_vals = ((a, v, relative(m, full)) for a, v, m in vals)
+            rel[("conf", w, *rel_vals)] = head + (1 + w) * len(vals)
+    return sum(direct.values()), sum(rel.values())
+
+
 @dataclass(frozen=True)
 class SourceMasks:
     """How a selection stores its source masks (``SRC_BYTES``, ``SRC_REL``
@@ -715,26 +744,24 @@ class SourceMasks:
         every mask fits. Past that, entry masks as indices into a table of
         the distinct ones, when that is smaller than two bytes per entry; and
         operations' and conflicts' masks relative to their entry's, when the
-        bytes that saves (one per mask in an entry of at most eight sources)
-        are more than the code reading them costs (:data:`REL_CODE`). Without
-        SOURCES there are none: one byte, which nothing reads."""
+        bytes that saves in the deduplicated ``opsets`` and ``conflicts``
+        blobs (:func:`mask_blob_bytes`) are more than the code reading them
+        costs (:data:`REL_CODE`). Without SOURCES there are none: one byte,
+        which nothing reads."""
         if not sel.has(Field.SOURCES):
             return cls(1, rel=False, table=())
-        widest = saved = 0
+        widest = 0
         entries: set[int] = set()
         for e in snap.entries:
-            f = e.flash
-            full = mask(f.sources)
+            full = mask(e.flash.sources)
             entries.add(full)
             widest |= full
-            if full.bit_count() <= 8:
-                saved += len(_ops_of(f, sel)) if sel.has(Field.OPERATIONS) else 0
-                saved += sum(map(len, f.conflicts.values())) if stores_conflicts(sel) else 0
         if widest < 1 << 8:
             return cls(1, rel=False, table=())
         small = len(entries) < NONE8 and 2 * len(entries) < len(snap.entries)
         table = tuple(sorted(entries)) if small else ()
-        return cls(2, rel=saved > REL_CODE, table=table)
+        direct, rel = mask_blob_bytes(snap, sel)
+        return cls(2, rel=direct - rel > REL_CODE, table=table)
 
     @property
     def entry_bytes(self) -> int:
