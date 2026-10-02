@@ -393,9 +393,17 @@ def test_ci_checks_the_ledger_in_the_pinned_image() -> None:
     # the job runs in whatever image its leg names.
     assert f"          - sizes: true\n            container: {ledger.IMAGE}\n" in job
     assert "    container: ${{ matrix.container }}\n" in job
-    install = job[job.index("apt-get install") :].split("\n\n")[0].split()
+    # Every step of that leg is conditional on `matrix.sizes`, so a wrong
+    # condition would skip the check without failing anything: the step that
+    # measures, and the one that installs the pinned tools, must have it.
+    steps = job[job.index("\n    steps:\n") :].split("\n      - ")[1:]
+    (check,) = [s for s in steps if "\n        run: uv run uspiflash measure --check\n" in s]
+    (tools,) = [s for s in steps if "apt-get install" in s]
+    for step in (check, tools):
+        assert "\n        if: matrix.sizes\n" in step, step
+    install = tools[tools.index("apt-get install") :].split("\n\n")[0].split()
     assert set(ledger.PACKAGES) <= set(install)
-    _assert_snapshot_install(job)
+    _assert_snapshot_install(tools)
 
 
 def _assert_snapshot_install(script: str) -> None:
