@@ -56,9 +56,10 @@ ledger names (Debian trixie's `clang-19`, `lld-19` and `gcc`):
 uv run python -m uspiflash.sandbox -- uv run uspiflash measure --write
 ```
 
-CI's `sizes` job runs `uspiflash measure --check` in a `debian:trixie`
-container pinned by digest: it exits 1 with a diff when the committed files
-are stale, and 2 when the tools' versions differ from the ledger's.
+CI's size check (the sizes leg of `deb.yml`'s `test` job) runs
+`uspiflash measure --check` in a `debian:trixie` container pinned by
+digest: it exits 1 with a diff when the committed files are stale, and 2
+when the tools' versions differ from the ledger's.
 [RELEASING.md](https://github.com/mithro/uspiflash/blob/main/RELEASING.md#the-size-ledgers-image)
 says how to move the pin.
 

@@ -7,6 +7,9 @@ tmp/
 # The controller's scratch area.
 .superpowers/
 
+# The build generates it (apt-repo-action's scripts/deb-version.py).
+/debian/changelog
+
 # Python.
 __pycache__/
 *.py[cod]

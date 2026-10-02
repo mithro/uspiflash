@@ -32,20 +32,60 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # The same gates as local development (ruff lint and format, mypy --strict,
-  # pytest with coverage), across the supported Pythons. The docs group is
-  # installed so mypy checks the documentation's Sphinx extension too.
+  # Two kinds of leg, and build-deb needs them all.
+  #
+  # The Python legs are the same gates as local development (ruff lint and
+  # format, mypy --strict, pytest with coverage), across the supported
+  # Pythons. The docs group is installed so mypy checks the documentation's
+  # Sphinx extension too.
+  #
+  # The sizes leg checks that the size ledger (sizes/ledger.json) matches a
+  # fresh measurement. The numbers only reproduce with the tools that made
+  # them, so it runs in the environment the ledger is made in: Debian trixie
+  # (linux/amd64) pinned by digest, with clang-19 and gcc installed from
+  # snapshot.debian.org at a fixed timestamp, not the live mirror. The digest
+  # and the timestamp must equal uspiflash.ledger.IMAGE and SNAPSHOT (a test
+  # checks); RELEASING.md says how to bump them.
+  # `measure --check` exits 2 if the tools' version lines differ from the
+  # ledger's, and 1 (with a diff) if the sizes do.
   test:
+    name: test (${{ matrix.python-version || 'sizes' }})
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # The sizes leg's image; the Python legs have none, and run on the runner.
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        # Only `include`, so each entry is a leg of its own.
+        include:
+          - python-version: "3.11"
+          - python-version: "3.12"
+          - python-version: "3.13"
+          - python-version: "3.14"
+          - sizes: true
+            container: debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674
     steps:
+      # git before checkout, so actions/checkout makes a real clone: hatch-vcs
+      # derives the version from its history and tags.
+      - name: Install the pinned tools
+        if: matrix.sizes
+        run: |
+          rm -f /etc/apt/sources.list.d/debian.sources
+          echo "deb http://snapshot.debian.org/archive/debian/20260918T000000Z/ trixie main" > /etc/apt/sources.list
+          echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends \
+            clang-19 lld-19 gcc libc6-dev python3 ca-certificates git
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0  # full history so hatch-vcs can derive the version
+
+      # The workspace belongs to the runner's user, not the container's root.
+      - name: Trust the checkout
+        if: matrix.sizes
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # The build generates debian/changelog: apt-repo-action's shared
       # scripts/deb-version.py writes the build's entry, with the version
@@ -63,67 +103,41 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Install the matrix Python
+        if: matrix.python-version
         run: uv python install ${{ matrix.python-version }}
 
       - name: Sync the dev and docs groups
+        if: matrix.python-version
         run: uv sync --group dev --group docs --python ${{ matrix.python-version }}
 
       - name: Lint (ruff)
+        if: matrix.python-version
         run: uv run ruff check
 
       - name: Format (ruff)
+        if: matrix.python-version
         run: uv run ruff format --check
 
       - name: Type-check (mypy --strict)
+        if: matrix.python-version
         run: uv run mypy
 
       - name: C compilers
+        if: matrix.python-version
         run: gcc --version && clang --version
 
       # In parallel, as locally: run serially, spiflash 0.0.post182's larger
       # database took Python 3.11 and 3.12 past the 20-minute timeout.
       - name: Tests + coverage gate
+        if: matrix.python-version
         run: uv run pytest -n auto
 
-  # The size ledger (sizes/ledger.json) must match a fresh measurement. The
-  # numbers only reproduce with the tools that made them, so this runs in the
-  # environment the ledger is made in: Debian trixie (linux/amd64) pinned by
-  # digest, with clang-19 and gcc installed from snapshot.debian.org
-  # at a fixed timestamp, not the live mirror. The digest and the timestamp
-  # must equal uspiflash.ledger.IMAGE and SNAPSHOT (a test checks);
-  # RELEASING.md says how to bump them.
-  # `measure --check` exits 2 if the tools' version lines differ from the
-  # ledger's, and 1 (with a diff) if the sizes do.
-  sizes:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    container: debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674
-    steps:
-      # git before checkout, so actions/checkout makes a real clone: hatch-vcs
-      # derives the version from its history and tags.
-      - name: Install the pinned tools
-        run: |
-          rm -f /etc/apt/sources.list.d/debian.sources
-          echo "deb http://snapshot.debian.org/archive/debian/20260918T000000Z/ trixie main" > /etc/apt/sources.list
-          echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot
-          apt-get update -q
-          apt-get install -y -q --no-install-recommends \
-            clang-19 lld-19 gcc libc6-dev python3 ca-certificates git
-
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      # The workspace belongs to the runner's user, not the container's root.
-      - name: Trust the checkout
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - uses: astral-sh/setup-uv@v7
-
       - name: Tool versions
+        if: matrix.sizes
         run: clang-19 --version && gcc --version
 
       - name: Check the size ledger
+        if: matrix.sizes
         run: uv run uspiflash measure --check
 
   build-deb:

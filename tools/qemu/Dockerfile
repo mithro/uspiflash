@@ -3,7 +3,7 @@
 # image and runs build_image.py and QEMU in it (tools/qemu/README.md).
 #
 # The base image and the apt snapshot are uspiflash.ledger.IMAGE and
-# SNAPSHOT (the `sizes` job's), so the packages are the same whatever the
+# SNAPSHOT (the size check's), so the packages are the same whatever the
 # live mirror holds today. run.py passes them in, with the kernel's and
 # busybox's versions and their .debs' sha256s.
 ARG IMAGE
