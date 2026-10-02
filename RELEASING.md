@@ -171,8 +171,8 @@ commit, merge. The next green run publishes it.
 
 A new spiflash changes the generated tables, so it changes the size ledger
 too: regenerate it (`uv run uspiflash measure --write`, see below) in the
-same commit, or the `test` job's sizes leg fails; and rerun every experiment whose
-results record `spiflash_version` (`grep -rl spiflash_version
+same commit, or the `test` job's sizes leg fails; and rerun every experiment
+whose results record `spiflash_version` (`grep -rl spiflash_version
 experiments/*/results/*.json` finds them all; as of this writing,
 `2026-09-28-database-statistics` and `2026-09-29-sfdp-vs-database`) with
 `uv run uspiflash research run <slug>`, and update each one's README
@@ -189,8 +189,9 @@ live mirror cannot change them). The digest appears in exactly two places,
 which a test keeps equal: `IMAGE` in `src/uspiflash/ledger.py` and the
 `test` job's sizes leg (its `container:`) in `.github/workflows/deb.yml`;
 the timestamp is `SNAPSHOT` there, and in that leg's apt source and the
-command below (tests check both). The ledger records the image and the timestamp too, so
-changing either without regenerating fails `measure --check`.
+command below (tests check both). The ledger records the image and the
+timestamp too, so changing either without regenerating fails
+`measure --check`.
 
 The pins move only deliberately (for example to take a trixie point
 release's clang or gcc). To move them:
