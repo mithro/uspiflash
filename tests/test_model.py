@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 from spiflash.db import database
 
+from harness import parity_skip_reason
 from uspiflash.model import FAMILIES, Snapshot, compatible, ext_mask, printed, reaching_probes
 
 if TYPE_CHECKING:
@@ -46,7 +47,15 @@ def test_base_entries_are_the_database_in_order(snap: Snapshot) -> None:
 
 
 def _expected(family: IdFamily, data: bytes) -> list[tuple[object, ...]]:
-    return [f.records for f in database().lookup(data, method=family)]
+    """The chips spiflash's lookup answers with. From 0.0.post251 a legacy
+    id's lookup also lists the JEDEC chips whose records say their part
+    answers it (``answers_legacy``), which the snapshot does not hold: with a
+    spiflash newer than the one the output is verified against, the lookup
+    is compared without them."""
+    found = database().lookup(data, method=family)
+    if parity_skip_reason() is not None:
+        found = [f for f in found if getattr(f, "answers_legacy", None) is None]
+    return [f.records for f in found]
 
 
 def _got(snap: Snapshot, family: IdFamily, data: bytes) -> list[tuple[object, ...]]:
