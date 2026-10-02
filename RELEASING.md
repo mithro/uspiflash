@@ -6,8 +6,9 @@ tag, `X.Y.postN` N commits after it — and **every green push to `main`
 publishes a new package** automatically:
 
 - [`.github/workflows/deb.yml`](https://github.com/mithro/uspiflash/blob/main/.github/workflows/deb.yml) ("Debian packages") — on every push and PR, its
-  `test` job runs the gates (ruff, mypy --strict, pytest with coverage); a
-  green run is what "mergeable" means. Then it builds `python3-uspiflash` and
+  `test` job runs the gates (ruff, mypy --strict, pytest with coverage, and
+  the size ledger check in its pinned image); a green run is what
+  "mergeable" means. Then it builds `python3-uspiflash` and
   `uspiflash-linux` for Debian bookworm, trixie, forky and sid with
   [`mithro/apt-repo-action`](https://github.com/mithro/apt-repo-action)'s shared
   `build-deb` (see [The Debian packages](#the-debian-packages)),
@@ -170,7 +171,7 @@ commit, merge. The next green run publishes it.
 
 A new spiflash changes the generated tables, so it changes the size ledger
 too: regenerate it (`uv run uspiflash measure --write`, see below) in the
-same commit, or the `sizes` job fails; and rerun every experiment whose
+same commit, or the `test` job's sizes leg fails; and rerun every experiment whose
 results record `spiflash_version` (`grep -rl spiflash_version
 experiments/*/results/*.json` finds them all; as of this writing,
 `2026-09-28-database-statistics` and `2026-09-29-sfdp-vs-database`) with
@@ -186,9 +187,9 @@ trixie for linux/amd64 pinned by digest, with its tools installed from
 snapshot.debian.org at a fixed timestamp (so a trixie point release on the
 live mirror cannot change them). The digest appears in exactly two places,
 which a test keeps equal: `IMAGE` in `src/uspiflash/ledger.py` and the
-`sizes` job's `container:` in `.github/workflows/deb.yml`; the timestamp is
-`SNAPSHOT` there, and in the `sizes` job's apt source and the command below
-(tests check both). The ledger records the image and the timestamp too, so
+`test` job's sizes leg (its `container:`) in `.github/workflows/deb.yml`;
+the timestamp is `SNAPSHOT` there, and in that leg's apt source and the
+command below (tests check both). The ledger records the image and the timestamp too, so
 changing either without regenerating fails `measure --check`.
 
 The pins move only deliberately (for example to take a trixie point

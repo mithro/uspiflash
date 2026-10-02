@@ -153,7 +153,7 @@ Tools:
 
 These are the Debian packages `clang-19`, `lld-19`, `gcc`, `libc6-dev`
 from snapshot.debian.org at `20260918T000000Z`, in `debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674`, the
-image CI's `sizes` job checks the ledger in. On a machine with the same
+image CI's `test` job checks the ledger in (its sizes leg). On a machine with the same
 versions, regenerate with:
 
 ```sh

@@ -366,7 +366,7 @@ def test_write_needs_a_repository(
 
 def test_the_committed_files_match_the_committed_ledger() -> None:
     """Cheap and compiler-free: the generated files were not hand-edited.
-    (CI's sizes job checks the numbers themselves.)"""
+    (The sizes leg of CI's test job checks the numbers themselves.)"""
     data = ledger.committed(ROOT)
     assert data is not None
     files = ledger.files(data, ROOT)
@@ -388,8 +388,11 @@ def test_ci_checks_the_ledger_in_the_pinned_image() -> None:
     if not path.is_file():
         pytest.skip("no .github/ (an sdist)")
     workflow = path.read_text(encoding="utf-8")
-    job = workflow[workflow.index("\n  sizes:\n") :].split("\n  build-deb:\n")[0]
-    assert f"    container: {ledger.IMAGE}\n" in job
+    job = workflow[workflow.index("\n  test:\n") :].split("\n  build-deb:\n")[0]
+    # The sizes leg of the test job: its matrix entry names the image, and
+    # the job runs in whatever image its leg names.
+    assert f"          - sizes: true\n            container: {ledger.IMAGE}\n" in job
+    assert "    container: ${{ matrix.container }}\n" in job
     install = job[job.index("apt-get install") :].split("\n\n")[0].split()
     assert set(ledger.PACKAGES) <= set(install)
     _assert_snapshot_install(job)

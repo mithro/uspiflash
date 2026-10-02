@@ -53,9 +53,10 @@ BEGIN = "<!-- sizes: generated from sizes/ledger.json by `uspiflash measure --wr
 END = "<!-- sizes: end -->"
 REGENERATE = "uv run python -m uspiflash.sandbox -- uv run uspiflash measure --write"
 #: The container image the ledger is made and checked in: Debian trixie for
-#: linux/amd64, pinned by digest. CI's ``sizes`` job runs in exactly this
-#: image (a test checks), and the ledger records it, so changing the pin
-#: makes ``--check`` fail until the ledger is regenerated in the new image.
+#: linux/amd64, pinned by digest. The sizes leg of CI's ``test`` job runs in
+#: exactly this image (a test checks), and the ledger records it, so changing
+#: the pin makes ``--check`` fail until the ledger is regenerated in the new
+#: image.
 #: RELEASING.md says how to bump it.
 IMAGE = "debian:trixie@sha256:d5ce19d4736f0ebbacd686d1040271a5aeb0cc920f5990c1bfae1717627f0674"
 #: The Debian packages the image needs for :data:`~uspiflash.measure.TARGETS`.
@@ -231,7 +232,7 @@ def readme(ledger: dict[str, Any]) -> str:
         "",
         f"These are the Debian packages {', '.join(f'`{p}`' for p in env['packages'])}",
         f"from snapshot.debian.org at `{env['snapshot']}`, in `{env['image']}`, the",
-        "image CI's `sizes` job checks the ledger in. On a machine with the same",
+        "image CI's `test` job checks the ledger in (its sizes leg). On a machine with the same",
         "versions, regenerate with:",
         "",
         "```sh",
