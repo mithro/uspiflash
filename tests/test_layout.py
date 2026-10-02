@@ -8,18 +8,20 @@ from dataclasses import fields, replace
 from typing import TYPE_CHECKING, Any
 
 import pytest
+import spiflash
 from spiflash.db import Database, database
 from spiflash.enums import FlashType, IdFamily
-from spiflash.model import Voltage
+from spiflash.model import Flash, Voltage
 from spiflash.opcodes import OPERATIONS
 
 from harness import one_chip
-from uspiflash import decode, layout
+from uspiflash import VERIFIED_SPIFLASH, decode, layout
 from uspiflash.levels import LEVELS, ChipFilter, Field, Selection
 from uspiflash.model import FAMILIES, Snapshot, reaching_probes
 
 if TYPE_CHECKING:
-    from spiflash.model import Flash, Record
+    from spiflash.enums import Source
+    from spiflash.model import Record
 
 
 @pytest.fixture(scope="module")
@@ -55,7 +57,7 @@ def expected(sel: Selection, flash: Flash) -> dict[str, object]:
     if layout.stores_conflicts(sel):
         out["conflicts"] = {
             a: [(tuple(v) if isinstance(v, tuple) else v, list(s)) for v, s in vals.items()]
-            for a, vals in flash.conflicts.items()
+            for a, vals in layout.stored_conflicts(flash).items()
         }
     if sel.has(Field.DATASHEET) or sel.has(Field.DATASHEETS):
         every = sel.has(Field.DATASHEETS)
@@ -477,6 +479,30 @@ def test_conflicts_are_stored_only_with_a_printer(snap: Snapshot) -> None:
         assert "conflicts" in lay.tables, extras
 
 
+def test_a_conflict_the_c_does_not_print_is_left_out(
+    snap: Snapshot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A newer spiflash compares more values than the C prints (0.0.post229
+    added the quad enable bit and the protection bits, and a Debian build
+    takes the newest python3-spiflash). Their conflicts are not stored, and
+    everything else is built as it was."""
+    sel = Selection.make("full")
+    want = layout.build(snap, sel)
+    want_bytes = layout.mask_blob_bytes(snap, sel)
+    given = vars(Flash)["conflicts"].fget
+
+    def more(flash: Flash) -> dict[str, dict[Any, tuple[Source, ...]]]:
+        said = {"SR1 bit 5": flash.sources[:1], "SR1 bit 6": flash.sources[1:]}
+        return {"protection.tb": said, **given(flash), "quad_enable": said}
+
+    monkeypatch.setattr(Flash, "conflicts", property(more))
+    assert all(set(e.flash.conflicts) - set(layout.CONFLICT_ATTRS) for e in snap.entries)
+    lay = layout.build(snap, sel)
+    assert lay.tables == want.tables
+    assert lay.defines == want.defines
+    assert layout.mask_blob_bytes(snap, sel) == want_bytes
+
+
 def test_full_database_has_both_types_and_every_family(snap: Snapshot) -> None:
     d = layout.build(snap, Selection.make("id")).defines
     assert d["HAVE_NOR"] == d["HAVE_NAND"] == 1
@@ -501,8 +527,9 @@ def _chip_records() -> list[Record]:
 def _with(r: Record, change: dict[str, Any]) -> Record:
     """``r`` with ``change`` applied. A field spiflash works out itself
     (``init=False``: ``sector_size`` from 0.0.post199, derived from the
-    erasers) can't go through :func:`dataclasses.replace`, so it is set on
-    the copy directly, as the record's own ``__post_init__`` does."""
+    erasers; ``size`` from 0.0.post220, which a record's SFDP tables can
+    give) can't go through :func:`dataclasses.replace`, so it is set on the
+    copy directly, as the record's own ``__post_init__`` does."""
     init = {f.name for f in fields(r) if f.init}
     r = replace(r, **{k: v for k, v in change.items() if k in init})
     for k, v in change.items():
@@ -527,7 +554,12 @@ def _build(records: list[Record], level: str) -> layout.Layout:
     ],
 )
 def test_a_value_too_wide_for_its_table_is_refused(change: dict[str, Any], message: str) -> None:
-    records = [_with(r, change) for r in _chip_records()]
+    """Changed in the records that give the value: one that gives none may
+    not be able to hold it (from spiflash 0.0.post251 a record with a supply
+    setting refuses a voltage range)."""
+    gives = [all(getattr(r, k) is not None for k in change) for r in _chip_records()]
+    assert any(gives)
+    records = [_with(r, change) if g else r for r, g in zip(_chip_records(), gives, strict=True)]
     with pytest.raises(ValueError, match=message):
         _build(records, "describe")
 
@@ -544,7 +576,7 @@ def test_an_entries_table_over_65535_bytes_is_refused() -> None:
 
 def test_more_than_254_distinct_values_is_refused() -> None:
     r = _chip_records()[0]
-    records = [replace(r, id=bytes([0xEF, i >> 8, i & 0xFF]), size=i + 1) for i in range(300)]
+    records = [_with(r, {"id": bytes([0xEF, i >> 8, i & 0xFF]), "size": i + 1}) for i in range(300)]
     with pytest.raises(ValueError, match="more than 254 distinct values"):
         _build(records, "read")
 
@@ -563,14 +595,19 @@ def test_source_masks_take_the_smallest_storage(snap: Snapshot) -> None:
     """One byte each while every mask fits; past that, entry masks in a table
     of the distinct ones when it is smaller than a second byte per entry,
     and the others relative to their entry's when that saves more than its
-    code costs: so full's masks are relative, the NAND chips' (a dozen
-    operations and conflicts) and one chip's are not."""
+    code costs: so full's masks are relative, and one chip's are not. Nor
+    are the NAND chips' in the database the output is verified against (a
+    dozen operations and conflicts); a newer one's are whatever the rule
+    gives (0.0.post238 lists the SPI NAND operations, and they are)."""
     full = layout.build(snap, Selection.make("full")).defines
     assert (full["SRC_BYTES"], full["SRC_REL"]) == (2, 1)
     assert 0 < full["SRCMASK_COUNT"] < len(snap.entries) // 2
     nand = Snapshot.build(ChipFilter(types=(FlashType.NAND,)).apply(database()))
     d = layout.build(nand, Selection.make("full")).defines
-    assert (d["SRC_BYTES"], d["SRC_REL"]) == (2, 0)
+    direct, rel = layout.mask_blob_bytes(nand, Selection.make("full"))
+    assert (d["SRC_BYTES"], d["SRC_REL"]) == (2, int(direct - rel > layout.REL_CODE))
+    if spiflash.__version__ == VERIFIED_SPIFLASH:
+        assert d["SRC_REL"] == 0
     assert 0 < d["SRCMASK_COUNT"] < len(nand.entries) // 2
     for wide, want in ((False, (1, 0, 0)), (True, (2, 0, 0))):
         one = Snapshot.build(one_chip(wide=wide).apply(database()))

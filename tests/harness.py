@@ -70,7 +70,7 @@ def one_chip(*, wide: bool) -> ChipFilter:
     no chip in the database is one."""
     for f in database().flashes:
         m = layout.mask(f.sources)
-        plain = f.opcodes and f.conflicts and not any(r.ext_id for r in f.records)
+        plain = f.opcodes and layout.stored_conflicts(f) and not any(r.ext_id for r in f.records)
         if plain and (m.bit_count() > 8 if wide else m < 1 << 8):
             return ChipFilter(ids=(f.id,), types=(f.type,), families=(f.family,))
     which = "more than eight" if wide else "only the first eight"

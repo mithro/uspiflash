@@ -146,7 +146,11 @@ The generated C's output is verified byte-identical to one spiflash release,
 release (a test checks), so every CI job runs the parity tests in full. With
 any other spiflash installed (a Debian build takes the newest
 `python3-spiflash`), the parity tests are skipped and `uspiflash generate`
-warns. The daily "Newest spiflash" workflow
+warns. The generator and the rest of the suite must still work there, or
+every `build-deb` leg fails: the generator stores what the C prints and
+leaves out what a newer spiflash adds (`layout.stored_conflicts`), and no
+test may depend on how one release builds its records. The daily "Newest
+spiflash" workflow
 ([`.github/workflows/spiflash-latest.yml`](https://github.com/mithro/uspiflash/blob/main/.github/workflows/spiflash-latest.yml))
 runs the suite against the newest release with parity forced on
 (`USPIFLASH_FORCE_PARITY=1`): when it fails, spiflash has moved and it is time

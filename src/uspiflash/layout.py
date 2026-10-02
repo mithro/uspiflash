@@ -104,7 +104,8 @@ Tables
     index in :data:`CONFLICT_ATTRS` (size, page_size, sector_size, voltage);
     the value index is into ``sizes``, ``pages``, ``sectors`` or ``volts``
     respectively. Attributes and values are in spiflash's order
-    (:attr:`~spiflash.model.Flash.conflicts`).
+    (:attr:`~spiflash.model.Flash.conflicts`); a conflict on any other
+    attribute is not stored (:func:`stored_conflicts`).
 ``ext`` (EXT)
     Blobs, one per base entry whose records carry extended ids: ``k``, then
     ``k x (len, len bytes)``: the chip's distinct extended ids, sorted; then
@@ -465,6 +466,15 @@ def stores_conflicts(sel: Selection) -> bool:
     return sel.has(Field.CONFLICTS) and (sel.has(Field.TEXT) or sel.has(Field.JSON))
 
 
+def stored_conflicts(flash: Flash) -> dict[str, dict[Any, tuple[Source, ...]]]:
+    """``flash``'s conflicts (:attr:`~spiflash.model.Flash.conflicts`) on the
+    attributes the C prints (:data:`CONFLICT_ATTRS`), in spiflash's order. A
+    spiflash newer than the one the output is verified against may compare
+    more values (0.0.post229 added the quad enable bit and the protection
+    bits): those conflicts are not stored."""
+    return {a: v for a, v in flash.conflicts.items() if a in CONFLICT_ATTRS}
+
+
 def stores_sfdp_lines(sel: Selection) -> bool:
     """Whether ``sel`` stores the ``sfdp:`` lines (``sfdplines``):
     SFDP_SUMMARY and TEXT, their only printer."""
@@ -636,7 +646,7 @@ def _int_values(snap: Snapshot, attr: str) -> tuple[int, ...]:
         v = getattr(e.flash, attr)
         if v is not None:
             seen.add(v)
-        seen.update(e.flash.conflicts.get(attr, {}))
+        seen.update(stored_conflicts(e.flash).get(attr, {}))
     return tuple(sorted(seen))
 
 
@@ -646,7 +656,7 @@ def _volt_values(snap: Snapshot) -> tuple[tuple[int, int], ...]:
     for e in snap.entries:
         if e.flash.voltage is not None:
             seen.add((e.flash.voltage[0], e.flash.voltage[1]))
-        seen.update((v[0], v[1]) for v in e.flash.conflicts.get("voltage", {}))
+        seen.update((v[0], v[1]) for v in stored_conflicts(e.flash).get("voltage", {}))
     return tuple(sorted(seen))
 
 
@@ -714,11 +724,12 @@ def mask_blob_bytes(snap: Snapshot, sel: Selection) -> tuple[int, int]:
             direct[("ops", *ops)] = 1 + 3 * len(ops)
             rel_ops = ((n, relative(m, full)) for n, m in ops)
             rel[("ops", w, *rel_ops)] = 1 + (1 + w) * len(ops)
-        if stores_conflicts(sel) and f.conflicts:
-            vals = [(a, v, mask(s)) for a, vs in f.conflicts.items() for v, s in vs.items()]
+        conf = stored_conflicts(f) if stores_conflicts(sel) else {}
+        if conf:
+            vals = [(a, v, mask(s)) for a, vs in conf.items() for v, s in vs.items()]
             # attribute and count per attribute, the end marker; per value:
             # its index and its mask
-            head = 2 * len(f.conflicts) + 1
+            head = 2 * len(conf) + 1
             direct[("conf", *vals)] = head + 3 * len(vals)
             rel_vals = ((a, v, relative(m, full)) for a, v, m in vals)
             rel[("conf", w, *rel_vals)] = head + (1 + w) * len(vals)
@@ -817,7 +828,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
     used = {n for e in snap.entries for n in _ops_of(e.flash, sel)}
     ops = tuple(n for n in ALL_OPS if has(Field.OPERATIONS) and n in used)
     with_conflicts = stores_conflicts(sel)
-    any_conflicts = with_conflicts and any(e.flash.conflicts for e in snap.entries)
+    any_conflicts = with_conflicts and any(stored_conflicts(e.flash) for e in snap.entries)
     with_ds = has(Field.DATASHEET) or has(Field.DATASHEETS)
     sheets = _sheets(snap, sel)
     pool = StringPool()
@@ -992,7 +1003,7 @@ def build(snap: Snapshot, sel: Selection) -> Layout:
             )
             row += _u16(opsets.add(blob))
         if with_conflicts:
-            conf = f.conflicts
+            conf = stored_conflicts(f)
             if conf:
                 conf_blob = bytearray()
                 for attr, vals in conf.items():
