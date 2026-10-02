@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from spiflash.db import Database, database
 from spiflash.enums import FlashType, IdFamily
-from spiflash.model import Voltage
+from spiflash.model import Flash, Voltage
 from spiflash.opcodes import OPERATIONS
 
 from harness import one_chip
@@ -19,7 +19,8 @@ from uspiflash.levels import LEVELS, ChipFilter, Field, Selection
 from uspiflash.model import FAMILIES, Snapshot, reaching_probes
 
 if TYPE_CHECKING:
-    from spiflash.model import Flash, Record
+    from spiflash.enums import Source
+    from spiflash.model import Record
 
 
 @pytest.fixture(scope="module")
@@ -55,7 +56,7 @@ def expected(sel: Selection, flash: Flash) -> dict[str, object]:
     if layout.stores_conflicts(sel):
         out["conflicts"] = {
             a: [(tuple(v) if isinstance(v, tuple) else v, list(s)) for v, s in vals.items()]
-            for a, vals in flash.conflicts.items()
+            for a, vals in layout.stored_conflicts(flash).items()
         }
     if sel.has(Field.DATASHEET) or sel.has(Field.DATASHEETS):
         every = sel.has(Field.DATASHEETS)
@@ -475,6 +476,30 @@ def test_conflicts_are_stored_only_with_a_printer(snap: Snapshot) -> None:
         assert "E_CONF" in lay.defines, extras
         assert lay.defines["CONF_COUNT"] > 0, extras
         assert "conflicts" in lay.tables, extras
+
+
+def test_a_conflict_the_c_does_not_print_is_left_out(
+    snap: Snapshot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A newer spiflash compares more values than the C prints (0.0.post229
+    added the quad enable bit and the protection bits, and a Debian build
+    takes the newest python3-spiflash). Their conflicts are not stored, and
+    everything else is built as it was."""
+    sel = Selection.make("full")
+    want = layout.build(snap, sel)
+    want_bytes = layout.mask_blob_bytes(snap, sel)
+    given = vars(Flash)["conflicts"].fget
+
+    def more(flash: Flash) -> dict[str, dict[Any, tuple[Source, ...]]]:
+        said = {"SR1 bit 5": flash.sources[:1], "SR1 bit 6": flash.sources[1:]}
+        return {"protection.tb": said, **given(flash), "quad_enable": said}
+
+    monkeypatch.setattr(Flash, "conflicts", property(more))
+    assert all(set(e.flash.conflicts) - set(layout.CONFLICT_ATTRS) for e in snap.entries)
+    lay = layout.build(snap, sel)
+    assert lay.tables == want.tables
+    assert lay.defines == want.defines
+    assert layout.mask_blob_bytes(snap, sel) == want_bytes
 
 
 def test_full_database_has_both_types_and_every_family(snap: Snapshot) -> None:
