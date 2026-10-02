@@ -5,9 +5,10 @@ name: Publish to PyPI
 # each commit produces a new, unique version -- no manual bump.
 #
 # This workflow is gated on the tests: it runs when the "Debian packages"
-# workflow (deb.yml: ruff, mypy, pytest + coverage in its test job, then the
-# .deb builds and the apt publish) COMPLETES for main, and the build job only
-# proceeds when that run SUCCEEDED, so a red push to main is never published.
+# workflow (deb.yml: ruff, mypy, pytest + coverage and the size ledger check
+# in its test job, then the .deb builds and the apt publish) COMPLETES for
+# main, and the build job only proceeds when that run SUCCEEDED, so a red push
+# to main is never published.
 # The workflow_dispatch path stays for manual re-runs.
 #
 # Publishing uses PyPI Trusted Publishing (OIDC): there is no API token in the
